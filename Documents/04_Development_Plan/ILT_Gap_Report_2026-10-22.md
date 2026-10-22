@@ -2,6 +2,8 @@
 
 **Date:** 2026-10-22
 **Baseline:** FRS v3.3 · Architecture v5.4 · DDD v1.4 · [DTH-A116 Device Profile](ILT_DTH-A116_Device_Profile.md)
+> **Superseded:** item statuses after the v1.5 documents are in the [Round 3 review](ILT_Coding_Readiness_Review_v1.5.md).
+
 **Replaces:** the open-item lists in the [round 1](ILT_Coding_Readiness_Review.md) and [round 2](ILT_Coding_Readiness_Review_v1.4.md) reviews (those keep the full reasoning)
 
 ## Summary
