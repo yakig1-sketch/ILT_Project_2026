@@ -5,6 +5,8 @@
 **Date:** 2026-10-21
 **Reviewer:** Claude
 
+> **Current status:** see the consolidated [Gap Report (2026-10-22)](ILT_Gap_Report_2026-10-22.md).
+
 ## Verdict
 
 **Real progress. Phase 0 can start now. But the "100% coding-ready, all 8 gaps resolved" claim is not accurate.**
