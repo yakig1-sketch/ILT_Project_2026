@@ -1,115 +1,80 @@
 # ILT Clinical Decisions Register
 
-**Last updated:** 2026-10-26 (round 2 replies)
+**Last updated:** 2026-10-28 (round 3 replies and general development instructions)
 **Sources:**
 - Round 1: [reply document](ILT_Clinical_Answers_Review_2026-10-22_REPLY_V01.doc), with comments by Dr. Hagit Hollander and Yaki Grossman on the [answers review](ILT_Clinical_Answers_Review_2026-10-22.md)
 - Round 2: the research team's replies of 2026-10-26 to the open questions in this register
-- **Final Day 1 sheet (35 × 25 mm):** [with dimensions](../05_Measures/ILT_Day1_Sheet_A4_35x25_Dimensions.pdf), [clean printable version](../05_Measures/ILT_Day1_Sheet_A4_35x25_Clean.pdf), and the [geometry data](../05_Measures/ILT_Day1_Grid_Geometry.json). The earlier 34 × 25 "Corrected" sheets and the first scanned measurement are kept for history only.
+- Round 3: [general instructions and researcher replies](ILT_General_Instructions_and_Researcher_Replies_2026-10-28.pdf) of 2026-10-28 (10 general development instructions from Yaki Grossman, replies from Prof. Esti Adi-Japha's team, and Yaki's notes)
+- **Final Day 1 sheet (35 × 25 mm):** [with dimensions](../05_Measures/ILT_Day1_Sheet_A4_35x25_Dimensions.pdf), [clean printable version](../05_Measures/ILT_Day1_Sheet_A4_35x25_Clean.pdf), and the [geometry data](../05_Measures/ILT_Day1_Grid_Geometry.json)
 
 **Reviewer:** Claude
 
-**Principle adopted for everything still open:** any clinical value the researchers haven't fixed becomes a **setting in the ILT setup screen**, with a sensible default. The system can then be used now, and the values can be tuned once real data exists, without code changes.
+**Where this lands:** these decisions are written into [FRS v3.5](../01_Requirements/ILT_Functional_Requirements_Specification_v3.5_EN.md), [Architecture v5.6](../02_System_Architecture/ILT_System_Architecture_and_Specifications_v5.6_EN.md) and [DDD v1.6](../03_Detailed_Design/ILT_Detailed_Design_Specification_v1.6_EN.md). Where this register and an older document disagree, this register wins.
+
+**Principle:** every clinical value is a **setting with a default**, changed only by the System Administrator (instructions 5 and 10). The system can be used now, and values can be tuned once real data exists, without code changes.
 
 ## 1. Decided
 
-| Topic | Decision |
-|---|---|
-| Approval | Dr. Hollander reviewed and approved the answers, except where her comments change them |
-| ILT geometry | Boxes **35 × 25 mm**, all identical (final sheet, 2026-10-26); **10 mm** between rows; grid **175 × 95 mm** (fits the tablet screen at true size). Dots A (14.5, 2.6), B (20.0, 12.6), C (14.5, 22.7) mm from each box's top-left |
-| Letter in Hebrew | **">" as printed**, written **A → B → C**, boxes filled **right to left** starting at the top-right box |
-| Letter in English | Boxes filled **left to right** starting at the top-left box. **Mirroring is Prof. Adi-Japha's decision**, so it's a per-language setting (see §3) |
-| ILT width rule | Total horizontal travel while writing the letter, **11 ± 2 mm** (9–13 mm). **Approved** |
-| Warm-up | **One full block**; verbal help from the evaluator allowed; then continue to block 1 |
-| Intervention scoring | Per letter, per row, on the criteria in §2.2. **Width is not scored for intervention letters**, because every letter has a different size |
-| Composite (summary) score | **Time 50% · Accuracy 25% · Pen lifts 25%.** Replaces 35/40/25. Shown next to the 3 separate metrics, never instead of them |
-| Pass / Fail | A **configurable threshold** on the composite score, set in the Comparative Summary Dashboard: composite ≥ threshold → Pass (1), otherwise Fail (0) |
-| 40/30/30 accuracy formula | **Dropped.** Accuracy is defined by the letter-correctness rules in §2 |
-| Dot-touch radius | The DDD (v1.4/v1.5) sets **3.5 mm**; the FRS doesn't specify it. It becomes a **setting in the ILT setup screen**, default 3.5 mm |
-| Pen lifts | 50 ms minimum gap between pen-up and pen-down. Approved |
-| Inactivity | 20 s (30 s after box 15), then amber after a further 10 s. Approved |
-| Legacy data mapping | Approved |
-| Identity data | No names or ID numbers in the system; study codes only |
-| Languages | Hebrew and English |
-| Intervention letter dot positions | **Claude measures them** from the program's letter sheets in the repo, and the team checks them (§2.3) |
-| Day protocol | Day 1: 12 blocks. Day 2: 4 tablet blocks + 2 paper-notebook pages. Day 14: 2 blocks, which is also the first learning task of the intervention program (§2.4) |
-| Ethics and data use | The system runs **as part of the intervention program**, under the **Chief Scientist's approval**, which **does not cover research use**. Research approval is hoped for **within ~3 months**. (§2.5) |
+| Topic | Decision | Round |
+|---|---|---|
+| ILT geometry | Boxes **35 × 25 mm**, 10 mm between rows, grid 175 × 95 mm. Dots A (14.5, 2.6), B (20.0, 12.6), C (14.5, 22.7) mm from each box's top-left | 2 |
+| Letter in Hebrew | ">" as printed, written A → B → C, boxes filled right to left from the top-right box | 1 |
+| Letter in English | Boxes filled left to right from the top-left box. **Mirroring stays an open choice** (Prof. Adi-Japha): a per-language setting, default not mirrored | 3 |
+| **ILT accuracy** | A letter is accurate when **dot B is touched** and the letter is written in the **required order A → B → C** (top-down). Dots A and C don't have to be touched. Order is checked by when the pen passes each dot: first touch for a touched dot, closest approach for an untouched one. Accuracy for memory consolidation and learning = **pen lifts + touching B** | 3 (order required: Yaki, 2026-10-28) |
+| **Dot hit radius and weight, per dot** | Each dot has its own hit radius and accuracy weight. Defaults: **A 3.5 mm / 5%, B 1.3 mm / 90%, C 3.5 mm / 5%** (weights total 100%). B = 1.3 mm means touching the printed dot (changed from 0.5 mm by Yaki, 2026-10-28). Setting B to 0.0 mm / 100% is allowed if the researchers want absolute accuracy | 3 |
+| **Width (segment size)** | **Not an accuracy measure.** It's used to compute **speed** (Prof. Adi-Japha: speed = segment size ÷ time). The 9–13 mm band is still recorded for future standardisation | 3 |
+| **ILT line length and speed** | Line length = pen path from where it enters dot A's radius, through B's radius, to where it ends in C's radius. Speed is computed and stored **per letter**. **Average ILT speed per block = Σ line length ÷ Σ line drawing time** | 3 |
+| **Normal ILT speed (benchmark)** | A setting in mm/s, measured by recording **one row of ILT drawn by a skilled writer** on a connected tablet, with Accept / Clear. Plus a **flexibility range ± %** (default 10%) | 3 |
+| **Speed score** | Inside the range → 100. Below the lower bound L: **score = 100 / (L / X)**. Example: normal 19.45 mm/s ± 10% → range 17.50–21.40; X = 15.00 → 85.71 | 3 |
+| **Pen-lift score** | Expected lifts per ILT block = 15 (one per letter). **Score = 100 / (X / 15)**. Example: 17 lifts → 88.24 | 3 |
+| Composite score | **Speed (time) 50% · Accuracy 25% · Pen lifts 25%**, for both ILT and intervention, always shown **next to a separate score for each component** | 2, 3 |
+| Pass / Fail | Configurable threshold on the composite, shown and set in the Comparative Summary Dashboard | 2, 3 |
+| Reference time per block / penalty per lift (my round-2 proposal) | **Rejected** (Prof. Adi-Japha did not approve). Replaced by the speed and pen-lift scores above | 3 |
+| 40/30/30 accuracy formula | Dropped | 2 |
+| Warm-up | One full block, verbal help allowed. **Extra**: Day 1 = warm-up + 12 blocks = 13 blocks. Both demo videos stay | 2, 3 |
+| Hebrew intro video | `ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4` (1:19, in `Documents/08_Presentations_and_Demos/`) is the ILT introduction and guidance for students in Hebrew sessions. `ILT_in_Notebook_Demo.mp4` (0:31, same folder) is the Hebrew notebook demo. Videos are stored per language; English has none yet | Yaki, 2026-10-28 |
+| Notebook pages on the tablet | Same letter as the ILT, 3 rows × 5 letters, **timed only** | 3 |
+| Intervention scoring | Row 1 automatic (dots in order, no internal lift, **except ה ק ח ת א**); row 2 start point automatic + evaluator confirms form; row 3 evaluator decides. The cockpit pre-fills the system's suggestions | 2, 3 (Alef added) |
+| Automatic trajectory scoring | Shown only as a hint, never counted, saved for later comparison with evaluators. Approved | 3 |
+| Replay | A **[Replay] button in each box of the Comparative Summary**: replays the mirrored cockpit with video-style controls, shows the **ILT speed under each house**, and shows the recorded pen data | 3 |
+| Clinical telemetry panel | Add a line: **Average ILT speed** | 3 |
+| Pen lifts | 50 ms minimum gap between pen-up and pen-down | 1 |
+| Inactivity | 20 s (30 s after the last box), then amber after a further 10 s | 1 |
+| Legacy data mapping | Approved | 1 |
+| Identity data | No names or ID numbers in the system; study codes only | 1 |
+| Day protocol | Day 1: videos, warm-up, ILT 1–4, notebook 1–4 (tablet), ILT 5–8. Day 2: ILT 1–4 + 2 paper-notebook pages timed in the cockpit. Day 14: 2 ILT blocks (also the first intervention task) | 2, 3 |
+| Ethics and data use | Sessions tagged `INTERVENTION` (default) or `RESEARCH`; research exports include only research sessions. Ask the ethics committee to also approve research use of intervention-period data (agreed) | 2, 3 |
 
-## 2. How each decision is implemented (proposed solutions)
+## 2. General development instructions (round 3)
 
-### 2.1 ILT letter: when is a letter correct?
+| # | Instruction | How it's implemented |
+|---|---|---|
+| 1–3 | Multi-language; Hebrew and English in the POC; **full RTL** for Hebrew | All UI text from translation files; `dir="rtl"` layout for Hebrew; each user picks a UI language and each session has a child language. Canvas geometry is never flipped by UI direction |
+| 4 | **Store raw data**, not only computed results | Every pen sample, plus per-letter raw measures (line length, time, speed, dot distances, width, lifts, order) and per-block raw counts. Scores are stored separately with the settings used, so they can be recomputed |
+| 5 | Every formula factor and weight is a **System Administrator setting with a default**, changeable at **Domain** level only by the System Administrator | Settings catalogue with scopes System → Domain for scoring settings; each canvas has a scoring profile that a Domain can override |
+| 6 | **Detailed, searchable application log** of every action | Structured event log (JSON lines + database table) with a fixed event-type vocabulary and a search screen |
+| 7 | System Administrator **loads new canvases** (ILT or real letters) per language, grouped **Language → Set → Canvas**; the session language decides which canvases are offered | Canvas library with versioned canvases; per-language configuration picks the ILT, notebook and letter canvases |
+| 8 | Canvas basics: **boxes, dots, notebook lines** in different styles | Canvas JSON schema with boxes, dots and line styles, plus an optional background image |
+| 9 | Per canvas: **dot order** (e.g. A → C → B → D) and **per-dot radius**; a **default speed benchmark**; **pen lifts per block and fill order** taken from a **sample block drawn by the System Administrator** on the tablet | Canvas scoring profile; "reference recording" mode on the tablet with Accept / Clear |
+| 10 | ILT-process settings changeable by the System Administrator at **Region** level | ILT-process settings (timers, warm-up, video, protocol) have a System value with an optional Region override |
 
-A letter in an ILT block is **correct** when all three hold:
-1. Dots **A, B and C are touched in that order**, where "touched" means the pen passes within the dot-touch radius (default 3.5 mm) of a dot's centre.
-2. **Width 9–13 mm**, measured as (furthest point toward B − start) + (furthest point toward B − end). A perfect letter gives exactly 11 mm, and hand tremor doesn't inflate it.
-3. **No pen lift inside the letter** (one continuous stroke).
+## 3. Interpretations made (none blocks coding; each is a setting)
 
-**Block accuracy** = number of correct letters out of 15 (0–15), also shown as a percentage. Each condition can be switched on or off in the setup screen, so the team can test which definition best matches the paper ILT results. This is exactly the comparison the team wants to make.
-
-### 2.2 Intervention letters: what "0/1 per row" means
-
-This summarises Dr. Hollander's round-1 comment. Each intervention sheet has 3 rows of 5 boxes, and **each letter in each row gets one mark: correct or error.** What counts as correct depends on the row:
-
-| Row | What the child does | Correct when | Who decides |
+| # | Point | What the system does by default | Why |
 |---|---|---|---|
-| 1 | Traces over the model, through the dots | All 3, 4 or 5 dots touched **in order**, and no pen lift inside the letter, **except ה (Hey), ק (Kuf), ח (Chet), ת (Taf)**, which are written in more than one stroke | **System, automatically** (same dot check as ILT) |
-| 2 | Writes from the starting dot only | Starts at the **correct starting point** and produces the **general form** of the letter | **System checks the start point; evaluator confirms the form** with one tap |
-| 3 | Writes freehand, no dots | **Recognisably the letter**, written with the **right stroke direction**, starting at about the same place as in row 2 | **Evaluator decides** |
+| I1 | **Domain vs. Region** | **Resolved (Yaki, 2026-10-28):** a Domain is a **category that groups students for ILT testing**, not necessarily geographic. Region is a separate geographic dimension. Scoring and language settings can be overridden per Domain; ILT-process settings per Region | — |
+| I2 | Which "time" score goes into the 50% part of the composite | The **speed score** | It's the only time-based score the team defined, and speed is time normalised by size |
+| I3 | Average speed **above** the normal range | Scores **100** (no penalty for being fast) | Not specified. A setting can switch to a symmetric penalty, 100 / (X / upper bound) |
+| I4 | **Dot B radius** vs. the printed dot (radius ~1.3 mm) | **Resolved (Yaki, 2026-10-28):** radius measured **from the dot's centre**, default **1.3 mm**, so touching the printed dot counts, matching "only dot B must be touched" | The setup screen shows the printed dot size next to the value; the administrator can make it stricter (0.5 mm, or 0.0 mm for the exact centre) |
+| I5 | Pen lifts fewer than expected (score above 100) | Capped at 100; a block with no writing has no pen-lift score | Formula is undefined for X = 0 |
+| I6 | Language "fill direction" vs. fill order from the sample drawing | The canvas's recorded sample is authoritative; the language fill direction is the default for canvases without a sample, and the setup screen warns if they disagree | Both were asked for |
+| I7 | Notebook letter shown as "<" in the PDF | The source file contains ">"; the PDF shows "<" because of right-to-left text mirroring. **Same letter as the ILT** | Checked in the .docx |
+| I8 | "LTR" in the instructions | Read as **ILT** (e.g. "LTR writing speed" = ILT speed) | Context |
 
-**How it works in the cockpit:** after each row, the evaluator sees the 5 letters with the system's suggestion already filled in (✓ / ✗) and only corrects what they disagree with. It takes seconds per row, and every mark is saved together with who set it (system or evaluator).
+## 4. Remaining questions
 
-> **About "automatic trajectory scoring" (the earlier question):** the earlier specs had the computer compare the child's pen path to a model letter and score row 3 on its own, under the name "cDTW". Dr. Hollander's criteria ("clearly resembles the letter") are a human judgement, so **the evaluator decides row 3**. The computer may show a similarity hint, but it never counts toward the score. It's stored so the researchers can later check whether automatic scoring agrees with evaluators.
-
-> **Storage note:** Dr. Hollander's comment used 0 = no error and 1 = error. To avoid confusion, the system stores **"error: yes/no"** and displays ✓ / ✗.
-
-### 2.3 Intervention letter dot positions
-
-Claude extracts the dot positions (and each letter's starting point) from the 16 program sheets in `Documents/09_Samples/Hebrew_Letter_Sheets/` plus the Tet sheet. It then produces measured sheets in the same format as the corrected ILT sheet for the team to check. Multi-stroke exceptions (ה ק ח ת) are stored per letter, so more can be added later. This needs Python, which Phase 0 installs.
-
-### 2.4 Day protocol
-
-Each day becomes a **protocol template**: an ordered list of steps the evaluator dispatches. The defaults below can be edited in the setup screen:
-
-| Day | Steps |
-|---|---|
-| Day 1 | Warm-up ILT block (unscored) → ILT blocks 1–4 (tablet) → notebook pages 1–4 (tablet, school-notebook background) → ILT blocks 5–8 (tablet) |
-| Day 2 | ILT blocks 1–4 (tablet) → 2 pages in a **real paper notebook** |
-| Day 14 | ILT blocks 1–2 (tablet), measured for all students. Also the first learning task of the intervention program |
-
-**Paper-notebook pages (Day 2):** the evaluator starts and stops a timer in the cockpit for each paper page, and enters the time (and any notes). Nothing else is captured digitally.
-
-### 2.5 Ethics: separating intervention use from research use
-
-Because current use is covered by the Chief Scientist's approval for the **intervention program, not research**:
-- Every session is tagged with its **purpose**, `INTERVENTION` (the default now) or `RESEARCH`.
-- Intervention data is fully usable by evaluators and teachers for teaching: the cockpit, the comparative summary, pass/fail.
-- **The analyst portal and research exports only include sessions tagged `RESEARCH`,** from participants with research consent. Until research approval exists, they're simply empty.
-- **Suggestion for the team:** in the upcoming research ethics application, request permission to use the **de-identified data already collected during the intervention period**. Otherwise those months of data can never be analysed.
-
-## 3. Settings in the ILT setup screen
-
-| Setting | Default | Notes |
-|---|---|---|
-| Box width × height | 35 × 25 mm | From the final sheet |
-| Row gap | 10 mm | |
-| Dot-touch radius | 3.5 mm | Allowed range 1.5–5.0 mm, so neighbouring dots (11.4 mm apart) can't overlap |
-| ILT width band | 11 ± 2 mm | |
-| Letter-correctness conditions | Dots in order ✔, width ✔, no internal lift ✔ | Each switchable |
-| Multi-stroke letters | ה ק ח ת | Pen lifts allowed inside these letters |
-| Pen-lift minimum gap | 50 ms | |
-| Composite weights | Time 50 / Accuracy 25 / Pen lifts 25 | Must total 100 |
-| Pass threshold | Unset, until chosen from the first data | In the Comparative Summary Dashboard |
-| Reference time per block | Unset, until chosen from the first data | Needed for the time part of the composite (C2) |
-| Per language: box fill direction | Hebrew: right → left · English: left → right | |
-| Per language: mirror the letter | Hebrew: no · English: **no** until Prof. Adi-Japha decides | |
-| Protocol templates | §2.4 | Editable step lists |
-| Inactivity timers | 20 s / 30 s / +10 s | Director PIN to change |
-
-## 4. Remaining questions (all have a proposed default, so none block coding)
-
-| # | Question | Proposed default if no answer |
-|---|---|---|
-| C1 | ~~Box width: 34 or 35 mm?~~ **Resolved 2026-10-26: 35 × 25 mm**, final sheet received. | — |
-| C2 | **How do time and pen lifts become scores for the 50/25/25 composite?** Accuracy is already 0–100% (correct letters / 15). Proposal: **pen-lift score** = 100% minus a fixed penalty per pen lift inside letters; **time score** = 100% at or below a *reference time per block*, falling as the child takes longer. The reference time and penalty would be chosen by the team after the first real blocks. | Settings left unset; the composite and pass/fail show "not configured" until the team sets them |
-| C3 | **Is the warm-up block in addition to Day 1's 12 blocks** (13 in total)? And do the intro video and the notebook demo video stay in Day 1? | Warm-up is **extra**, not counted. Both videos kept, and removable in the template |
-| C4 | **English letter mirroring:** Prof. Adi-Japha's decision | Not mirrored |
-| C5 | **Notebook pages on the tablet:** same letter (">") as the ILT, 3 rows × 5 letters, **time only** (as in the earlier specs)? | Yes |
+None block coding. Items I1–I8 above have working defaults; the team can confirm or change them at any time through the settings. The only open items are outside the software:
+- **Research ethics approval** (expected within ~3 months). Until then the analyst portal and research exports stay empty by design.
+- **Intervention letter dot positions:** Claude measures them from the 16 letter sheets plus the Tet sheet once Python is installed (Phase 0), and the team checks them.
+- **Normal ILT speed:** recorded by a skilled writer on the tablet once the system runs. Until then the speed score shows "not configured".
+- **Pass threshold:** chosen from the first data.
