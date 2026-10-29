@@ -2,6 +2,9 @@
 import { z } from 'zod';
 import { STEP_TYPES } from './domain.js';
 
+// Web Crypto is global in browsers and Node 19+; this package compiles without DOM or Node types.
+declare const crypto: { randomUUID(): string };
+
 export const PROTOCOL_VERSION = '2.0';
 
 const uuid = z.string().uuid();
@@ -80,6 +83,22 @@ export const ControlPayloads = {
   }),
   REFERENCE_RESULT: z.object({ recording_id: uuid, derived: z.record(z.unknown()) }),
   REFERENCE_DECISION: z.object({ recording_id: uuid, decision: z.enum(['ACCEPT', 'CLEAR']) }),
+  /** Gateway → tablet: a BATCH packet is stored (application ACK, DDD §5.1). */
+  BATCH_ACK: z.object({
+    step_index: z.number().int(),
+    attempt_number: z.number().int(),
+    sequence: z.number().int().min(0),
+  }),
+  /** Gateway → cockpit: every sample of a completed block is stored and its SHA-256 checked. */
+  BLOCK_STORED: z.object({
+    block_attempt_id: uuid,
+    step_index: z.number().int(),
+    attempt_number: z.number().int(),
+    sample_count: z.number().int().min(0),
+    integrity_ok: z.boolean(),
+  }),
+  /** Gateway → tablet and cockpit: which ends of the session are connected. */
+  PEER_STATUS: z.object({ tablet: z.boolean(), cockpit: z.boolean() }),
   HEARTBEAT: z.object({ t: z.number() }),
   ACK: z.object({ ack_of: uuid }),
   ERROR: z.object({ ref: uuid.optional(), code: z.string(), message: z.string() }),
@@ -98,7 +117,25 @@ export const ControlEnvelope = z.object({
 export type ControlEnvelope = z.infer<typeof ControlEnvelope>;
 
 /** Events that are not acknowledged with ACK. */
-export const UNACKED_EVENTS: ReadonlySet<ControlEventName> = new Set(['ACK', 'ERROR', 'HEARTBEAT']);
+export const UNACKED_EVENTS: ReadonlySet<ControlEventName> = new Set(['ACK', 'ERROR', 'HEARTBEAT', 'BATCH_ACK', 'PEER_STATUS']);
+
+/** Builds an envelope for an event; the payload type is checked against the event's schema. */
+export function controlMessage<E extends ControlEventName>(
+  event: E,
+  payload: ControlPayload<E>,
+  messageId: string = crypto.randomUUID(),
+): ControlEnvelope {
+  return { message_id: messageId, protocol_version: PROTOCOL_VERSION, sent_at: new Date().toISOString(), event, payload };
+}
+
+/** WebRTC signalling relayed by the gateway between the cockpit and the tablet (not a control event). */
+export const SignalMessage = z.object({
+  signal: z.object({
+    description: z.object({ type: z.enum(['offer', 'answer']), sdp: z.string() }).optional(),
+    candidate: z.record(z.unknown()).nullable().optional(),
+  }),
+});
+export type SignalMessage = z.infer<typeof SignalMessage>;
 
 /** Parses an envelope and validates its payload against the event's schema. */
 export function parseControlMessage(raw: unknown): { envelope: ControlEnvelope; payload: unknown } {

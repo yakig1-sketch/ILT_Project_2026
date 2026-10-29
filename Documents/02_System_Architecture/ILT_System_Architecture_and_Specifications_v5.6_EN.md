@@ -42,9 +42,8 @@ flowchart LR
   AP["Analyst portal<br/>(VPN / remote)"]
 
   T -- "WebRTC emr-stream (live, unreliable)" --> C
-  T <-- "WebRTC control-events (reliable)" --> C
-  T -- "WSS batches + control events" --> GW
-  C -- "HTTPS REST + WSS" --> GW
+  T <-- "WSS batches, control events, signalling" --> GW
+  C <-- "HTTPS REST + WSS control events" --> GW
   GW --> DB
   GW --> OBJ
   AN --> DB
@@ -80,9 +79,9 @@ Shared packages: `shared-types`, `emr-protocol`, `ilt-metrics`, `template-schema
 
 1. The evaluator creates a session: participant, language, purpose, protocol template. The gateway resolves all settings for the participant's Domain/Region and stores the **settings snapshot**.
 2. The cockpit opens a room; the tablet pairs with the 6-digit PIN. The tablet's calibration (px/mm) is copied onto the session.
-3. For each step, the cockpit sends `DISPATCH_STEP` with the **resolved canvas** (language's canvas, mirroring applied, fill order, timers).
+3. For each step, the cockpit sends `DISPATCH_STEP` through the gateway, which adds the **resolved canvas** (language's canvas, mirroring applied, fill order, timers) and forwards it to the tablet. All control events pass through the gateway, which stores and logs them (DDD §5.1).
 4. While the child writes, every `pointerrawupdate` sample goes two ways:
-   - **Live:** `LIVE` packets over the WebRTC `emr-stream` channel straight to the cockpit (target < 15 ms; loss is tolerable).
+   - **Live:** `LIVE` packets over the WebRTC `emr-stream` channel straight to the cockpit (target < 15 ms; loss is tolerable). If the direct channel is not open, the gateway relays them.
    - **Persistent:** buffered in IndexedDB, sent as `BATCH` packets (≤ 50 samples) over WSS to the gateway, kept until ACKed. The gateway inserts with `ON CONFLICT DO NOTHING` on `(block_attempt_id, sample_seq, sample_time)`.
 5. At `BLOCK_COMPLETE`, the gateway waits for the last `sample_seq`, verifies the SHA-256, segments letters, stores **raw letter measures**, computes **score version 1** with the snapshot, and sends `BLOCK_SCORED` to the cockpit.
 6. For intervention sheets, the cockpit shows the suggested marks; evaluator changes are stored with who made them.

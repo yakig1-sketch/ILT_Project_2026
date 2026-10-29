@@ -7,13 +7,15 @@ An open-source, non-commercial research and intervention platform built around t
 
 ## Status
 
-Phase 0 (foundations) is in place: monorepo, database schema, scoring engine, binary pen protocol, settings catalogue, translations, and skeletons of the services and apps. Phase 1 (pairing, pen capture, live mirror, persistence) is next.
+Phase 0 (foundations) and Phase 1 (capture and live mirror) are in place. An evaluator signs in to the cockpit, creates a participant and a session, and pairs the tablet with a 6-digit PIN. The cockpit sends writing blocks to the tablet and watches the child write on a live mirror. Every pen sample is saved and checked (SHA-256), with nothing lost if the network drops. Phase 2 (full test session and scores) is next: videos, timers, scoring and the summary.
+
+To try it without the tablet, run the gateway, cockpit and kiosk (below); development builds accept the mouse as a pen.
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `apps/tablet-kiosk` | Child's tablet app (React + Vite). Phase 0: true-size ILT page preview |
+| `apps/tablet-kiosk` | Child's tablet app (React + Vite): PIN pairing, true-size canvas, pen capture, offline buffer |
 | `apps/evaluator-cockpit` | Evaluator cockpit and administration (React + Vite) |
 | `apps/analyst-portal` | De-identified research portal (React + Vite) |
 | `services/telemetry-gateway` | REST/WebSocket gateway (Node + Fastify): persistence, scoring, application log |
@@ -65,6 +67,8 @@ Tests:
 ```bash
 pnpm turbo run build typecheck test
 ```
+
+The gateway's end-to-end test (`services/telemetry-gateway/src/phase1.db.test.ts`) runs only when `TEST_DATABASE_URL` points at a migrated and seeded database as the `ilt_app` role; CI sets it. It leaves its test participant and session (`TEST-…` study codes) in that database.
 
 Python analytics (from `services/analytics`, in a virtual environment): `pip install -e ".[dev]"` then `pytest`.
 

@@ -9,6 +9,7 @@ const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
 const app = await buildApp({
   db: pool,
   checkS3: async () => (await fetch(`${config.s3Endpoint}/`, { signal: AbortSignal.timeout(2000) })).status < 500,
+  jwtSecret: config.jwtSecret,
   logLevel: config.logLevel,
 });
 

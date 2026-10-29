@@ -4,5 +4,5 @@ import { defineConfig } from 'vite';
 // The gateway runs on :8080 during development; the apps call it through /api.
 export default defineConfig({
   plugins: [react()],
-  server: { host: true, proxy: { '/api': 'http://localhost:8080' } },
+  server: { host: true, proxy: { '/api': 'http://localhost:8080', '/ws': { target: 'ws://localhost:8080', ws: true } } },
 });

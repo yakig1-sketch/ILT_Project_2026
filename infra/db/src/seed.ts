@@ -156,7 +156,8 @@ async function main(): Promise<void> {
   await seedReferenceData();
   await seedCanvases();
   await seedDevUsers();
-  await seedVideos();
+  // CI has no S3 storage or Git LFS video files.
+  if (process.env.SEED_SKIP_VIDEOS !== '1') await seedVideos();
   const counts = await client.query(`SELECT
     (SELECT count(*) FROM setting_definitions) AS settings, (SELECT count(*) FROM canvases) AS canvases,
     (SELECT count(*) FROM protocol_templates) AS templates, (SELECT count(*) FROM users) AS users,

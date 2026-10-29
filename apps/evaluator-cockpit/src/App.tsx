@@ -1,39 +1,82 @@
-// Phase 0 cockpit: page frame and the clinical telemetry panel layout (FRS FR-COCK-1/2).
-// Live data, session planning and administration screens come in later phases.
-import type { CSSProperties } from 'react';
+// Evaluator cockpit: sign-in, sessions, and the live session screen (FR-COCK-1…3).
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell } from '@ilt/ui';
+import { ApiError, getAuth, login, logout, onAuthChange } from './api';
+import { SessionScreen } from './SessionScreen';
+import { SessionsScreen } from './SessionsScreen';
+import { ui } from './styles';
 
-const TELEMETRY_KEYS = [
-  'active_box', 'block_time', 'inactivity', 'pen_lifts', 'internal_lifts',
-  'width_outside', 'dot_b', 'skipped', 'avg_speed',
-] as const;
-
-const layout: Record<string, CSSProperties> = {
-  grid: { display: 'grid', gridTemplateColumns: '4fr 1fr', gap: '1rem', minBlockSize: '60vh' },
-  mirror: { border: '1px dashed #d0d7de', borderRadius: 8, display: 'grid', placeItems: 'center', color: '#57606a' },
-  panel: { background: '#24292f', color: '#f6f8fa', borderRadius: 8, padding: '1rem' },
-  row: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.35rem', borderBlockEnd: '1px solid #444c56' },
-};
+function useHashRoute(): [string, (to: string) => void] {
+  const [hash, setHash] = useState(location.hash);
+  useEffect(() => {
+    const on = () => setHash(location.hash);
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  return [hash, (to) => (location.hash = to)];
+}
 
 export function App() {
   const { t } = useTranslation();
+  const auth = useSyncExternalStore(onAuthChange, getAuth);
+  const [hash, go] = useHashRoute();
+  const sessionId = /^#\/sessions\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+
   return (
     <AppShell titleKey="app.cockpit">
-      <div style={layout.grid}>
-        <section style={layout.mirror} aria-label="mirror">
-          {t('kiosk.waiting')}
-        </section>
-        <aside style={layout.panel}>
-          <h2 style={{ marginBlockStart: 0, fontSize: '1rem' }}>{t('cockpit.telemetry.title')}</h2>
-          {TELEMETRY_KEYS.map((k) => (
-            <div key={k} style={layout.row}>
-              <span>{t(`cockpit.telemetry.${k}`)}</span>
-              <bdi>—</bdi>
-            </div>
-          ))}
-        </aside>
-      </div>
+      {!auth ? (
+        <LoginForm />
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', alignItems: 'center', marginBlockEnd: '0.75rem' }}>
+            <span style={{ color: '#57606a' }}>{auth.user.full_name}</span>
+            <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
+          </div>
+          {sessionId ? (
+            <SessionScreen key={sessionId} sessionId={sessionId} onBack={() => go('#/sessions')} />
+          ) : (
+            <SessionsScreen onOpen={(id) => go(`#/sessions/${id}`)} />
+          )}
+        </>
+      )}
     </AppShell>
+  );
+}
+
+function LoginForm() {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await login(email.trim(), password);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.messageKey : 'error.500');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ ...ui.card, maxInlineSize: '24rem', marginInline: 'auto', display: 'grid', gap: '0.75rem' }}>
+      <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{t('cockpit.sign_in_title')}</h2>
+      <label style={ui.field}>
+        {t('common.email')}
+        <input type="email" required autoComplete="username" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </label>
+      <label style={ui.field}>
+        {t('common.password')}
+        <input type="password" required autoComplete="current-password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </label>
+      {error && <p role="alert" style={ui.error}>{t(error)}</p>}
+      <button type="submit" style={ui.primary} disabled={busy}>{t('common.sign_in')}</button>
+    </form>
   );
 }

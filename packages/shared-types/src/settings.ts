@@ -100,3 +100,44 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   system('DEVICE', { key: 'device.default_css_px_per_mm', value_type: 'decimal', default_value: 5.195, min_value: 1, max_value: 20, unit: 'px/mm', description_he: 'כיול ברירת מחדל לטאבלט', description_en: 'Default tablet calibration' }),
   system('LOG', { key: 'log.retention_days', value_type: 'integer', default_value: 1825, min_value: 30, max_value: 7300, unit: 'days', description_he: 'שמירת יומן הפעולות', description_en: 'Application log retention' }),
 ];
+
+export interface StoredSettingValue {
+  key: string;
+  scope: 'SYSTEM' | 'DOMAIN' | 'REGION';
+  domain_id: number | null;
+  region_id: number | null;
+  value: SettingValue;
+}
+
+export interface ResolvedSetting {
+  value: SettingValue;
+  source: 'DEFAULT' | 'SYSTEM' | 'DOMAIN' | 'REGION';
+}
+
+/** Effective values for a session in domain d and region r (DDD §6.1). */
+export function resolveSettings(
+  definitions: readonly Pick<SettingDefinition, 'key' | 'default_value' | 'override_scope'>[],
+  values: readonly StoredSettingValue[],
+  domainId: number,
+  regionId: number | null,
+): Record<string, ResolvedSetting> {
+  const find = (key: string, scope: StoredSettingValue['scope']) =>
+    values.find(
+      (v) =>
+        v.key === key &&
+        v.scope === scope &&
+        (scope !== 'DOMAIN' || v.domain_id === domainId) &&
+        (scope !== 'REGION' || (regionId !== null && v.region_id === regionId)),
+    );
+  const out: Record<string, ResolvedSetting> = {};
+  for (const d of definitions) {
+    const override = d.override_scope === 'NONE' ? undefined : find(d.key, d.override_scope);
+    const system = find(d.key, 'SYSTEM');
+    out[d.key] = override
+      ? { value: override.value, source: override.scope }
+      : system
+        ? { value: system.value, source: 'SYSTEM' }
+        : { value: d.default_value, source: 'DEFAULT' };
+  }
+  return out;
+}

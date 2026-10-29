@@ -66,36 +66,37 @@ export interface BoxAssignment {
 /**
  * Forward-only active box rule: the active box starts at fillOrder[0]; a stroke that starts inside
  * a box later in the fill order makes it the active box. Strokes starting anywhere else stay with
- * the current active box.
+ * the current active box. Returns the new fill position. The tablet applies the same rule live.
  */
+export function advanceFillPosition(
+  boxes: readonly Box[],
+  fillOrder: readonly number[],
+  currentPos: number,
+  x: number,
+  y: number,
+  marginMm: number,
+): number {
+  // Prefer an exact hit; fall back to the margin-grown rectangle.
+  for (const margin of [0, marginMm]) {
+    for (let pos = 0; pos < fillOrder.length; pos++) {
+      const b = boxes.find((box) => box.id === fillOrder[pos]);
+      if (b && inBox(b, x, y, margin)) return Math.max(pos, currentPos);
+    }
+  }
+  return currentPos;
+}
+
 export function assignStrokesToBoxes(
   strokes: readonly Stroke[],
   boxes: readonly Box[],
   fillOrder: readonly number[],
   marginMm: number,
 ): BoxAssignment {
-  const position = new Map(fillOrder.map((id, i) => [id, i]));
-  const boxById = new Map(boxes.map((b) => [b.id, b]));
   const strokesByBox = new Map<number, Stroke[]>();
   let currentPos = 0;
   for (const s of strokes) {
     const p0 = s.points[0]!;
-    // Prefer an exact hit; fall back to the margin-grown rectangle.
-    let target: number | undefined;
-    for (const margin of [0, marginMm]) {
-      for (const id of fillOrder) {
-        const b = boxById.get(id);
-        if (b && inBox(b, p0.x, p0.y, margin)) {
-          target = id;
-          break;
-        }
-      }
-      if (target !== undefined) break;
-    }
-    if (target !== undefined) {
-      const pos = position.get(target)!;
-      if (pos > currentPos) currentPos = pos;
-    }
+    currentPos = advanceFillPosition(boxes, fillOrder, currentPos, p0.x, p0.y, marginMm);
     const boxId = fillOrder[currentPos]!;
     const list = strokesByBox.get(boxId) ?? [];
     list.push(s);

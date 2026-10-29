@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ILT_GRID_GEOMETRY } from '@ilt/template-schemas';
-import { buildApp } from './app.js';
+import { buildApp as build, type AppDeps } from './app.js';
+
+const buildApp = (deps: Omit<AppDeps, 'jwtSecret'>) => build({ ...deps, jwtSecret: 'test-secret' });
 
 function fakeDb(rows: unknown[] = [], fail = false) {
   const queries: { text: string; values?: unknown[] }[] = [];

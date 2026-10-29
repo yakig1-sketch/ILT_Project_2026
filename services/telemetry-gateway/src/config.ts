@@ -14,6 +14,7 @@ export interface Config {
   port: number;
   databaseUrl: string;
   s3Endpoint: string;
+  jwtSecret: string;
   logLevel: string;
 }
 
@@ -21,5 +22,6 @@ export const loadConfig = (): Config => ({
   port: Number(process.env.GATEWAY_PORT ?? 8080),
   databaseUrl: required('APP_DATABASE_URL'),
   s3Endpoint: required('S3_ENDPOINT'),
+  jwtSecret: required('JWT_SECRET'),
   logLevel: process.env.LOG_LEVEL ?? 'info',
 });

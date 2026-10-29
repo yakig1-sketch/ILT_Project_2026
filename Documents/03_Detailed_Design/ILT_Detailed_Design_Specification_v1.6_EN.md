@@ -105,12 +105,17 @@ export const DTH_A116 = {
 
 | Channel | Transport | Reliability | Content |
 |---|---|---|---|
-| `emr-stream` | WebRTC DataChannel tablet → cockpit | Unordered, no retransmit | `LIVE` packets, one per `pointerrawupdate` batch (≤ 4 samples) |
-| `control-events` | WebRTC DataChannel, both ways | Ordered, reliable | Control events (§5.3) |
-| Persistence | WebSocket tablet → gateway (`/ws/tablet`) | TCP + application ACK | `BATCH` packets (≤ 50 samples, ~210 ms) and control events |
-| Cockpit link | WebSocket cockpit → gateway (`/ws/cockpit`) | TCP | Control events, scoring results, signalling |
+| `emr-stream` | WebRTC DataChannel tablet → cockpit | Unordered, no retransmit | `LIVE` packets, one per display frame (~4 samples) |
+| Tablet link | WebSocket tablet → gateway (`/ws/tablet`) | TCP + application ACK | `BATCH` packets (≤ 50 samples, ~210 ms), control events, signalling; `LIVE` packets when the direct channel is not open |
+| Cockpit link | WebSocket cockpit → gateway (`/ws/cockpit`) | TCP | Control events, scoring results, signalling, relayed `LIVE` packets |
 
-The tablet keeps every batch in IndexedDB until the gateway ACKs it. On reconnect it resends unacknowledged batches; the gateway ignores duplicates by `(block_attempt_id, sample_seq)`.
+**Control events go through the gateway** (changed in Phase 1; earlier editions had a second WebRTC channel, `control-events`). The gateway is the hub: it validates, stores and logs every event, adds the resolved canvas to `DISPATCH_STEP`, and forwards each event to the other end. One ordered path means one reconnection story and no event that the gateway has not seen. WebRTC carries only the live mirror; the gateway only relays its signalling (`{ "signal": { description | candidate } }`), with no STUN or TURN on the local network. When the direct channel is not open, the tablet sends `LIVE` packets over its socket and the gateway relays them to the cockpit; the cockpit shows which path the mirror uses.
+
+**Socket authentication:** the first text message on a socket carries the credential: `{ "auth": <tablet token> }` on `/ws/tablet` (issued by `POST /sessions/pair`, bound to one session, 12 h), `{ "auth": <access token>, "session_id": ... }` on `/ws/cockpit` (evaluators only for their own sessions). A bad credential closes the socket with code 4401; a second tablet socket for the same session replaces the first (4409).
+
+**No data loss:** the tablet keeps every batch in IndexedDB until the gateway acknowledges it with `BATCH_ACK`, and keeps control events until their `ACK`. After a reconnect it resends unacknowledged control events first, then unacknowledged batches; a batch without an ACK after 3 s is also resent (e.g. one that arrived before its `STEP_STARTED` was stored). The gateway ignores duplicate samples by `(block_attempt_id, sample_seq)`: `sample_time` is the attempt's start plus `t_us`, so a resent sample maps to the same key. Over one TCP connection, events are not resent on a timer.
+
+**Cockpit reconnect:** a cockpit that connects while a block is running receives that block's `DISPATCH_STEP` and `STEP_STARTED` again (rebuilt from the database after a gateway restart), so the evaluator can follow and finish it. Ink written before the reconnect is not replayed in the mirror.
 
 ### 5.2 Binary packet (`packages/emr-protocol`), little-endian
 
@@ -163,6 +168,9 @@ Every event except `ACK`, `ERROR` and `HEARTBEAT` is acknowledged with `ACK { ac
 | `REFERENCE_START` | admin → tablet | `canvas_id`, `kind` SAMPLE_BLOCK_FILL/NORMAL_SPEED, `rows` (for speed: 1) |
 | `REFERENCE_RESULT` | gateway → admin | `recording_id`, derived values |
 | `REFERENCE_DECISION` | admin → gateway | `recording_id`, `decision` ACCEPT/CLEAR |
+| `BATCH_ACK` | gateway → tablet | `step_index`, `attempt_number`, `sequence`: the `BATCH` packet is stored (not itself acknowledged) |
+| `BLOCK_STORED` | gateway → cockpit | `block_attempt_id`, `step_index`, `attempt_number`, `sample_count`, `integrity_ok`: every sample of a completed block is stored and the SHA-256 checked. Phase 2 follows it with `BLOCK_SCORED` |
+| `PEER_STATUS` | gateway → tablet, cockpit | `tablet`, `cockpit` (booleans): which ends are connected; the cockpit starts the WebRTC offer when the tablet appears |
 | `HEARTBEAT` | all | `t` every 2 s; 3 missed = link lost |
 | `ACK` / `ERROR` | all | see above |
 
@@ -1098,8 +1106,10 @@ Day 1 template steps:
 | GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent |
 | GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions |
 | POST | `/sessions/:id/pairing` | EVALUATOR | Open room, issue PIN |
-| POST | `/sessions/pair` | tablet | Pair with PIN |
-| PATCH | `/sessions/:id/steps/:index` | EVALUATOR | Change canvas before dispatch; paper timing and notes |
+| POST | `/sessions/pair` | tablet | Pair with PIN (body = `PAIRING_REQUEST` payload); returns `PAIRING_RESPONSE` fields, the session code and the tablet token. 5 wrong PINs from one address lock pairing for 15 min |
+| PATCH | `/sessions/:id/steps/:index` | EVALUATOR | Change canvas before dispatch; paper timing and notes; `{ "status": "SKIPPED" }` skips a pending step (logged) |
+| POST | `/sessions/:id/complete` | EVALUATOR | Close the session when every step is done or skipped; sends `SESSION_COMPLETE` |
+| GET | `/ws/tablet` · `/ws/cockpit` | tablet · EVALUATOR | Real-time links (§5.1) |
 | GET | `/sessions/:id/results` | EVALUATOR (own), RESEARCHER | Blocks, scores, letters |
 | PUT | `/block-attempts/:id/intervention-marks/:boxId` | EVALUATOR | Set or change a mark |
 | GET | `/sessions/:id/summary` | EVALUATOR (own), RESEARCHER | Comparative summary (anchor pairs) |
@@ -1154,3 +1164,5 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Restored | Tablet FSM, ACK/ERROR, RESUME, REPEAT, intervention marks, paper and legacy tables |
 | Device | Named DTH-A116 only (not MovinkPad 11) |
 | Dev users | Hashes generated at seed time from environment variables |
+| Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`; first-message socket authentication; cockpit reconnect replays the running block (§5.1) |
+| Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
