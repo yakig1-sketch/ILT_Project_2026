@@ -51,17 +51,17 @@ apps/
   evaluator-cockpit/     React + Vite, cockpit, summary, replay, admin screens
   analyst-portal/        React + Vite, research replay, cohort views, exports
 services/
-  telemetry-gateway/     Node 22 + Fastify: REST, WebSocket, signalling, persistence, scoring
+  telemetry-gateway/     Node 24 + Fastify: REST, WebSocket, signalling, persistence, scoring
   analytics/             Python 3.12 + FastAPI + DuckDB: kinematics, exports, legacy import
 packages/
   shared-types/          PenSample, enums, device constants, control-event contracts (zod)
   emr-protocol/          Binary codec (encode/decode, CRC16)
   ilt-metrics/           Scoring engine (pure TypeScript, no I/O) + golden fixtures
   template-schemas/      JSON Schemas for canvas geometry, scoring profile, protocol template
-  i18n/                  Translation files he.json / en.json + helpers
+  i18n/                  Translation files (he.ts / en.ts, typed so both have the same keys) + helpers
   ui/                    Shared RTL-aware React components
 infra/
-  docker-compose.yml     postgres+timescaledb, minio, go2rtc, gateway, analytics, apps
+  docker-compose.yml     timescaledb, seaweedfs (S3), go2rtc
   db/migrations/         SQL migrations (§9)
   db/seed/               Seed script (§10)
 tools/pen-probe/         Device measurement page (exists)
@@ -831,7 +831,7 @@ CREATE TABLE instruction_videos (
   status         VARCHAR(10) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('DRAFT', 'ACTIVE', 'RETIRED')),
   title_he       VARCHAR(100) NOT NULL,
   title_en       VARCHAR(100) NOT NULL,
-  object_key     VARCHAR(512) NOT NULL,           -- MinIO key, e.g. 'videos/intro/he/v1.mp4'
+  object_key     VARCHAR(512) NOT NULL,           -- S3 object key, e.g. 'videos/intro/he/v1.mp4'
   source_name    VARCHAR(255) NULL,               -- original file name
   duration_ms    INT NULL,
   sha256         CHAR(64) NOT NULL,
@@ -845,7 +845,7 @@ CREATE UNIQUE INDEX one_active_video ON instruction_videos (video_key, language_
 CREATE TABLE session_video_records (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id      UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-  object_key      VARCHAR(512) NOT NULL,        -- MinIO key
+  object_key      VARCHAR(512) NOT NULL,        -- S3 object key
   camera_label    VARCHAR(50) NOT NULL DEFAULT 'OVERHEAD_HANDS',
   started_at      TIMESTAMPTZ NOT NULL,
   duration_ms     INT NULL,
@@ -973,7 +973,7 @@ The seed is a TypeScript script, not literal SQL hashes:
 | Ethics | `INTERVENTION_PROGRAM` (Chief Scientist, reference to be entered); `PREVIOUS_IRB` 287/8918/2015. No `RESEARCH` row until approval |
 | Canvas sets and canvases | he: ILT set → `ILT_3X5_HE` (ACTIVE, geometry from `ILT_Day1_Grid_Geometry.json` v3, profile §7.2 with RTL fill order); NOTEBOOK set → `NOTEBOOK_HE` (ACTIVE, 3 writing rows × 5 letters on school-notebook ruling); INTERVENTION_LETTERS set → letter sheets as DRAFT until the dot positions are measured and checked. en: `ILT_3X5_EN` (same geometry, LTR fill order `[0..14]`), `NOTEBOOK_EN` |
 | Protocol templates | `DAY_1`, `DAY_2`, `DAY_14`, `INTERVENTION` as in FRS §6 |
-| Instruction videos | `intro` / `he` v1 ACTIVE: uploaded to MinIO from `Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4` (1:19, Hebrew female voice-over), SHA-256 computed at seed time. `notebook_demo` / `he` v1 ACTIVE: from `Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4` (0:31). No English videos yet (FRS FR-PLAN-8 applies) |
+| Instruction videos | `intro` / `he` v1 ACTIVE: uploaded to S3 storage from `Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4` (1:19, Hebrew female voice-over), SHA-256 computed at seed time. `notebook_demo` / `he` v1 ACTIVE: from `Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4` (0:31). No English videos yet (FRS FR-PLAN-8 applies) |
 
 Day 1 template steps:
 
@@ -1069,7 +1069,7 @@ Day 1 template steps:
 | Item | Implementation |
 |---|---|
 | Library | `i18next` + `react-i18next`; ICU plurals |
-| Files | `packages/i18n/locales/he.json`, `en.json`; keys by screen (`cockpit.telemetry.avg_speed`). CI fails on a key missing in either file |
+| Files | `packages/i18n/src/locales/he.ts`, `en.ts`; keys by screen (`cockpit.telemetry.avg_speed`). The English file is typed against the Hebrew one, and a test fails on a missing or empty key |
 | Direction | `<html lang dir>` set from the interface language; components use CSS **logical properties** (`margin-inline-start`, `inset-inline-end`, `text-align: start`) only, enforced by stylelint |
 | Mixed text | Study codes, numbers and English terms wrapped in `<bdi>`; numbers formatted with `Intl.NumberFormat`, dates with `Intl.DateTimeFormat` in the interface locale |
 | Icons | Direction-dependent icons (arrows, next/back, progress) flip with `dir`; the writing canvas never does |
@@ -1106,7 +1106,7 @@ Day 1 template steps:
 | GET | `/block-attempts/:id/samples` | EVALUATOR (own), RESEARCHER, ANALYST (research only) | Replay data (binary §5.2) |
 | POST | `/scores/recompute` | ADMIN | Recompute selected blocks with given settings; creates new score versions |
 | POST | `/paper-scores` · `POST /legacy/import` | EVALUATOR · ADMIN | Paper cohort, legacy import |
-| POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed MinIO URL, 15 min) |
+| POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed S3 URL, 15 min) |
 | GET | `/log/events` · `POST /log/client` | ADMIN · apps | Log search · client events |
 | GET | `/health` | public | Liveness |
 
@@ -1122,7 +1122,7 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Identity data | None stored (no names, national ID, initials) |
 | School codes | HMAC-SHA256 with a key from the environment, never in the database |
 | Research separation | `purpose = 'RESEARCH'` requires a recorded research approval and consent; analyst role reads views only |
-| Video | Recorded only when `ilt.video.recording_enabled` and `allows_hand_video`; stored in MinIO with SHA-256 |
+| Video | Recorded only when `ilt.video.recording_enabled` and `allows_hand_video`; stored in S3 storage with SHA-256 |
 | Exports | Built from research views only, into a private bucket, served by short-lived signed URLs; logged |
 
 ## 16. Testing

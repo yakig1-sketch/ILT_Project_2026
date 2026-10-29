@@ -6,6 +6,30 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/pen-probe/serve.ps1"],
       "port": 8765
+    },
+    {
+      "name": "gateway",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/telemetry-gateway", "dev"],
+      "port": 8080
+    },
+    {
+      "name": "tablet-kiosk",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/tablet-kiosk", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "evaluator-cockpit",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/evaluator-cockpit", "dev"],
+      "port": 5174
+    },
+    {
+      "name": "analyst-portal",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev"],
+      "port": 5175
     }
   ]
 }

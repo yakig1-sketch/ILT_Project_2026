@@ -1,0 +1,22 @@
+{
+  "name": "ilt-research-system",
+  "private": true,
+  "description": "ILT Research System: Invented Letter Task handwriting assessment and intervention platform",
+  "packageManager": "pnpm@9.15.9",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "check:i18n": "pnpm --filter @ilt/i18n check",
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "db:migrate": "pnpm --filter @ilt/db migrate",
+    "db:seed": "pnpm --filter @ilt/db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3"
+  }
+}

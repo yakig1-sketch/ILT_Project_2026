@@ -31,10 +31,10 @@ flowchart LR
     C["Evaluator cockpit<br/>laptop browser"]
     CAM["Desk camera<br/>RTSP / ONVIF / USB<br/>(optional)"]
     subgraph S["ILT server (Docker Compose)"]
-      GW["telemetry-gateway<br/>Node 22 · Fastify"]
+      GW["telemetry-gateway<br/>Node 24 · Fastify"]
       AN["analytics<br/>Python 3.12 · FastAPI · DuckDB"]
       DB[("PostgreSQL 16<br/>+ TimescaleDB")]
-      OBJ[("MinIO<br/>instruction videos · hand video<br/>exports · canvas images")]
+      OBJ[("S3 storage (SeaweedFS)<br/>instruction videos · hand video<br/>exports · canvas images")]
       RTC["go2rtc<br/>camera relay"]
       WEB["Static web apps<br/>(Caddy, HTTPS)"]
     end
@@ -65,10 +65,10 @@ flowchart LR
 | **tablet-kiosk** | React 18, Vite, PWA, Canvas 2D | Pairing (6-digit PIN), true-size canvas rendering, pen capture from `pointerrawupdate`, palm rejection, forward-only box locking, inactivity cue, local IndexedDB buffer, binary encoding, reference-recording mode, child-language UI |
 | **evaluator-cockpit** | React 18, Vite | Session planning, live mirror (80%) + clinical telemetry (20%), step dispatch, pause/repeat/abort, paper-page timer, intervention marking, comparative summary with replay; **administration** screens for the System Administrator (settings, canvases, reference recordings, users, organisation, log search) |
 | **analyst-portal** | React 18, Vite | Research-only replay, kinematic plots, cohort slicing, export requests |
-| **telemetry-gateway** | Node 22, Fastify, `ws`, `pg`, zod, pino | REST API, WebSocket hubs, WebRTC signalling, packet decoding and CRC check, idempotent sample persistence, block integrity check, **scoring** via `ilt-metrics`, settings resolution and snapshots, RBAC, director-PIN check, application log writer |
+| **telemetry-gateway** | Node 24, Fastify, `ws`, `pg`, zod, pino | REST API, WebSocket hubs, WebRTC signalling, packet decoding and CRC check, idempotent sample persistence, block integrity check, **scoring** via `ilt-metrics`, settings resolution and snapshots, RBAC, director-PIN check, application log writer |
 | **analytics** | Python 3.12, FastAPI, DuckDB, NumPy/SciPy, pyarrow | Kinematics (resampling, velocity, jerk), Parquet/CSV exports from research views, legacy XLS import, letter-sheet dot measurement tooling |
 | **PostgreSQL 16 + TimescaleDB** | | All data: organisation, settings, canvases, sessions, raw samples (hypertable), scores, log (hypertable) |
-| **MinIO** | S3-compatible | Instruction videos (per key and language, served to the tablet on the local network), recorded hand video, canvas background images, export files (private bucket, signed URLs) |
+| **S3 object storage** | SeaweedFS (S3 API) | Instruction videos (per key and language, served to the tablet on the local network), recorded hand video, canvas background images, export files (private bucket, signed URLs) |
 | **go2rtc** | | Camera ingestion (RTSP/ONVIF/USB) for optional desk video |
 | **Caddy** | | Serves the three web apps; HTTPS with a local CA |
 
@@ -89,7 +89,7 @@ Shared packages: `shared-types`, `emr-protocol`, `ilt-metrics`, `template-schema
 
 ### 4.2 Replay
 
-The cockpit's Comparative Summary and the analyst portal fetch samples as binary (`GET /block-attempts/:id/samples`), plus letter measures and scores. The replayer redraws the mirrored canvas on a timeline (0.25×–4×), shows speed per house, and syncs video from MinIO when present. Access is filtered by role and purpose in the gateway.
+The cockpit's Comparative Summary and the analyst portal fetch samples as binary (`GET /block-attempts/:id/samples`), plus letter measures and scores. The replayer redraws the mirrored canvas on a timeline (0.25×–4×), shows speed per house, and syncs video from S3 storage when present. Access is filtered by role and purpose in the gateway.
 
 ### 4.3 Recomputation
 
@@ -97,7 +97,7 @@ The System Administrator selects blocks and a set of settings; the gateway re-ru
 
 ### 4.4 Research export
 
-Analysts request an export; the analytics service reads **only** `v_research_*` views with the `ilt_analyst` database role, writes Parquet/CSV to a private MinIO bucket, and returns a 15-minute signed URL. Logged as `data.export.created`.
+Analysts request an export; the analytics service reads **only** `v_research_*` views with the `ilt_analyst` database role, writes Parquet/CSV to a private S3 storage bucket, and returns a 15-minute signed URL. Logged as `data.export.created`.
 
 ### 4.5 Reference recordings
 
@@ -116,7 +116,7 @@ The administrator pairs a tablet in `REFERENCE` mode from the canvas screen. The
 
 ### 5.2 Canvas library
 
-- Canvases are JSON documents validated against `template-schemas`, with optional background images in MinIO. Versioned; only one Active version per code.
+- Canvases are JSON documents validated against `template-schemas`, with optional background images in S3 storage. Versioned; only one Active version per code.
 - Grouped Language → Set (ILT / Notebook / Intervention letters) → Canvas. The per-language settings pick the canvases used by protocol templates.
 - Mirroring and fill order are applied when the gateway resolves a canvas for dispatch; the stored canvas never changes.
 
@@ -150,7 +150,7 @@ The administrator pairs a tablet in `REFERENCE` mode from the canvas screen. The
 - Tablet buffer survives network loss and page reloads; batches are idempotent.
 - Per-block SHA-256 over the sample bytes; mismatches are logged and flagged on the block.
 - Heartbeats every 2 s; the cockpit shows link state; sessions resume after reconnection.
-- Database backups nightly (`pg_dump` + MinIO mirror) to an external disk.
+- Database backups nightly (`pg_dump` + S3 storage mirror) to an external disk.
 
 ## 6. Performance budget
 
@@ -167,11 +167,11 @@ The administrator pairs a tablet in `REFERENCE` mode from the canvas screen. The
 
 | Item | Version |
 |---|---|
-| Node.js | 22 LTS, pnpm 9, Turborepo |
+| Node.js | 24 LTS, pnpm 9, Turborepo |
 | React | 18.3 |
 | Python | 3.12 |
-| PostgreSQL | 16 with TimescaleDB 2.x (`timescale/timescaledb:latest-pg16`) |
-| MinIO | Current release (image availability checked at Phase 0) |
+| PostgreSQL | 16.15 with TimescaleDB 2.31.0 (`timescale/timescaledb:2.31.0-pg16`) |
+| Object storage | SeaweedFS 4.50, S3 API (`chrislusf/seaweedfs:4.50`). MinIO, named in earlier editions, was dropped at Phase 0 because it no longer publishes container images |
 | Browser on tablet | Chrome (Android 14) with `pointerrawupdate` |
 | Dev environment | Windows 11 + Docker Desktop (WSL2) |
 
