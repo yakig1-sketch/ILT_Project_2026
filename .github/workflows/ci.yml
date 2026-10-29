@@ -63,6 +63,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
+      # The seed imports the built workspace packages (shared-types, template-schemas).
+      - run: pnpm turbo run build --filter=@ilt/db...
       - run: pnpm db:seed
       # Gateway end-to-end flow against the migrated, seeded database (phase1.db.test.ts).
       - run: pnpm turbo run test --filter=@ilt/telemetry-gateway
