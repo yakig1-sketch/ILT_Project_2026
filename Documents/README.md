@@ -8,7 +8,7 @@ The latest version of each specification sits at the top of its folder; older ve
 | [01_Requirements](01_Requirements) | Functional Requirements Specification (FRS), plus drafts, Q&A and review comments in `Reviews_and_Drafts/` | [FRS v3.5](01_Requirements/ILT_Functional_Requirements_Specification_v3.5_EN.md) (EN, Markdown) |
 | [02_System_Architecture](02_System_Architecture) | System Architecture and Specifications, System Overview Design | [v5.6](02_System_Architecture/ILT_System_Architecture_and_Specifications_v5.6_EN.md) (EN, Markdown) |
 | [03_Detailed_Design](03_Detailed_Design) | Detailed Design Specification (DDD), including the database DDL | [v1.6](03_Detailed_Design/ILT_Detailed_Design_Specification_v1.6_EN.md) (EN, Markdown) |
-| [04_Development_Plan](04_Development_Plan) | Development stages, test environment guide, coding-readiness reviews, device profile, and the [Clinical Decisions Register](04_Development_Plan/ILT_Clinical_Decisions_2026-10-25.md) | |
+| [04_Development_Plan](04_Development_Plan) | Development stages, test environment guide, coding-readiness reviews, device profile, the [Clinical Decisions Register](04_Development_Plan/ILT_Clinical_Decisions_2026-10-25.md), and the [Roadmap and Architecture overview](04_Development_Plan/ILT_Roadmap_and_Architecture_2026-10-29.pdf) | |
 | [05_Measures](05_Measures) | ILT measures definition and sample measure outputs (air time, writing time, segment width, etc.) | |
 | [06_Research_and_Theory](06_Research_and_Theory) | Research papers and conceptual review behind ILT | |
 | [07_Current_Application](07_Current_Application) | Existing (legacy) examiner application: usage instructions, session blocks, screenshot | |
