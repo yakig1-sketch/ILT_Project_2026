@@ -26,6 +26,20 @@
       "port": 5174
     },
     {
+      "name": "tablet-kiosk-lan",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/tablet-kiosk", "dev:lan"],
+      "port": 5173,
+      "url": "https://localhost:5173"
+    },
+    {
+      "name": "evaluator-cockpit-lan",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/evaluator-cockpit", "dev:lan"],
+      "port": 5174,
+      "url": "https://localhost:5174"
+    },
+    {
       "name": "analyst-portal",
       "runtimeExecutable": "pnpm.cmd",
       "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev"],

@@ -71,7 +71,7 @@ export function samplesSha256(samples: readonly PenSample[]): string {
   return createHash('sha256').update(encodeSampleRecords(samples)).digest('hex');
 }
 
-const END_STATUS = { LAST_BOX: 'COMPLETED', MANUAL: 'MANUAL_FINISH', TIMEOUT: 'TIMED_OUT' } as const;
+const END_STATUS = { LAST_BOX: 'COMPLETED', NEXT_BLOCK: 'COMPLETED', MANUAL: 'MANUAL_FINISH', TIMEOUT: 'TIMED_OUT' } as const;
 
 /** Closes the attempt and its step once every sample is stored; returns whether the SHA-256 matched. */
 export async function finishAttempt(

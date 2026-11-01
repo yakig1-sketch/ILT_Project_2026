@@ -1,10 +1,10 @@
 // Child tablet kiosk (FR-TAB-1…7): pair with the evaluator's 6-digit PIN, then follow the cockpit.
 // The canvas is drawn at true physical size from the tablet calibration and never flips with RTL.
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DTH_A116 } from '@ilt/shared-types';
 import { AppShell, CanvasView } from '@ilt/ui';
-import { KioskSession, type Pairing } from './kiosk-session';
+import { KioskSession, type Dispatch, type Pairing } from './kiosk-session';
 
 const PAIRING_KEY = 'ilt.kiosk.pairing';
 const CALIBRATION_KEY = 'ilt.kiosk.px_per_mm';
@@ -51,12 +51,31 @@ const pxPerMm = calibration();
 const allowMouse = import.meta.env.DEV;
 
 const s: Record<string, CSSProperties> = {
-  screen: { minBlockSize: '100vh', display: 'grid', placeItems: 'center', background: '#f6f8fa', fontSize: '1.6rem', textAlign: 'center' },
-  stage: { minBlockSize: '100vh', display: 'grid', placeItems: 'center', background: '#e9ecef', position: 'relative' },
-  banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem' },
-  overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem' },
-  countdown: { fontSize: '4rem', fontWeight: 600, marginBlockEnd: '1rem' },
+  screen: { minBlockSize: '100dvh', display: 'grid', placeItems: 'center', background: '#f6f8fa', fontSize: '1.6rem', textAlign: 'center' },
+  // Full-screen block frame: title bar, the true-size canvas, then the pen note and [Next block].
+  frame: { blockSize: '100dvh', display: 'flex', flexDirection: 'column', background: '#e9ecef', position: 'relative', overflow: 'hidden' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '1rem', paddingBlock: '0.4rem', paddingInline: '1rem', background: '#fff', borderBlockEnd: '1px solid #d0d7de' },
+  title: { margin: 0, fontSize: '1.25rem', fontWeight: 600 },
+  blockLabel: { fontSize: '1.25rem', fontWeight: 600, color: '#0969da' },
+  main: { flex: 1, minBlockSize: 0, display: 'grid', placeItems: 'center', position: 'relative' },
+  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBlock: '0.5rem', paddingInline: '1rem', background: '#fff', borderBlockStart: '1px solid #d0d7de', minBlockSize: '3.5rem' },
+  note: { margin: 0, fontSize: '1.05rem', color: '#57606a' },
+  nextButton: {
+    flexShrink: 0, fontSize: '1.3rem', fontWeight: 600, paddingBlock: '0.6rem', paddingInline: '1.6rem', border: 'none', borderRadius: '0.6rem',
+    background: '#0969da', color: '#fff', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: 'pointer',
+  },
+  nextButtonOff: { background: '#d0d7de', color: '#8c959f', cursor: 'default' },
+  banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem', zIndex: 2 },
+  overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem', zIndex: 1 },
+  countdown: { fontSize: '1.6rem', fontWeight: 600 },
 };
+
+/** Hides the browser bars. Needs a user gesture, so it is called from taps (never from a stroke on the canvas). */
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || !el.requestFullscreen) return;
+  el.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+}
 
 export function App() {
   const { i18n } = useTranslation();
@@ -112,6 +131,7 @@ function PinScreen({ onPaired }: { onPaired: (p: Pairing) => void }) {
       setError('kiosk.enter_pin');
       return;
     }
+    enterFullscreen();
     setBusy(true);
     setError(null);
     try {
@@ -172,10 +192,23 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
   const { t } = useTranslation();
   const snapshot = useSyncExternalStore(
     (fn) => session.subscribe(fn),
-    () => `${session.state.name}:${'secondsLeft' in session.state ? session.state.secondsLeft : ''}:${session.gatewayConnected}`,
+    () => `${session.state.name}:${'secondsLeft' in session.state ? session.state.secondsLeft : ''}:${session.gatewayConnected}:${session.endReached}`,
   );
   void snapshot;
   const state = session.state;
+  const writing = state.name === 'WRITING' || state.name === 'PAUSED';
+
+  // Any tap returns to full screen if the browser left it (after a page reload, for example). During
+  // writing only taps outside the canvas count ([Next block], the title bar), so no stroke is shifted.
+  useEffect(() => {
+    const onUp = (e: PointerEvent) => {
+      if (writing && e.target instanceof Element && e.target.closest('[data-testid="capture-surface"]')) return;
+      enterFullscreen();
+    };
+    document.addEventListener('pointerup', onUp);
+    return () => document.removeEventListener('pointerup', onUp);
+  }, [writing]);
+
   const banner = !session.gatewayConnected && <div style={s.banner} role="status">{t('kiosk.connection_lost')}</div>;
 
   if (ended || state.name === 'DONE') {
@@ -183,30 +216,86 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
   }
   if (state.name === 'WAITING') {
     return (
-      <div style={s.screen}>
+      <BlockFrame step={null}>
         {banner}
-        <p>{t('kiosk.waiting')}</p>
-      </div>
+        <p style={{ fontSize: '1.6rem' }}>{t('kiosk.waiting')}</p>
+      </BlockFrame>
     );
   }
   if (state.name === 'TRANSITION') {
     return (
-      <div style={s.stage}>
+      <BlockFrame step={state.step} footer={<div style={s.countdown} aria-live="polite">{t('kiosk.get_ready')} {state.secondsLeft}</div>}>
         {banner}
-        <div>
-          <div style={s.countdown} aria-live="polite">{t('kiosk.get_ready')} {state.secondsLeft}</div>
-          <CanvasView geometry={state.step.canvas} pxPerMm={pxPerMm} />
-        </div>
-      </div>
+        <CanvasView geometry={state.step.canvas} pxPerMm={pxPerMm} />
+      </BlockFrame>
     );
   }
   return (
-    <div style={s.stage}>
+    <BlockFrame
+      step={state.step}
+      footer={
+        <>
+          <p style={s.note}>{t('kiosk.pen_down_note')}</p>
+          <PenButton label={t('kiosk.next_block')} disabled={state.name !== 'WRITING' || !session.endReached} onTap={() => session.nextBlock()} />
+        </>
+      }
+    >
       {banner}
       <WritingCanvas session={session} />
       {state.name === 'PAUSED' && <div style={s.overlay}>{t('kiosk.paused')}</div>}
       {state.name === 'UPLOADING' && <div style={s.overlay}>{t('kiosk.uploading')}</div>}
+    </BlockFrame>
+  );
+}
+
+function blockLabel(t: (key: string, o: Record<string, unknown>) => string, step: Dispatch): string | null {
+  if (!step.block_number || !step.block_count) return null;
+  const key = step.step_type === 'WARMUP_BLOCK' ? 'kiosk.warmup_of' : step.step_type === 'NOTEBOOK_PAGE' ? 'kiosk.page_of' : 'kiosk.block_of';
+  return t(key, { n: step.block_number, total: step.block_count });
+}
+
+/** Full-screen layout: task title and block position, the canvas centred, then the footer. */
+function BlockFrame({ step, footer, children }: { step: Dispatch | null; footer?: ReactNode; children: ReactNode }) {
+  const { t } = useTranslation();
+  const label = step && blockLabel(t, step);
+  return (
+    <div style={s.frame}>
+      <header style={s.header}>
+        <h1 style={s.title}>{t('kiosk.task_title')}</h1>
+        {label && <span style={s.blockLabel}>{label}</span>}
+      </header>
+      <main style={s.main}>{children}</main>
+      {footer && <footer style={s.footer}>{footer}</footer>}
     </div>
+  );
+}
+
+/**
+ * [Next block]: answers only a pen tap (and the mouse in development), never a finger or palm, and
+ * only once the child has reached the last house.
+ */
+function PenButton({ label, disabled, onTap }: { label: string; disabled: boolean; onTap: () => void }) {
+  const down = useRef<number | null>(null);
+  const isPen = (e: ReactPointerEvent) => e.pointerType === 'pen' || (allowMouse && e.pointerType === 'mouse');
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-disabled={disabled}
+      style={{ ...s.nextButton, ...(disabled && s.nextButtonOff) }}
+      onPointerDown={(e) => {
+        down.current = !disabled && isPen(e) ? e.pointerId : null;
+      }}
+      onPointerUp={(e) => {
+        if (down.current === null || down.current !== e.pointerId || !isPen(e)) return;
+        down.current = null;
+        onTap();
+      }}
+      onPointerCancel={() => (down.current = null)}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -117,6 +117,8 @@ export const DTH_A116 = {
 
 **Cockpit reconnect:** a cockpit that connects while a block is running receives that block's `DISPATCH_STEP` and `STEP_STARTED` again (rebuilt from the database after a gateway restart), so the evaluator can follow and finish it. Ink written before the reconnect is not replayed in the mirror.
 
+**Tablet restart mid-block:** after every (re)connect the tablet sends `TABLET_STATUS` with the block it holds (dispatched, writing or saving), or none. If the running block was sent on an earlier connection and the tablet no longer holds it (the page restarted), the gateway closes the attempt as ABORTED (samples already stored stay), returns the step to PENDING, logs `session.block.interrupted` and sends `BLOCK_INTERRUPTED` to the cockpit, which can send the step again as a new attempt. A network blip keeps the block, because the tablet still reports it.
+
 ### 5.2 Binary packet (`packages/emr-protocol`), little-endian
 
 **Header, 28 bytes**
@@ -153,13 +155,13 @@ Every event except `ACK`, `ERROR` and `HEARTBEAT` is acknowledged with `ACK { ac
 |---|---|---|
 | `PAIRING_REQUEST` | tablet → gateway | `pin` (6 digits), `device_id`, `css_px_per_mm`, `device_pixel_ratio`, `screen_w_mm`, `screen_h_mm` |
 | `PAIRING_RESPONSE` | gateway → tablet | `status` ACCEPTED/REJECTED, `session_id`, `language`, `direction`, `mode` SESSION/REFERENCE |
-| `DISPATCH_STEP` | cockpit → tablet | `step_index`, `step_type`, `canvas` (resolved geometry incl. mirroring), `fill_order`, `timers` {in_transition_sec, inactivity_sec, inactivity_last_box_sec, amber_grace_sec}, `attempt_number` |
+| `DISPATCH_STEP` | cockpit → tablet (or gateway → all after [Next block]) | `step_index`, `step_type`, `canvas` (resolved geometry incl. mirroring), `fill_order`, `timers` {in_transition_sec, inactivity_sec, inactivity_last_box_sec, amber_grace_sec}, `attempt_number`, `block_number` / `block_count` (position among the session's steps of the same type, shown on the tablet as "Block 2 of 4"), `immediate` (true when the gateway sends it after [Next block]: the tablet starts at once, with no transition countdown) |
 | `STEP_STARTED` | tablet → all | `step_index`, `attempt_number`, `block_started_at` (wall clock) |
 | `BOX_ADVANCED` | tablet → all | `box_id`, `fill_position`, `skipped_box_ids[]` |
 | `INACTIVITY_ALERT` | tablet → all | `level` CUE/AMBER, `idle_ms`, `box_id` |
 | `PAUSE_SESSION` / `RESUME_SESSION` | cockpit → tablet | `reason` STUDENT_FATIGUE / HARDWARE / EVALUATOR_INTERVENTION / OTHER, `note` |
 | `MANUAL_FINISH` | cockpit → tablet | `reason` |
-| `BLOCK_COMPLETE` | tablet → all | `step_index`, `attempt_number`, `end_reason` LAST_BOX/MANUAL/TIMEOUT, `sample_count`, `last_sample_seq`, `sha256` (over all sample bytes in seq order) |
+| `BLOCK_COMPLETE` | tablet → all | `step_index`, `attempt_number`, `end_reason` LAST_BOX/MANUAL/TIMEOUT/NEXT_BLOCK, `sample_count`, `last_sample_seq`, `sha256` (over all sample bytes in seq order). NEXT_BLOCK: the [Next block] button on the tablet, offered once the child has reached the last house and answering only a pen tap (finger and palm are ignored); the attempt is stored as COMPLETED and the gateway dispatches the next pending step if it is a writing step (videos, paper steps and the end of the session stay with the evaluator) |
 | `BLOCK_SCORED` | gateway → cockpit | `block_attempt_id`, `score_version`, block scores, per-letter summary |
 | `REPEAT_BLOCK` | cockpit → tablet | `step_index`, `reason`; tablet replies with a new `STEP_STARTED` (attempt + 1) |
 | `VIDEO_PLAY` / `VIDEO_ENDED` | cockpit ↔ tablet | `video_key`, `language`, `url` (resolved from `instruction_videos` for the session language; the tablet pre-loads it during the previous step) |
@@ -171,6 +173,8 @@ Every event except `ACK`, `ERROR` and `HEARTBEAT` is acknowledged with `ACK { ac
 | `BATCH_ACK` | gateway → tablet | `step_index`, `attempt_number`, `sequence`: the `BATCH` packet is stored (not itself acknowledged) |
 | `BLOCK_STORED` | gateway → cockpit | `block_attempt_id`, `step_index`, `attempt_number`, `sample_count`, `integrity_ok`: every sample of a completed block is stored and the SHA-256 checked. Phase 2 follows it with `BLOCK_SCORED` |
 | `PEER_STATUS` | gateway → tablet, cockpit | `tablet`, `cockpit` (booleans): which ends are connected; the cockpit starts the WebRTC offer when the tablet appears |
+| `TABLET_STATUS` | tablet → gateway | `block` {`step_index`, `attempt_number`} or null: the block the tablet holds, sent after every (re)connect; not acknowledged or forwarded (§5.1) |
+| `BLOCK_INTERRUPTED` | gateway → cockpit | `step_index`, `attempt_number`, `reason` TABLET_RESTARTED: the tablet lost the running block; the attempt is closed and the step can be sent again |
 | `HEARTBEAT` | all | `t` every 2 s; 3 missed = link lost |
 | `ACK` / `ERROR` | all | see above |
 
@@ -1023,6 +1027,7 @@ Day 1 template steps:
 | `PAPER_TIMING` | Stop | `STEP_REVIEW` | Save duration and notes |
 | `STEP_ACTIVE` | `INACTIVITY_ALERT` CUE | `STEP_ACTIVE` | Show idle time |
 | `STEP_ACTIVE` | `INACTIVITY_ALERT` AMBER | `STEP_ACTIVE` | Amber panel, Manual Finish flashes |
+| `STEP_ACTIVE` | Last house reached (notebook page: the last row) and no pen contact for `inactivity_last_box_sec` | `STEP_ACTIVE` | Manual Finish becomes available: amber and blinking (no blink under reduced motion); before that it stays lightened and disabled. Inactivity counts time without pen contact; hover does not reset it |
 | `STEP_ACTIVE` | Pause | `PAUSED` | `PAUSE_SESSION`, reason logged |
 | `PAUSED` | Resume | `STEP_ACTIVE` | `RESUME_SESSION` |
 | `STEP_ACTIVE` | Manual finish / `BLOCK_COMPLETE` | `SCORING` | Wait for persistence ACK of the last sample, then score |
@@ -1040,7 +1045,11 @@ Day 1 template steps:
 | `PAIRING` | Accepted | `WAITING` | Show friendly waiting screen in the session language |
 | `WAITING` | `DISPATCH_STEP` (writing) | `TRANSITION` | Show canvas preview, countdown `in_transition_sec` |
 | `TRANSITION` | Countdown ends | `WRITING` | `STEP_STARTED`, capture on, touch off |
-| `WRITING` | Last box finished, `MANUAL_FINISH`, or timeout | `UPLOADING` | Lock canvas, `BLOCK_COMPLETE` with SHA-256 |
+| `WAITING` / `UPLOADING` | `DISPATCH_STEP` with `immediate` | `WRITING` | No countdown (the child pressed [Next block]) |
+| `WRITING` | Pen-down in a box already passed in the fill order (finished or skipped) | `WRITING` | Ignored: no ink, no contact samples (forward-only locking, FR-TAB-4). On a notebook page the locked unit is a whole earlier row, because letters are written freely along the lines |
+| `WRITING` | End of page: a stroke in the last house (notebook page: at least one stroke per letter cell in the last row) | `WRITING` | [Next block] becomes available (pen tap only) |
+| any | Tap outside the canvas while the browser is not full screen | same | Return to full screen (needs a user gesture; strokes on the canvas never trigger it) |
+| `WRITING` | [Next block], `MANUAL_FINISH`, or timeout | `UPLOADING` | Lock canvas, `BLOCK_COMPLETE` with SHA-256 |
 | `UPLOADING` | All batches ACKed | `WAITING` | — |
 | `WRITING` | `PAUSE_SESSION` | `PAUSED` | Freeze timers, rest overlay |
 | `PAUSED` | `RESUME_SESSION` | `WRITING` | — |
@@ -1060,7 +1069,7 @@ Day 1 template steps:
 | auth | `auth.login.succeeded`, `auth.login.failed`, `auth.logout`, `auth.account.locked`, `auth.director_pin.verified`, `auth.director_pin.failed` |
 | users | `users.user.created`, `users.user.updated`, `users.user.deactivated` |
 | participants | `participants.participant.created`, `participants.participant.updated`, `participants.consent.recorded` |
-| sessions | `session.created`, `session.paired`, `session.step.dispatched`, `session.step.started`, `session.box.advanced`, `session.inactivity.cue`, `session.inactivity.amber`, `session.paused`, `session.resumed`, `session.block.completed`, `session.block.manual_finish`, `session.block.repeated`, `session.block.scored`, `session.paper_page.timed`, `session.completed`, `session.aborted`, `session.link.lost`, `session.link.restored` |
+| sessions | `session.created`, `session.paired`, `session.step.dispatched`, `session.step.started`, `session.box.advanced`, `session.inactivity.cue`, `session.inactivity.amber`, `session.paused`, `session.resumed`, `session.block.completed`, `session.block.manual_finish`, `session.block.interrupted`, `session.block.repeated`, `session.block.scored`, `session.paper_page.timed`, `session.completed`, `session.aborted`, `session.link.lost`, `session.link.restored` |
 | telemetry | `telemetry.batch.rejected` (CRC/format), `telemetry.integrity.failed`, `telemetry.box_mismatch` |
 | intervention | `intervention.mark.suggested`, `intervention.mark.changed` (old/new) |
 | settings | `settings.value.changed` (old/new/approver), `settings.value.removed`, `settings.override.changed` |
@@ -1103,7 +1112,7 @@ Day 1 template steps:
 | POST | `/canvases/:id/reference-recordings` · `/reference-recordings/:id/decision` | ADMIN | Reference mode |
 | GET/POST/PATCH | `/instruction-videos?key=&language=` | ADMIN (write), all (read) | Video library: upload, new version, retire |
 | GET/POST | `/protocol-templates` | ADMIN (write), RESEARCHER, EVALUATOR | Templates |
-| GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent |
+| GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent. POST takes `study_code` (shown as "Participant code"), Domain, Region, `school` (hashed with `SCHOOL_CODE_HMAC_KEY` after trimming, collapsing spaces and lower-casing; the name is never stored, logged or returned), `birth_year_month` (YYYY-MM, stored as the 1st of the month), grade, gender, dominant hand. Session creation stores `age_months` from the birth month |
 | GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions |
 | POST | `/sessions/:id/pairing` | EVALUATOR | Open room, issue PIN |
 | POST | `/sessions/pair` | tablet | Pair with PIN (body = `PAIRING_REQUEST` payload); returns `PAIRING_RESPONSE` fields, the session code and the tablet token. 5 wrong PINs from one address lock pairing for 15 min |
@@ -1164,5 +1173,5 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Restored | Tablet FSM, ACK/ERROR, RESUME, REPEAT, intervention marks, paper and legacy tables |
 | Device | Named DTH-A116 only (not MovinkPad 11) |
 | Dev users | Hashes generated at seed time from environment variables |
-| Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`; first-message socket authentication; cockpit reconnect replays the running block (§5.1) |
+| Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |

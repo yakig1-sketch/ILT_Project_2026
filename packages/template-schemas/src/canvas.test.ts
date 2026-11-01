@@ -7,6 +7,9 @@ import {
   ILT_GRID_GEOMETRY,
   ILT_PROFILE_EN,
   ILT_PROFILE_HE,
+  NOTEBOOK_GEOMETRY,
+  atLastUnit,
+  isLocked,
   ProtocolTemplateSchema,
   ScoringProfileSchema,
   mirrorCanvas,
@@ -72,5 +75,36 @@ describe('protocol templates', () => {
     const writing = day1.steps.filter((s) => s.step_type !== 'VIDEO');
     expect(writing).toHaveLength(13);
     expect(day1.steps.filter((s) => s.step_type === 'VIDEO').map((s) => s.video_key)).toEqual(['intro', 'notebook_demo']);
+  });
+});
+
+describe('forward-only locking and end of page (FR-TAB-4)', () => {
+  const order = ILT_PROFILE_HE.fill_order; // right to left, top row first
+  const centre = (id: number) => {
+    const b = ILT_GRID_GEOMETRY.boxes.find((x) => x.id === id)!;
+    return [b.x + b.w / 2, b.y + b.h / 2] as const;
+  };
+
+  it('locks finished and skipped houses on the ILT, not the active or later ones', () => {
+    // Active house is fill position 3; positions 0-2 (one of them skipped) are locked.
+    for (const pos of [0, 1, 2]) expect(isLocked(ILT_GRID_GEOMETRY, order, 3, ...centre(order[pos]!))).toBe(true);
+    expect(isLocked(ILT_GRID_GEOMETRY, order, 3, ...centre(order[3]!))).toBe(false);
+    expect(isLocked(ILT_GRID_GEOMETRY, order, 3, ...centre(order[7]!))).toBe(false);
+    expect(isLocked(ILT_GRID_GEOMETRY, order, 3, 10, 30)).toBe(false); // gap between rows
+    expect(isLocked(ILT_GRID_GEOMETRY, order, -1, ...centre(order[0]!))).toBe(false);
+  });
+
+  it('locks whole earlier rows on a notebook page, never cells of the current row', () => {
+    expect(isLocked(NOTEBOOK_GEOMETRY, order, 7, ...centre(order[0]!))).toBe(true);
+    expect(isLocked(NOTEBOOK_GEOMETRY, order, 7, ...centre(order[5]!))).toBe(false);
+    expect(isLocked(NOTEBOOK_GEOMETRY, order, 7, ...centre(order[9]!))).toBe(false);
+  });
+
+  it('reaches the end at the last house (ILT) or anywhere in the last row (notebook)', () => {
+    expect(atLastUnit(ILT_GRID_GEOMETRY, order, order[13]!)).toBe(false);
+    expect(atLastUnit(ILT_GRID_GEOMETRY, order, order[14]!)).toBe(true);
+    expect(atLastUnit(NOTEBOOK_GEOMETRY, order, order[9]!)).toBe(false);
+    expect(atLastUnit(NOTEBOOK_GEOMETRY, order, order[10]!)).toBe(true);
+    expect(atLastUnit(NOTEBOOK_GEOMETRY, order, null)).toBe(false);
   });
 });

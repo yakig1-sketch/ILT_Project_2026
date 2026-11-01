@@ -105,6 +105,33 @@ export function fillOrderFor(boxes: readonly Box[], direction: FillDirection): n
     .map((b) => b.id);
 }
 
+/**
+ * Writing unit for forward-only locking and for the end of the page (FR-TAB-4): a box on the ILT
+ * and letter sheets; a whole row on a notebook page, where letters are written freely along the
+ * lines and do not fill the cells one by one.
+ */
+export const locksByRow = (geometry: CanvasGeometry): boolean => geometry.canvas_type === 'NOTEBOOK';
+
+const rowOf = (geometry: CanvasGeometry, boxId: number | undefined) => geometry.boxes.find((b) => b.id === boxId)?.row;
+
+/** True when a pen-down at (x, y) mm falls in a box (or notebook row) already passed in the fill order. */
+export function isLocked(geometry: CanvasGeometry, fillOrder: readonly number[], fillPos: number, x: number, y: number): boolean {
+  if (fillPos <= 0) return false;
+  const hit = geometry.boxes.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+  if (!hit) return false;
+  if (locksByRow(geometry)) return hit.row < (rowOf(geometry, fillOrder[fillPos]) ?? 0);
+  const pos = fillOrder.indexOf(hit.id);
+  return pos >= 0 && pos < fillPos;
+}
+
+/** True when the active box is the last box of the fill order (or, on a notebook page, in the last row). */
+export function atLastUnit(geometry: CanvasGeometry, fillOrder: readonly number[], activeBoxId: number | null): boolean {
+  if (activeBoxId === null || fillOrder.length === 0) return false;
+  const last = fillOrder[fillOrder.length - 1];
+  if (!locksByRow(geometry)) return activeBoxId === last;
+  return rowOf(geometry, activeBoxId) === rowOf(geometry, last);
+}
+
 /** Mirrors each box's dot pattern and model paths horizontally (">" becomes "<"). The stored canvas never changes. */
 export function mirrorCanvas(geometry: CanvasGeometry): CanvasGeometry {
   const boxW = geometry.boxes[0]!.w;

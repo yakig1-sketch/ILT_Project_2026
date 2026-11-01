@@ -2,7 +2,7 @@
 // and the session controls (FR-COCK-1…3, DDD §11.1).
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CanvasGeometry } from '@ilt/template-schemas';
+import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
 import { CanvasView, InkRenderer } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
@@ -10,6 +10,8 @@ import { pill, ui } from './styles';
 
 const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE']);
 const PAUSE_REASONS = ['STUDENT_FATIGUE', 'HARDWARE', 'EVALUATOR_INTERVENTION', 'OTHER'] as const;
+// Manual finish blinks once it is available; reduced-motion users get the colour without the blink.
+const BLINK_CSS = '@keyframes ilt-blink { 50% { opacity: 0.35; } } .ilt-blink { animation: ilt-blink 1s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .ilt-blink { animation: none; } }';
 
 interface Step {
   step_index: number;
@@ -77,7 +79,7 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
   const [pauseReason, setPauseReason] = useState<(typeof PAUSE_REASONS)[number]>('STUDENT_FATIGUE');
   useSyncExternalStore(
     (fn) => link.subscribe(fn),
-    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastError}`,
+    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastInterrupted?.attempt_number}${link.block?.attempt_number}${link.lastError}`,
   );
   // One-second tick for block time, inactivity and the relay indicator.
   const [, setTick] = useState(0);
@@ -96,6 +98,8 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
   const block = link.block;
   const writingActive = !!block && !block.completing;
   const paused = session.status === 'PAUSED';
+  // Manual finish only once the child reached the last house (notebook: last row) and has not written for the last-house threshold.
+  const canFinish = writingActive && !paused && isLastBox(block) && idleSec(block) >= session.timers.inactivity_last_box_sec;
   const stepsLeft = session.steps.some((s) => s.status === 'PENDING' || s.status === 'ACTIVE');
   const liveTone = link.liveMode === 'direct' ? 'ok' : link.liveMode === 'relay' ? 'warn' : 'off';
 
@@ -134,6 +138,7 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
+      <style>{BLINK_CSS}</style>
       <div style={{ ...ui.row, alignItems: 'center' }}>
         <button style={ui.button} onClick={onBack}>{t('common.back')}</button>
         <strong><bdi>{session.session_code}</bdi></strong>
@@ -186,7 +191,14 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
               <button style={ui.button} disabled={!writingActive} onClick={() => link.command('PAUSE_SESSION', { reason: pauseReason })}>{t('cockpit.pause')}</button>
             </>
           )}
-          <button style={ui.button} disabled={!writingActive} onClick={() => link.command('MANUAL_FINISH', { reason: 'EVALUATOR' })} data-testid="manual-finish">
+          <button
+            className={canFinish ? 'ilt-blink' : undefined}
+            style={canFinish ? { ...ui.button, ...ui.attention } : { ...ui.button, ...ui.faded }}
+            disabled={!canFinish}
+            title={t('cockpit.manual_finish_hint', { n: session.timers.inactivity_last_box_sec })}
+            onClick={() => link.command('MANUAL_FINISH', { reason: 'EVALUATOR' })}
+            data-testid="manual-finish"
+          >
             {t('cockpit.manual_finish')}
           </button>
           <button style={ui.primary} disabled={stepsLeft || !!block} onClick={() => void complete()}>{t('cockpit.complete')}</button>
@@ -201,6 +213,9 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
         </div>
       )}
       {shownError && <p role="alert" style={ui.error}>{t(shownError, { code: shownError.split('.').pop() })}</p>}
+      {link.lastInterrupted && (
+        <p role="alert" style={{ margin: 0, color: '#9a6700' }}>{t('cockpit.block_interrupted')}</p>
+      )}
       {link.lastStored && (
         <p role="status" style={{ margin: 0, color: link.lastStored.integrity_ok ? '#1a7f37' : '#cf222e' }}>
           {t('cockpit.block_stored', { n: link.lastStored.sample_count })} · {t(link.lastStored.integrity_ok ? 'cockpit.integrity_ok' : 'cockpit.integrity_failed')}
@@ -292,6 +307,9 @@ function Mirror({ link, canvas, activeBoxId }: { link: CockpitLink; canvas: Canv
   );
 }
 
+const isLastBox = (b: LiveBlock | null) => !!b && atLastUnit(b.canvas, b.fill_order, b.activeBoxId);
+const idleSec = (b: LiveBlock | null) => (b?.lastContactAt ? (Date.now() - b.lastContactAt) / 1000 : 0);
+
 function Telemetry({ block, timers }: { block: LiveBlock | null; timers: SessionDetail['timers'] }) {
   const { t, i18n } = useTranslation();
   const num = (v: number, digits = 1) => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(v);
@@ -299,8 +317,8 @@ function Telemetry({ block, timers }: { block: LiveBlock | null; timers: Session
   const total = block?.fill_order.length ?? 0;
   const position = block && block.activeBoxId !== null ? block.fill_order.indexOf(block.activeBoxId) + 1 : 0;
   const blockTime = block && block.firstContactUs !== null && block.lastUs !== null ? (block.lastUs - block.firstContactUs) / 1e6 : null;
-  const lastBox = block ? position === total : false;
-  const idle = block?.lastSampleAt ? (Date.now() - block.lastSampleAt) / 1000 : null;
+  const lastBox = isLastBox(block);
+  const idle = block?.lastContactAt ? idleSec(block) : null;
   const threshold = lastBox ? timers.inactivity_last_box_sec : timers.inactivity_sec;
   const later = <span style={{ opacity: 0.6 }}>{t('common.later_phase')}</span>;
 
@@ -312,7 +330,8 @@ function Telemetry({ block, timers }: { block: LiveBlock | null; timers: Session
     ['internal_lifts', later],
     ['width_outside', later],
     ['dot_b', later],
-    ['skipped', block ? <bdi>{block.skipped.length}</bdi> : '—'],
+    // Notebook letters are written freely along the lines, so passed cells are not skipped houses.
+    ['skipped', block && !locksByRow(block.canvas) ? <bdi>{block.skipped.length}</bdi> : '—'],
     ['avg_speed', later],
   ];
   return (

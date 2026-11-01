@@ -1,4 +1,5 @@
-// Draws pen samples on a <canvas> in millimetre coordinates. The tablet draws plain ink; the cockpit
+// Draws pen samples on a <canvas> in millimetre coordinates. The tablet draws plain ink (blue, like a
+// rollerball pen); the cockpit
 // mirror colours ink by pressure and shows the in-air hover path in yellow (FR-COCK-1).
 import { StrokeFlag, type PenSample } from '@ilt/shared-types';
 
@@ -6,9 +7,11 @@ export interface InkOptions {
   pressureColour: boolean;
   showHover: boolean;
   lineWidthMm: number;
+  /** Ink colour when not coloured by pressure. */
+  inkColour: string;
 }
 
-const DEFAULTS: InkOptions = { pressureColour: false, showHover: false, lineWidthMm: 0.5 };
+const DEFAULTS: InkOptions = { pressureColour: false, showHover: false, lineWidthMm: 0.5, inkColour: '#1a3fa8' };
 
 /** Light blue at low pressure to dark navy at high pressure. */
 function pressureStyle(p: number): string {
@@ -66,7 +69,7 @@ export class InkRenderer {
       if (prev && !newStroke && (prev.flags & StrokeFlag.OUT_OF_RANGE) === 0) {
         const prevContact = (prev.flags & StrokeFlag.CONTACT) !== 0;
         if (contact && prevContact && (prev.flags & StrokeFlag.STROKE_END) === 0) {
-          ctx.strokeStyle = options.pressureColour ? pressureStyle(s.pressure) : '#111';
+          ctx.strokeStyle = options.pressureColour ? pressureStyle(s.pressure) : options.inkColour;
           ctx.lineWidth = options.lineWidthMm;
           this.segment(prev, s);
         } else if (options.showHover && !contact && !prevContact) {
@@ -77,7 +80,7 @@ export class InkRenderer {
       }
       if (contact && newStroke) {
         // A dot for a pen-down without movement.
-        ctx.fillStyle = options.pressureColour ? pressureStyle(s.pressure) : '#111';
+        ctx.fillStyle = options.pressureColour ? pressureStyle(s.pressure) : options.inkColour;
         ctx.beginPath();
         ctx.arc(s.x_mm, s.y_mm, options.lineWidthMm / 2, 0, Math.PI * 2);
         ctx.fill();

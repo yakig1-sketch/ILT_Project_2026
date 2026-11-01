@@ -14,6 +14,8 @@ export interface AppDeps {
   /** Returns true when object storage answers. */
   checkS3: () => Promise<boolean>;
   jwtSecret: string;
+  /** Key for the school code HMAC; school names are never stored (DDD §15). */
+  schoolHmacKey: string;
   logLevel?: string;
 }
 

@@ -10,6 +10,7 @@ const app = await buildApp({
   db: pool,
   checkS3: async () => (await fetch(`${config.s3Endpoint}/`, { signal: AbortSignal.timeout(2000) })).status < 500,
   jwtSecret: config.jwtSecret,
+  schoolHmacKey: config.schoolHmacKey,
   logLevel: config.logLevel,
 });
 

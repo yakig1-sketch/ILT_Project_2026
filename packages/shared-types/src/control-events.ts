@@ -39,6 +39,11 @@ export const ControlPayloads = {
     canvas: z.unknown().optional(),
     fill_order: z.array(z.number().int()).optional(),
     timers: timers.optional(),
+    /** Position among the session's steps of the same type ("Block 2 of 4" on the tablet). */
+    block_number: z.number().int().min(1).optional(),
+    block_count: z.number().int().min(1).optional(),
+    /** Sent by the gateway after [Next block]: the tablet starts the block without the transition countdown. */
+    immediate: z.boolean().optional(),
   }),
   STEP_STARTED: z.object({
     step_index: z.number().int(),
@@ -61,7 +66,8 @@ export const ControlPayloads = {
   BLOCK_COMPLETE: z.object({
     step_index: z.number().int(),
     attempt_number: z.number().int(),
-    end_reason: z.enum(['LAST_BOX', 'MANUAL', 'TIMEOUT']),
+    /** NEXT_BLOCK: the [Next block] button on the tablet; the gateway then dispatches the next writing block. */
+    end_reason: z.enum(['LAST_BOX', 'MANUAL', 'TIMEOUT', 'NEXT_BLOCK']),
     sample_count: z.number().int().min(0),
     last_sample_seq: z.number().int().min(-1),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -99,6 +105,16 @@ export const ControlPayloads = {
   }),
   /** Gateway → tablet and cockpit: which ends of the session are connected. */
   PEER_STATUS: z.object({ tablet: z.boolean(), cockpit: z.boolean() }),
+  /** Tablet → gateway after every (re)connect: the block it holds (dispatched, writing or saving), or none. */
+  TABLET_STATUS: z.object({
+    block: z.object({ step_index: z.number().int(), attempt_number: z.number().int() }).nullable(),
+  }),
+  /** Gateway → cockpit: the tablet restarted and lost the running block; the attempt is closed and the step can be sent again. */
+  BLOCK_INTERRUPTED: z.object({
+    step_index: z.number().int(),
+    attempt_number: z.number().int(),
+    reason: z.enum(['TABLET_RESTARTED']),
+  }),
   HEARTBEAT: z.object({ t: z.number() }),
   ACK: z.object({ ack_of: uuid }),
   ERROR: z.object({ ref: uuid.optional(), code: z.string(), message: z.string() }),
@@ -117,7 +133,11 @@ export const ControlEnvelope = z.object({
 export type ControlEnvelope = z.infer<typeof ControlEnvelope>;
 
 /** Events that are not acknowledged with ACK. */
-export const UNACKED_EVENTS: ReadonlySet<ControlEventName> = new Set(['ACK', 'ERROR', 'HEARTBEAT', 'BATCH_ACK', 'PEER_STATUS']);
+export const UNACKED_EVENTS: ReadonlySet<ControlEventName> = new Set([
+  'ACK', 'ERROR', 'HEARTBEAT', 'BATCH_ACK', 'PEER_STATUS',
+  // Sent fresh on every connect / state change, so a resend after a reconnect would be stale.
+  'TABLET_STATUS', 'BLOCK_INTERRUPTED',
+]);
 
 /** Builds an envelope for an event; the payload type is checked against the event's schema. */
 export function controlMessage<E extends ControlEventName>(

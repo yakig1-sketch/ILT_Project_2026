@@ -15,6 +15,7 @@ export interface Config {
   databaseUrl: string;
   s3Endpoint: string;
   jwtSecret: string;
+  schoolHmacKey: string;
   logLevel: string;
 }
 
@@ -23,5 +24,6 @@ export const loadConfig = (): Config => ({
   databaseUrl: required('APP_DATABASE_URL'),
   s3Endpoint: required('S3_ENDPOINT'),
   jwtSecret: required('JWT_SECRET'),
+  schoolHmacKey: required('SCHOOL_CODE_HMAC_KEY'),
   logLevel: process.env.LOG_LEVEL ?? 'info',
 });

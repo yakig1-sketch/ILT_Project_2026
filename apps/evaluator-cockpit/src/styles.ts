@@ -8,6 +8,10 @@ export const ui = {
   button: { paddingInline: '0.8rem', paddingBlock: '0.35rem', borderRadius: 6, border: '1px solid #d0d7de', background: '#f6f8fa', cursor: 'pointer' },
   primary: { paddingInline: '0.9rem', paddingBlock: '0.4rem', borderRadius: 6, border: '1px solid #1f6feb', background: '#1f6feb', color: '#fff', cursor: 'pointer' },
   danger: { paddingInline: '0.8rem', paddingBlock: '0.35rem', borderRadius: 6, border: '1px solid #cf222e', background: '#fff', color: '#cf222e', cursor: 'pointer' },
+  // A control that is not available yet: lightened so it does not draw the eye.
+  faded: { opacity: 0.4, cursor: 'default' },
+  // A control that needs the evaluator now (Manual finish once available): amber, bold, blinking.
+  attention: { background: '#bf8700', borderColor: '#9a6700', color: '#fff', fontWeight: 600 },
   error: { color: '#cf222e', margin: 0 },
   muted: { color: '#57606a', fontSize: '0.85rem' },
   table: { inlineSize: '100%', borderCollapse: 'collapse' },

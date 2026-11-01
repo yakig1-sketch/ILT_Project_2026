@@ -1,9 +1,11 @@
 // Pen capture (DDD §2). One source feeds both the live mirror and persistence: pointerrawupdate
 // (one event per hardware sample) where supported, otherwise pointermove + getCoalescedEvents().
 // Touch is ignored while a block is active (palm rejection). Lifts come only from down/up events.
+// Forward-only locking (FR-TAB-4): a pen-down in a box already passed (finished or skipped) leaves
+// no ink and no contact samples; on a notebook page the locked unit is a whole row.
 import { advanceFillPosition } from '@ilt/ilt-metrics';
 import { NO_BOX, StrokeFlag, type PenSample } from '@ilt/shared-types';
-import type { CanvasGeometry } from '@ilt/template-schemas';
+import { isLocked, type CanvasGeometry } from '@ilt/template-schemas';
 
 export interface CaptureOptions {
   surface: HTMLElement;
@@ -105,9 +107,10 @@ export class PenCapture {
   private down(e: PointerEvent) {
     if (!this.accepts(e)) return;
     e.preventDefault();
-    this.o.surface.setPointerCapture(e.pointerId);
     const x = (e.clientX - this.rect.left) / this.o.pxPerMm;
     const y = (e.clientY - this.rect.top) / this.o.pxPerMm;
+    if (isLocked(this.o.geometry, this.o.fillOrder, this.fillPos, x, y)) return;
+    this.o.surface.setPointerCapture(e.pointerId);
     const prev = this.fillPos;
     const next = advanceFillPosition(this.o.geometry.boxes, this.o.fillOrder, Math.max(prev, 0), x, y, this.o.boxEntryMarginMm);
     if (next !== prev) {

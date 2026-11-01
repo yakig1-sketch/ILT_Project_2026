@@ -28,7 +28,8 @@ export interface LiveBlock {
   skipped: number[];
   firstContactUs: number | null;
   lastUs: number | null;
-  lastSampleAt: number | null;
+  /** When the pen last touched the canvas: inactivity counts time without writing (FR-TAB-5). */
+  lastContactAt: number | null;
   penLifts: number;
   lastStrokeEndUs: number | null;
 }
@@ -47,6 +48,8 @@ export class CockpitLink {
   lastRelayAt = 0;
   block: LiveBlock | null = null;
   lastStored: StoredResult | null = null;
+  /** The tablet restarted and lost this block; it can be sent again. */
+  lastInterrupted: ControlPayload<'BLOCK_INTERRUPTED'> | null = null;
   lastError: string | null = null;
   /** Called with each batch of mirror samples for the current block. */
   onSamples: ((samples: PenSample[]) => void) | null = null;
@@ -122,9 +125,17 @@ export class CockpitLink {
           step_index: p.step_index, attempt_number: p.attempt_number,
           canvas: p.canvas as CanvasGeometry, fill_order: p.fill_order ?? [],
           started: false, completing: false, activeBoxId: p.fill_order?.[0] ?? null, fillPosition: 0, skipped: [],
-          firstContactUs: null, lastUs: null, lastSampleAt: null, penLifts: 0, lastStrokeEndUs: null,
+          firstContactUs: null, lastUs: null, lastContactAt: null, penLifts: 0, lastStrokeEndUs: null,
         };
         this.lastStored = null;
+        this.lastInterrupted = null;
+        this.onSessionChanged();
+        break;
+      }
+      case 'BLOCK_INTERRUPTED': {
+        const p = payload as ControlPayload<'BLOCK_INTERRUPTED'>;
+        this.lastInterrupted = p;
+        if (this.block?.step_index === p.step_index && this.block.attempt_number === p.attempt_number) this.block = null;
         this.onSessionChanged();
         break;
       }
@@ -178,7 +189,10 @@ export class CockpitLink {
     if (packet.packet_type !== PacketType.LIVE || !b) return;
     if (packet.step_index !== b.step_index || packet.attempt_number !== b.attempt_number) return;
     for (const s of packet.samples) {
-      if ((s.flags & StrokeFlag.CONTACT) !== 0 && b.firstContactUs === null) b.firstContactUs = s.t_us;
+      if ((s.flags & StrokeFlag.CONTACT) !== 0) {
+        if (b.firstContactUs === null) b.firstContactUs = s.t_us;
+        b.lastContactAt = Date.now();
+      }
       if ((s.flags & StrokeFlag.STROKE_START) !== 0) {
         // A lift shorter than the minimum gap joins the strokes: it is not a pen lift (DDD §8.2).
         if (b.lastStrokeEndUs === null || s.t_us - b.lastStrokeEndUs >= MIN_LIFT_GAP_MS * 1000) b.penLifts += 1;
@@ -186,7 +200,6 @@ export class CockpitLink {
       if ((s.flags & StrokeFlag.STROKE_END) !== 0) b.lastStrokeEndUs = s.t_us;
       b.lastUs = s.t_us;
     }
-    b.lastSampleAt = Date.now();
     this.onSamples?.(packet.samples);
     this.emit();
   }

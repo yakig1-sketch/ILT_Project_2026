@@ -95,6 +95,13 @@ export async function loadSteps(db: Queryable, sessionId: string): Promise<StepR
 }
 
 /** Session code: S + yymmdd + 4 characters without look-alikes. */
+/** Age in whole months on the session date, from the birth month (FR-PART-3); null when unknown. */
+export function ageInMonths(birthYearMonth: string | null, on: Date): number | null {
+  if (!birthYearMonth) return null;
+  const [y, m] = birthYearMonth.split('-').map(Number) as [number, number];
+  return (on.getFullYear() - y) * 12 + (on.getMonth() + 1 - m);
+}
+
 function newSessionCode(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const d = new Date().toISOString().slice(2, 10).replace(/-/g, '');
@@ -150,9 +157,9 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     }
     const user = req.user as UserClaims;
     const { participant_id, session_type, language_code } = body.data;
-    const participant = await one<{ domain_id: number; region_id: number | null; study_code: string }>(
+    const participant = await one<{ domain_id: number; region_id: number | null; study_code: string; birth_year_month: string | null }>(
       app.deps.db,
-      'SELECT domain_id, region_id, study_code FROM participants WHERE id = $1 AND is_active',
+      "SELECT domain_id, region_id, study_code, to_char(birth_year_month, 'YYYY-MM') AS birth_year_month FROM participants WHERE id = $1 AND is_active",
       [participant_id],
     );
     if (!participant) return reply.status(404).send(notFound);
@@ -194,10 +201,10 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       const session = await one<{ id: string; session_code: string }>(
         q,
         `INSERT INTO sessions (session_code, participant_id, evaluator_id, domain_id, region_id, language_code, session_type,
-           protocol_template_id, settings_snapshot)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, session_code`,
+           protocol_template_id, settings_snapshot, age_months)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, session_code`,
         [newSessionCode(), participant_id, user.sub, participant.domain_id, regionId, language_code, session_type,
-          template.id, JSON.stringify(settings)],
+          template.id, JSON.stringify(settings), ageInMonths(participant.birth_year_month, new Date())],
       );
       for (const [index, st] of steps.entries()) {
         const canvas = st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK' ? canvases[st.canvas_role]! : undefined;

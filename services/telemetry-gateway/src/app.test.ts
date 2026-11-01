@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ILT_GRID_GEOMETRY } from '@ilt/template-schemas';
 import { buildApp as build, type AppDeps } from './app.js';
 
-const buildApp = (deps: Omit<AppDeps, 'jwtSecret'>) => build({ ...deps, jwtSecret: 'test-secret' });
+const buildApp = (deps: Omit<AppDeps, 'jwtSecret' | 'schoolHmacKey'>) => build({ ...deps, jwtSecret: 'test-secret', schoolHmacKey: 'test-school-key' });
 
 function fakeDb(rows: unknown[] = [], fail = false) {
   const queries: { text: string; values?: unknown[] }[] = [];

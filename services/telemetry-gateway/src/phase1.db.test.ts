@@ -1,6 +1,7 @@
 // End-to-end gateway test against a real migrated and seeded database (Phase 1 flow):
 // sign-in, participant, session, PIN pairing, both sockets, dispatch, batches with a resend,
-// block completion with the SHA-256 check, the LIVE relay, and abort.
+// block completion with the SHA-256 check, the LIVE relay, [Next block] from the tablet, a tablet
+// restart mid-block versus a network blip, and abort.
 // Runs only when TEST_DATABASE_URL (the ilt_app role) is set; the CI database job sets it.
 import { createHash, randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
@@ -12,6 +13,7 @@ import { PERFECT_ILT, synthBlock } from '@ilt/ilt-metrics';
 import { controlMessage, type ControlEnvelope, type PenSample } from '@ilt/shared-types';
 import { ILT_GRID_GEOMETRY, ILT_PROFILE_HE } from '@ilt/template-schemas';
 import { buildApp } from './app.js';
+import { ageInMonths } from './routes/sessions.js';
 
 const DB_URL = process.env.TEST_DATABASE_URL;
 
@@ -74,7 +76,7 @@ describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
   };
 
   beforeAll(async () => {
-    app = await buildApp({ db: pool, checkS3: async () => true, jwtSecret: 'phase1-test', logLevel: 'silent' });
+    app = await buildApp({ db: pool, checkS3: async () => true, jwtSecret: 'phase1-test', schoolHmacKey: 'phase1-school', logLevel: 'silent' });
     await app.listen({ port: 0, host: '127.0.0.1' });
     const port = (app.server.address() as { port: number }).port;
     base = `http://127.0.0.1:${port}`;
@@ -105,13 +107,20 @@ describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
     const domainId = domains.body.find((d) => d.code === 'GENERAL')!.id;
     const participant = await call<{ id: string }>('/participants', {
       method: 'POST', auth: token,
-      body: { study_code: `TEST-${run}`, domain_id: domainId, grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' },
+      body: { study_code: `TEST-${run}`, domain_id: domainId, school: 'Test School', birth_year_month: '2019-03', grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' },
     });
     expect(participant.status).toBe(201);
+    // The school is kept only as a keyed hash; the name is never stored or returned.
+    expect(JSON.stringify(participant.body)).not.toContain('Test School');
+    const row = await pool.query('SELECT school_code_hmac, birth_year_month::text AS b FROM participants WHERE id = $1', [participant.body.id]);
+    expect(row.rows[0]).toMatchObject({ school_code_hmac: expect.stringMatching(/^[0-9a-f]{64}$/), b: '2019-03-01' });
 
     const created = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_14', language_code: 'he' } });
     expect(created.status).toBe(201);
     const sessionId = created.body.id;
+    // Age in months is stored for every session, from the birth month (FR-PART-3).
+    const age = await pool.query('SELECT age_months FROM sessions WHERE id = $1', [sessionId]);
+    expect(age.rows[0].age_months).toBe(ageInMonths('2019-03', new Date()));
     const detail = await call<{ steps: { step_type: string; status: string }[]; status: string }>(`/sessions/${sessionId}`, { auth: token });
     expect(detail.body.steps.map((s) => s.step_type)).toEqual(['ILT_BLOCK', 'ILT_BLOCK']);
     expect(detail.body.status).toBe('PLANNED');
@@ -132,8 +141,10 @@ describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
     // The cockpit dispatches; the gateway adds the canvas, fill order, timers and attempt number.
     cockpit.send(controlMessage('DISPATCH_STEP', { step_index: 0, step_type: 'ILT_BLOCK', attempt_number: 1 }));
     const dispatch = await tablet.next(isEvent('DISPATCH_STEP'));
-    const dp = dispatch.payload as { attempt_number: number; fill_order: number[]; timers: { in_transition_sec: number }; canvas: { boxes: unknown[] } };
+    const dp = dispatch.payload as { attempt_number: number; fill_order: number[]; timers: { in_transition_sec: number }; canvas: { boxes: unknown[] }; block_number: number; block_count: number };
     expect(dp.attempt_number).toBe(1);
+    expect(dp).toMatchObject({ block_number: 1, block_count: 2 });
+    expect(dp).not.toHaveProperty('immediate');
     expect(dp.fill_order).toEqual(ILT_PROFILE_HE.fill_order);
     expect(dp.canvas.boxes).toHaveLength(15);
     expect(dp.timers.in_transition_sec).toBe(20);
@@ -163,22 +174,58 @@ describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
     const relayed = await cockpit.next<Uint8Array>((m) => m instanceof Uint8Array);
     expect(Buffer.from(relayed).equals(Buffer.from(live))).toBe(true);
 
+    // [Next block] on the tablet: the block is stored and the gateway dispatches block 2 of 2.
     tablet.send(controlMessage('BLOCK_COMPLETE', {
-      step_index: 0, attempt_number: 1, end_reason: 'MANUAL', sample_count: samples.length,
+      step_index: 0, attempt_number: 1, end_reason: 'NEXT_BLOCK', sample_count: samples.length,
       last_sample_seq: samples[samples.length - 1]!.sample_seq,
       sha256: createHash('sha256').update(encodeSampleRecords(samples)).digest('hex'),
     }));
     const stored = await cockpit.next(isEvent('BLOCK_STORED'));
     expect(stored.payload).toMatchObject({ step_index: 0, attempt_number: 1, sample_count: samples.length, integrity_ok: true });
+    const next = await tablet.next(isEvent('DISPATCH_STEP'));
+    expect(next.payload).toMatchObject({ step_index: 1, attempt_number: 1, block_number: 2, block_count: 2, immediate: true });
+    await cockpit.next(isEvent('DISPATCH_STEP'));
 
-    const after = await call<{ status: string; steps: { status: string }[]; attempts: { status: string; sample_count: number; integrity_ok: boolean }[] }>(`/sessions/${sessionId}`, { auth: token });
+    tablet.send(controlMessage('STEP_STARTED', { step_index: 1, attempt_number: 1, block_started_at: new Date().toISOString() }));
+    await cockpit.next(isEvent('STEP_STARTED'));
+
+    // The tablet page restarts mid-block: it reconnects holding no block, so the gateway closes the
+    // attempt and frees the step; the cockpit can send it again.
+    const restarted = await Client.open(`${wsBase}/ws/tablet`, { auth: paired.body.token });
+    restarted.send(controlMessage('TABLET_STATUS', { block: null }));
+    expect((await cockpit.next(isEvent('BLOCK_INTERRUPTED'))).payload).toEqual({ step_index: 1, attempt_number: 1, reason: 'TABLET_RESTARTED' });
+    const freed = await call<{ steps: { status: string }[] }>(`/sessions/${sessionId}`, { auth: token });
+    expect(freed.body.steps[1]!.status).toBe('PENDING');
+    cockpit.send(controlMessage('DISPATCH_STEP', { step_index: 1, step_type: 'ILT_BLOCK', attempt_number: 1 }));
+    expect((await restarted.next(isEvent('DISPATCH_STEP'))).payload).toMatchObject({ step_index: 1, attempt_number: 2 });
+    restarted.send(controlMessage('STEP_STARTED', { step_index: 1, attempt_number: 2, block_started_at: new Date().toISOString() }));
+    await cockpit.next(isEvent('STEP_STARTED'));
+
+    // A network blip: the tablet reconnects still holding the block, which keeps running.
+    const reconnected = await Client.open(`${wsBase}/ws/tablet`, { auth: paired.body.token });
+    reconnected.send(controlMessage('TABLET_STATUS', { block: { step_index: 1, attempt_number: 2 } }));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(cockpit.messages.some(isEvent('BLOCK_INTERRUPTED'))).toBe(false);
+
+    // Block 2 ends from the cockpit (Manual Finish) with no writing.
+    reconnected.send(controlMessage('BLOCK_COMPLETE', {
+      step_index: 1, attempt_number: 2, end_reason: 'MANUAL', sample_count: 0, last_sample_seq: -1,
+      sha256: createHash('sha256').update(encodeSampleRecords([])).digest('hex'),
+    }));
+    expect((await cockpit.next(isEvent('BLOCK_STORED'))).payload).toMatchObject({ step_index: 1, attempt_number: 2, sample_count: 0, integrity_ok: true });
+
+    const after = await call<{ status: string; steps: { status: string }[]; attempts: { step_index: number; status: string; sample_count: number; integrity_ok: boolean }[] }>(`/sessions/${sessionId}`, { auth: token });
     expect(after.body.status).toBe('IN_PROGRESS');
-    expect(after.body.steps[0]!.status).toBe('DONE');
-    expect(after.body.attempts[0]).toMatchObject({ status: 'MANUAL_FINISH', sample_count: samples.length, integrity_ok: true });
+    expect(after.body.steps.map((s) => s.status)).toEqual(['DONE', 'DONE']);
+    expect(after.body.attempts).toMatchObject([
+      { step_index: 0, status: 'COMPLETED', sample_count: samples.length, integrity_ok: true },
+      { step_index: 1, status: 'ABORTED' },
+      { step_index: 1, status: 'MANUAL_FINISH', sample_count: 0, integrity_ok: true },
+    ]);
 
     // Abort reaches the tablet and closes the session; the stored block stays.
     cockpit.send(controlMessage('ABORT_SESSION', { reason: 'TEST', save_partial: true }));
-    await tablet.next(isEvent('ABORT_SESSION'));
+    await reconnected.next(isEvent('ABORT_SESSION'));
     const aborted = await call<{ status: string }>(`/sessions/${sessionId}`, { auth: token });
     expect(aborted.body.status).toBe('ABORTED');
 
@@ -186,9 +233,8 @@ describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
     const events = await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [sessionId]);
     expect(events.rows.map((r) => r.event_type)).toEqual(expect.arrayContaining([
       'session.created', 'session.paired', 'session.step.dispatched', 'session.step.started',
-      'session.block.manual_finish', 'session.aborted',
+      'session.block.manual_finish', 'session.block.interrupted', 'session.aborted',
     ]));
-    tablet.ws.close();
-    cockpit.ws.close();
+    for (const c of [tablet, restarted, reconnected, cockpit]) c.ws.close();
   });
 });

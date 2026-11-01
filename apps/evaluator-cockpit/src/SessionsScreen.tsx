@@ -37,7 +37,8 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
   const [regions, setRegions] = useState<Domain[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ participant_id: '', session_type: 'DAY_1', language_code: 'he' });
-  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; grade_level: string; gender: string; dominant_hand: string } | null>(null);
+  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; dominant_hand: string } | null>(null);
+  const thisMonth = new Date().toISOString().slice(0, 7);
 
   const load = () => {
     api<SessionListRow[]>('/sessions').then(setSessions).catch((e: ApiError) => setError(e.messageKey));
@@ -97,7 +98,7 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
           <button
             type="button"
             style={ui.button}
-            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' })}
+            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, school: '', birth_year_month: '', grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' })}
           >
             + {t('cockpit.new_participant')}
           </button>
@@ -120,8 +121,16 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
         {newP && (
           <form onSubmit={createParticipant} style={{ ...ui.row, marginBlockStart: '1rem', paddingBlockStart: '1rem', borderBlockStart: '1px solid #eaeef2' }}>
             <label style={ui.field}>
-              {t('cockpit.study_code')}
+              {t('cockpit.participant_code')}
               <input required dir="ltr" pattern="[A-Za-z0-9_\-]+" maxLength={40} value={newP.study_code} onChange={(e) => setNewP({ ...newP, study_code: e.target.value })} />
+            </label>
+            <label style={ui.field}>
+              {t('cockpit.school')}
+              <input required maxLength={120} value={newP.school} title={t('cockpit.school_hint')} onChange={(e) => setNewP({ ...newP, school: e.target.value })} />
+            </label>
+            <label style={ui.field}>
+              {t('cockpit.birth_month')}
+              <input required type="month" dir="ltr" min="2000-01" max={thisMonth} value={newP.birth_year_month} onChange={(e) => setNewP({ ...newP, birth_year_month: e.target.value })} />
             </label>
             <label style={ui.field}>
               {t('cockpit.domain')}
@@ -156,6 +165,7 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
             </label>
             <button type="submit" style={ui.primary}>{t('common.create')}</button>
             <button type="button" style={ui.button} onClick={() => setNewP(null)}>{t('common.cancel')}</button>
+            <p style={{ ...ui.muted, flexBasis: '100%', margin: 0 }}>{t('cockpit.intake_privacy')}</p>
           </form>
         )}
         {error && <p role="alert" style={{ ...ui.error, marginBlockStart: '0.75rem' }}>{t(error)}</p>}
@@ -169,7 +179,7 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
           <table style={ui.table}>
             <thead>
               <tr>
-                {['cockpit.session_code', 'cockpit.participant', 'cockpit.session_type', 'cockpit.session_language', 'cockpit.status', 'cockpit.created', ''].map((k) => (
+                {['cockpit.session_code', 'cockpit.participant_code', 'cockpit.session_type', 'cockpit.session_language', 'cockpit.status', 'cockpit.created', ''].map((k) => (
                   <th key={k} style={ui.cell}>{k && t(k)}</th>
                 ))}
               </tr>

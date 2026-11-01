@@ -29,6 +29,7 @@ export const LOG_EVENT_TYPES = [
   'session.resumed',
   'session.block.completed',
   'session.block.manual_finish',
+  'session.block.interrupted',
   'session.block.repeated',
   'session.block.scored',
   'session.paper_page.timed',

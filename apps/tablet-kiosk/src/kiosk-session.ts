@@ -3,6 +3,7 @@
 // BATCH packets through the outbox.
 import { PacketType, encodePacket, encodeSampleRecords } from '@ilt/emr-protocol';
 import {
+  StrokeFlag,
   UNACKED_EVENTS,
   controlMessage,
   type ControlEnvelope,
@@ -10,7 +11,7 @@ import {
   type ControlPayload,
   type PenSample,
 } from '@ilt/shared-types';
-import type { CanvasGeometry } from '@ilt/template-schemas';
+import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
 import { GatewayLink, InkRenderer, PeerLink } from '@ilt/ui';
 import { PenCapture } from './capture';
 import { Outbox, outboxKey } from './outbox';
@@ -62,6 +63,12 @@ export class KioskSession {
   state: KioskState = { name: 'WAITING' };
   gatewayConnected = false;
   liveDirect = false;
+  /**
+   * The child has reached the end of the page, so [Next block] is offered: a stroke in the last
+   * house (ILT), or on a notebook page at least one stroke per letter cell in the last row.
+   */
+  endReached = false;
+  private lastRowStrokes = 0;
   private listeners = new Set<() => void>();
   private readonly link: GatewayLink;
   private readonly peer: PeerLink;
@@ -93,7 +100,10 @@ export class KioskSession {
       onSignal: (signal) => void this.peer.onSignal(signal),
       onStatus: (connected) => {
         this.gatewayConnected = connected;
-        if (connected) this.resendAll();
+        if (connected) {
+          this.sendStatus();
+          this.resendAll();
+        }
         this.emit();
       },
       onAuthRejected: () => this.end('AUTH'),
@@ -130,6 +140,12 @@ export class KioskSession {
     const env = controlMessage(event, payload);
     if (!UNACKED_EVENTS.has(event)) this.unacked.set(env.message_id, env);
     this.link.send(env);
+  }
+
+  /** Tells the gateway which block this tablet holds, so it can spot a block lost to a restart. */
+  private sendStatus() {
+    const step = 'step' in this.state ? this.state.step : null;
+    this.send('TABLET_STATUS', { block: step && { step_index: step.step_index, attempt_number: step.attempt_number } });
   }
 
   private onControl(env: ControlEnvelope, payload: unknown) {
@@ -185,7 +201,7 @@ export class KioskSession {
   private onDispatch(step: Dispatch) {
     if (this.state.name === 'WRITING' || this.state.name === 'PAUSED') return;
     if (this.countdown) clearInterval(this.countdown);
-    const seconds = step.timers?.in_transition_sec ?? 0;
+    const seconds = step.immediate ? 0 : (step.timers?.in_transition_sec ?? 0);
     this.setState({ name: 'TRANSITION', step, secondsLeft: seconds });
     if (seconds <= 0) return this.begin(step);
     let left = seconds;
@@ -203,6 +219,8 @@ export class KioskSession {
 
   private begin(step: Dispatch) {
     const t0 = performance.now();
+    this.endReached = false;
+    this.lastRowStrokes = 0;
     this.block = {
       step, t0, samples: [], batch: [], live: [], seq: 0, batchSeq: 0, liveSeq: 0, capture: null, ink: null,
       batchTimer: setInterval(() => this.flushBatch(), BATCH_INTERVAL_MS),
@@ -241,7 +259,24 @@ export class KioskSession {
     b.batch.push(...samples);
     b.live.push(...samples);
     b.ink?.add(samples);
+    this.checkEnd(b.step, samples);
     if (b.batch.length >= BATCH_MAX_SAMPLES) this.flushBatch();
+  }
+
+  private checkEnd(step: Dispatch, samples: PenSample[]) {
+    if (this.endReached) return;
+    const { canvas, fill_order } = step;
+    for (const s of samples) {
+      if ((s.flags & StrokeFlag.STROKE_START) === 0 || !atLastUnit(canvas, fill_order, s.box_id)) continue;
+      this.lastRowStrokes += 1;
+      const lastRow = canvas.boxes.find((bx) => bx.id === fill_order[fill_order.length - 1])?.row;
+      const cells = canvas.boxes.filter((bx) => bx.row === lastRow).length;
+      if (!locksByRow(canvas) || this.lastRowStrokes >= cells) {
+        this.endReached = true;
+        this.emit();
+        return;
+      }
+    }
   }
 
   private flushBatch() {
@@ -280,8 +315,13 @@ export class KioskSession {
     cancelAnimationFrame(b.rafId);
   }
 
+  /** [Next block] tapped with the pen at the end of the page: finishes the block; the gateway then dispatches the next writing block. */
+  nextBlock(): void {
+    if (this.state.name === 'WRITING' && this.endReached) void this.finish('NEXT_BLOCK');
+  }
+
   /** Locks the canvas, sends the last batch and BLOCK_COMPLETE with the SHA-256 (null reason: abort, no completion). */
-  private async finish(reason: 'MANUAL' | 'LAST_BOX' | 'TIMEOUT' | null) {
+  private async finish(reason: ControlPayload<'BLOCK_COMPLETE'>['end_reason'] | null) {
     const b = this.block;
     if (!b || (this.state.name !== 'WRITING' && this.state.name !== 'PAUSED')) return;
     b.capture?.stop();

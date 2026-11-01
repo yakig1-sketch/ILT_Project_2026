@@ -20,7 +20,7 @@ import {
 } from '@ilt/shared-types';
 import { mirrorCanvas } from '@ilt/template-schemas';
 import type { TokenClaims } from './auth.js';
-import { loadSession, loadSteps, timersFrom, type StepRow } from './routes/sessions.js';
+import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
 
@@ -36,14 +36,18 @@ interface Room {
   /** BLOCK_COMPLETE received, waiting for the remaining batches. */
   pending: Map<string, BlockComplete>;
   linkLost: boolean;
-  /** The block in progress, replayed to a cockpit that (re)connects mid-block. */
-  activeBlock?: { dispatch: ControlEnvelope; started?: ControlEnvelope };
+  /**
+   * The block in progress, replayed to a cockpit that (re)connects mid-block. `tablet` is the
+   * connection it was sent on: a tablet that reconnects on a new connection without it lost it.
+   */
+  activeBlock?: { dispatch: ControlEnvelope; started?: ControlEnvelope; tablet?: WebSocket };
 }
 
 const attemptKey = (step: number, attempt: number) => `${step}:${attempt}`;
 
-/** DISPATCH_STEP as the tablet receives it: resolved canvas (with mirroring), fill order and timers. */
-function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: SettingsSnapshot): ControlPayload<'DISPATCH_STEP'> {
+/** DISPATCH_STEP as the tablet receives it: resolved canvas (with mirroring), fill order, timers and block position. */
+function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: SettingsSnapshot, steps: StepRow[]): ControlPayload<'DISPATCH_STEP'> {
+  const sameType = steps.filter((s) => s.step_type === step.step_type);
   return ControlPayloads.DISPATCH_STEP.parse({
     step_index: step.step_index,
     step_type: step.step_type,
@@ -51,6 +55,8 @@ function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: Setting
     canvas: step.mirrored ? mirrorCanvas(step.geometry!) : step.geometry,
     fill_order: step.fill_order,
     timers: timersFrom(snapshot),
+    block_number: sameType.findIndex((s) => s.step_index === step.step_index) + 1,
+    block_count: sameType.length,
   });
 }
 
@@ -176,17 +182,19 @@ export class Hub {
       [sessionId],
     ) as { rows: { step_index: number; attempt_number: number; started_at: Date }[] };
     const a = active.rows[0];
-    const step = a && (await loadSteps(this.db, sessionId)).find((s) => s.step_index === a.step_index);
+    const steps = a ? await loadSteps(this.db, sessionId) : [];
+    const step = a && steps.find((s) => s.step_index === a.step_index);
     if (!a || !step) return undefined;
     return {
-      dispatch: controlMessage('DISPATCH_STEP', dispatchPayload(step, a.attempt_number, session.settings_snapshot)),
+      dispatch: controlMessage('DISPATCH_STEP', dispatchPayload(step, a.attempt_number, session.settings_snapshot, steps)),
       started: controlMessage('STEP_STARTED', { step_index: a.step_index, attempt_number: a.attempt_number, block_started_at: new Date(a.started_at).toISOString() }),
     };
   }
 
   private async onTabletLost(sessionId: string) {
     const s = await loadSession(this.db, sessionId);
-    if (!s || s.status === 'COMPLETED' || s.status === 'ABORTED') return;
+    // A quick reload reconnects the tablet while the session is being looked up.
+    if (!s || s.status === 'COMPLETED' || s.status === 'ABORTED' || this.room(sessionId).tablet) return;
     this.room(sessionId).linkLost = true;
     this.log({ severity: 'WARN', event_type: 'session.link.lost', session_id: sessionId, message: 'Tablet link lost; the tablet keeps buffering' });
   }
@@ -247,6 +255,9 @@ export class Hub {
   private async onTabletEvent(sessionId: string, socket: WebSocket, env: ControlEnvelope, payload: unknown) {
     const r = this.room(sessionId);
     switch (env.event) {
+      case 'TABLET_STATUS':
+        // Gateway-only: not acknowledged and not forwarded.
+        return this.onTabletStatus(sessionId, socket, payload as ControlPayload<'TABLET_STATUS'>);
       case 'STEP_STARTED': {
         const p = payload as ControlPayload<'STEP_STARTED'>;
         const attempt = await startAttempt(this.db, sessionId, p.step_index, p.attempt_number, p.block_started_at);
@@ -284,7 +295,99 @@ export class Hub {
     if (env.event === 'BLOCK_COMPLETE') {
       const p = payload as BlockComplete;
       await this.tryFinish(sessionId, p.step_index, p.attempt_number);
+      if (p.end_reason === 'NEXT_BLOCK') await this.dispatchNext(sessionId, p.step_index);
     }
+  }
+
+  /**
+   * After a tablet (re)connects: if the running block was sent on an earlier connection and the
+   * tablet no longer holds it (the page restarted), the attempt is closed (stored samples stay), the
+   * step returns to PENDING and the cockpit can send it again. A network blip keeps the block.
+   */
+  private async onTabletStatus(sessionId: string, socket: WebSocket, p: ControlPayload<'TABLET_STATUS'>) {
+    const r = this.room(sessionId);
+    let active = r.activeBlock;
+    if (!active) {
+      // After a gateway restart the running block is only in the database.
+      const fromDb = await this.activeBlockFromDb(sessionId);
+      const d = fromDb?.dispatch.payload as ControlPayload<'DISPATCH_STEP'> | undefined;
+      if (!fromDb || !d || r.pending.has(attemptKey(d.step_index, d.attempt_number))) return;
+      active = r.activeBlock = fromDb;
+    }
+    if (active.tablet === socket) return;
+    const d = active.dispatch.payload as ControlPayload<'DISPATCH_STEP'>;
+    if (p.block?.step_index === d.step_index && p.block.attempt_number === d.attempt_number) {
+      active.tablet = socket;
+      return;
+    }
+
+    r.activeBlock = undefined;
+    await this.db.query(
+      `UPDATE block_attempts SET status = 'ABORTED', ended_at = now()
+        WHERE status = 'ACTIVE' AND attempt_number = $3
+          AND session_step_id = (SELECT id FROM session_steps WHERE session_id = $1 AND step_index = $2)`,
+      [sessionId, d.step_index, d.attempt_number],
+    );
+    await this.db.query("UPDATE session_steps SET status = 'PENDING' WHERE session_id = $1 AND step_index = $2 AND status = 'ACTIVE'", [sessionId, d.step_index]);
+    this.log({
+      severity: 'WARN', event_type: 'session.block.interrupted', session_id: sessionId,
+      message: `Block interrupted: the tablet restarted during step ${d.step_index}, attempt ${d.attempt_number}`,
+      details: { step_index: d.step_index, attempt_number: d.attempt_number, tablet_block: p.block },
+    });
+    this.toCockpits(sessionId, controlMessage('BLOCK_INTERRUPTED', { step_index: d.step_index, attempt_number: d.attempt_number, reason: 'TABLET_RESTARTED' }));
+  }
+
+  /**
+   * [Next block] on the tablet: dispatches the next pending step if it is a writing step. Videos and
+   * paper steps, and the end of the session, stay with the evaluator.
+   */
+  private async dispatchNext(sessionId: string, afterStepIndex: number) {
+    const session = await loadSession(this.db, sessionId);
+    const r = this.room(sessionId);
+    if (!session || session.status === 'COMPLETED' || session.status === 'ABORTED' || !r.tablet) return;
+    const next = (await loadSteps(this.db, sessionId)).find((s) => s.step_index > afterStepIndex && s.status === 'PENDING');
+    if (!next || !WRITING_STEPS.has(next.step_type)) return;
+    const forward = await this.prepareDispatch(sessionId, session, next.step_index, 'TABLET');
+    if ('code' in forward) return;
+    this.sendTo(r.tablet, forward);
+    for (const c of r.cockpits) this.sendTo(c, forward);
+  }
+
+  /** Checks a step can be dispatched, opens its next attempt and builds the enriched DISPATCH_STEP. */
+  private async prepareDispatch(
+    sessionId: string,
+    session: SessionRow,
+    stepIndex: number,
+    source: 'COCKPIT' | 'TABLET',
+    base?: ControlEnvelope,
+  ): Promise<ControlEnvelope | { code: string; message: string }> {
+    const steps = await loadSteps(this.db, sessionId);
+    const step = steps.find((s) => s.step_index === stepIndex);
+    if (!step || !WRITING_STEPS.has(step.step_type) || !step.geometry || !step.fill_order) {
+      return { code: 'NOT_DISPATCHABLE', message: 'This step is not a writing step' };
+    }
+    if (step.status === 'DONE' || step.status === 'SKIPPED') {
+      return { code: 'STEP_DONE', message: 'This step is already finished' };
+    }
+    const last = await this.db.query(
+      `SELECT coalesce(max(attempt_number), 0) AS n FROM block_attempts WHERE session_step_id = $1`,
+      [step.id],
+    ) as { rows: { n: number }[] };
+    const attemptNumber = Number(last.rows[0]?.n ?? 0) + 1;
+    // A block left active (tablet restarted mid-block) is closed; its samples stay stored.
+    await this.db.query("UPDATE block_attempts SET status = 'ABORTED', ended_at = now() WHERE session_step_id = $1 AND status = 'ACTIVE'", [step.id]);
+    await this.db.query("UPDATE session_steps SET status = 'ACTIVE' WHERE id = $1", [step.id]);
+    await this.db.query(
+      "UPDATE sessions SET status = 'IN_PROGRESS', started_at = coalesce(started_at, now()) WHERE id = $1 AND status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED')",
+      [sessionId],
+    );
+    const payload = { ...dispatchPayload(step, attemptNumber, session.settings_snapshot, steps), ...(source === 'TABLET' && { immediate: true }) };
+    const forward = base ? { ...base, payload } : controlMessage('DISPATCH_STEP', payload);
+    const r = this.room(sessionId);
+    r.activeBlock = { dispatch: forward, tablet: r.tablet };
+    const by = source === 'TABLET' ? ' from the tablet ([Next block])' : '';
+    this.log({ severity: 'INFO', event_type: 'session.step.dispatched', session_id: sessionId, entity_type: 'session_step', entity_id: step.id, message: `Step ${step.step_index} (${step.step_type}) dispatched${by}, attempt ${attemptNumber}`, details: { step_index: step.step_index, attempt_number: attemptNumber, canvas: step.canvas_code, mirrored: step.mirrored, source } });
+    return forward;
   }
 
   private async onCockpitEvent(sessionId: string, socket: WebSocket, env: ControlEnvelope, payload: unknown) {
@@ -303,28 +406,9 @@ export class Hub {
     switch (env.event) {
       case 'DISPATCH_STEP': {
         const p = payload as ControlPayload<'DISPATCH_STEP'>;
-        const step = (await loadSteps(this.db, sessionId)).find((s) => s.step_index === p.step_index);
-        if (!step || !WRITING_STEPS.has(step.step_type) || !step.geometry || !step.fill_order) {
-          return this.error(socket, env.message_id, 'NOT_DISPATCHABLE', 'This step is not a writing step');
-        }
-        if (step.status === 'DONE' || step.status === 'SKIPPED') {
-          return this.error(socket, env.message_id, 'STEP_DONE', 'This step is already finished');
-        }
-        const last = await this.db.query(
-          `SELECT coalesce(max(attempt_number), 0) AS n FROM block_attempts WHERE session_step_id = $1`,
-          [step.id],
-        ) as { rows: { n: number }[] };
-        const attemptNumber = Number(last.rows[0]?.n ?? 0) + 1;
-        // A block left active (tablet restarted mid-block) is closed; its samples stay stored.
-        await this.db.query("UPDATE block_attempts SET status = 'ABORTED', ended_at = now() WHERE session_step_id = $1 AND status = 'ACTIVE'", [step.id]);
-        await this.db.query("UPDATE session_steps SET status = 'ACTIVE' WHERE id = $1", [step.id]);
-        await this.db.query(
-          "UPDATE sessions SET status = 'IN_PROGRESS', started_at = coalesce(started_at, now()) WHERE id = $1 AND status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED')",
-          [sessionId],
-        );
-        forward = { ...env, payload: dispatchPayload(step, attemptNumber, session.settings_snapshot) };
-        r.activeBlock = { dispatch: forward };
-        this.log({ severity: 'INFO', event_type: 'session.step.dispatched', session_id: sessionId, entity_type: 'session_step', entity_id: step.id, message: `Step ${step.step_index} (${step.step_type}) dispatched, attempt ${attemptNumber}`, details: { step_index: step.step_index, attempt_number: attemptNumber, canvas: step.canvas_code, mirrored: step.mirrored } });
+        const prepared = await this.prepareDispatch(sessionId, session, p.step_index, 'COCKPIT', env);
+        if ('code' in prepared) return this.error(socket, env.message_id, prepared.code, prepared.message);
+        forward = prepared;
         break;
       }
       case 'PAUSE_SESSION': {
