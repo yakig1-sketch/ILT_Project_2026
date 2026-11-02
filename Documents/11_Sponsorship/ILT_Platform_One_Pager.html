@@ -1,0 +1,191 @@
+<title>ILT Platform One-Pager</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one A4 sheet. Ink-blue header band, then a two-column body (story left, facts right), contact strip at the foot. */
+:root {
+  --paper: #fbfcfe;
+  --ink: #16213a;
+  --muted: #55607a;
+  --rule: #d9deea;
+  --band: #1b2a52;
+  --band-fg: #f2f5fc;
+  --accent: #2f7d8c;
+  --tint: #edf3f6;
+  --dot: #c2462f;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #10151f; --ink: #e6eaf3; --muted: #a2abc0; --rule: #2b3346;
+  --band: #18233f; --band-fg: #f2f5fc; --accent: #6cc0cf; --tint: #18212e; --dot: #ef7a62; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #10151f; --ink: #e6eaf3; --muted: #a2abc0; --rule: #2b3346;
+  --band: #18233f; --band-fg: #f2f5fc; --accent: #6cc0cf; --tint: #18212e; --dot: #ef7a62; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 400 13.5px/1.5 var(--body); }
+.sheet { max-width: 210mm; margin: 0 auto; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { background: var(--band); color: var(--band-fg); }
+header .wrap { padding-block: 22px 20px; display: grid; grid-template-columns: 1fr; gap: 14px; align-items: center; }
+.eyebrow { font: 500 10.5px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; opacity: .8; margin: 0 0 6px; }
+h1 { font: 700 30px/1.08 var(--display); margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+.lede { margin: 0; font-size: 14px; max-width: 62ch; opacity: .92; }
+.letter { width: 132px; max-width: 100%; justify-self: start; }
+.letter rect { fill: none; stroke: currentColor; stroke-opacity: .45; }
+.letter path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.letter circle { fill: var(--dot); }
+.letter text { fill: currentColor; font: 500 8px var(--mono); opacity: .75; }
+
+main .wrap { padding-block: 18px 6px; display: grid; grid-template-columns: 1fr; gap: 18px; }
+.col { display: grid; gap: 14px; align-content: start; min-width: 0; }
+h2 { font: 700 15.5px/1.2 var(--display); margin: 0 0 5px; color: var(--ink); }
+h2 small { font: 500 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 3px; }
+p { margin: 0; }
+section > p + p { margin-top: 6px; }
+ul { margin: 0; padding-left: 1.1em; display: grid; gap: 3px; }
+li::marker { color: var(--accent); }
+
+.days { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.days li { border-top: 2px solid var(--accent); padding-top: 5px; font-size: 12.5px; line-height: 1.4; }
+.days b { display: block; font: 500 11px var(--mono); color: var(--accent); letter-spacing: .04em; }
+
+.facts { background: var(--tint); padding: 12px 14px; display: grid; gap: 8px; }
+.facts dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; align-items: baseline; }
+.facts dt { font: 500 15px/1.1 var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.facts dd { margin: 0; font-size: 12.5px; line-height: 1.35; }
+
+.status { display: grid; gap: 4px; }
+.phase { display: grid; grid-template-columns: 15px 1fr; gap: 7px; font-size: 12.5px; line-height: 1.35; align-items: start; }
+.phase i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--accent); margin-top: 3px; }
+.phase.done i { background: var(--accent); }
+
+.ask { border: 1.5px solid var(--ink); padding: 12px 14px; }
+.ask ul { gap: 5px; }
+
+footer .wrap { padding-block: 10px 16px; }
+.contact { border-top: 1px solid var(--rule); padding-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 12px; color: var(--muted); }
+.contact strong { color: var(--ink); font-weight: 600; }
+.contact span { min-width: 0; }
+.cite { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+@media (min-width: 720px), print {
+  header .wrap { grid-template-columns: 1fr auto; padding-left: 14mm; padding-right: 14mm; }
+  .letter { justify-self: end; }
+  main .wrap { grid-template-columns: 1.15fr 1fr; gap: 9mm; padding-left: 14mm; padding-right: 14mm; }
+  footer .wrap { padding-left: 14mm; padding-right: 14mm; }
+}
+@page { size: A4; margin: 0; }
+@media print {
+  :root { --paper: #fff; }
+  body { font-size: 11.9px; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 27px; }
+  header .wrap { padding-block: 16px 15px; }
+  main .wrap { padding-block: 14px 4px; }
+  .col { gap: 11px; }
+  .days li, .facts dd, .phase { font-size: 11.6px; }
+  .facts dt { font-size: 14px; }
+  .contact { font-size: 11px; }
+  .sheet { width: 210mm; height: 297mm; overflow: hidden; }
+}
+</style>
+
+<div class="sheet">
+<header>
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">Open-source research platform · Bar-Ilan University</p>
+      <h1>ILT: spotting literacy difficulties early, from how a child learns to write a new letter</h1>
+      <p class="lede">The Invented Letter Task (ILT) Platform turns a validated paper-and-digitizer research test into a digital system that schools, research labs and clinics can run on pen tablets, free of licence fees.</p>
+    </div>
+    <svg class="letter" viewBox="0 0 132 110" role="img" aria-label="An ILT box: three dots, A, B and C, joined by one continuous pen stroke">
+      <rect x="4" y="4" width="124" height="102" rx="2"/>
+      <path d="M26 82 C 34 40, 52 22, 68 30 S 84 70, 106 34"/>
+      <circle cx="26" cy="82" r="5"/><circle cx="68" cy="30" r="5"/><circle cx="106" cy="34" r="5"/>
+      <text x="16" y="99">A</text><text x="64" y="20">B</text><text x="110" y="24">C</text>
+    </svg>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="col">
+      <section>
+        <h2><small>The need</small>Children who struggle are found too late</h2>
+        <p>Dyslexia, dysgraphia and reading-comprehension difficulties are usually identified only after a child has already fallen behind. Children from low socio-economic backgrounds are at the highest risk of going unnoticed.</p>
+        <p>Research by Dr. Hagit Hollander and Prof. Esther Adi-Japha shows that how well a second-grader learns and retains a new handwriting movement predicts their reading and writing at the end of the school year. A test of that learning can flag children at risk months before formal failure.</p>
+      </section>
+
+      <section>
+        <h2><small>How it works</small>A child writes one invented letter, again and again</h2>
+        <p>On a pen tablet, the child writes a letter they have never seen: one continuous stroke through three dots, in a grid of 15 boxes. Because the letter is new, the test measures pure motor learning, not prior knowledge or home language.</p>
+        <ol class="days">
+          <li><b>Day 1</b>Learning: speed and accuracy across practice blocks</li>
+          <li><b>Day 2</b>Overnight consolidation of the new skill</li>
+          <li><b>Day 14</b>Retention without further practice</li>
+        </ol>
+        <p style="margin-top:8px">An evaluator follows each stroke live on a laptop. Each block is scored automatically when it ends, and every session can be replayed stroke by stroke.</p>
+      </section>
+
+      <section>
+        <h2><small>Built for research</small>Raw data first, privacy by design</h2>
+        <ul>
+          <li>Every pen sample is kept, so scores can be recomputed when the scoring method improves.</li>
+          <li>No names or identity data are stored. Analysts see only de-identified research data.</li>
+          <li>Hebrew and English with full right-to-left support; new languages need no code changes.</li>
+          <li>Fully open source, built only on open-source components.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="col">
+      <div class="facts" aria-label="What the platform measures">
+        <h2><small>What it captures</small>Measured on the Wacom tablet</h2>
+        <dl>
+          <dt>240 Hz</dt><dd>pen samples per second while writing</dd>
+          <dt>~8,000</dt><dd>pressure steps, plus pen tilt</dd>
+          <dt>10 mm</dt><dd>hover range: time with the pen in the air is measured</dd>
+          <dt>&lt; 15 ms</dt><dd>target delay of the evaluator's live view</dd>
+          <dt>500</dt><dd>concurrent sessions in the cloud design</dd>
+        </dl>
+      </div>
+
+      <section class="status">
+        <h2><small>Status · November 2026</small>Core system working; pilot next</h2>
+        <div class="phase done"><i></i><span>Foundations: database, scoring engine, Hebrew and English apps</span></div>
+        <div class="phase done"><i></i><span>Pen capture, tablet pairing and live mirror, tested on the target tablet</span></div>
+        <div class="phase done"><i></i><span>Full Day 1 / 2 / 14 sessions with scoring, summary and replay</span></div>
+        <div class="phase"><i></i><span>Administration, research portal and analytics</span></div>
+        <div class="phase"><i></i><span>Intervention program with real letters</span></div>
+        <div class="phase"><i></i><span>Pilot, 2026/27 school year: 50 children on tablets, 50 on paper, plus 50 earlier datasets</span></div>
+      </section>
+
+      <section class="ask">
+        <h2><small>How you can help</small>Sponsorship opportunities</h2>
+        <ul>
+          <li><b>Pen tablets</b> for field kits that test one child, or four children at once.</li>
+          <li><b>Cloud hosting</b> for the central research system: about 7 virtual servers at full scale.</li>
+          <li><b>Research and development funding</b> to complete the platform and run the pilot.</li>
+          <li><b>School and clinic partners</b> to take part in the pilot.</li>
+        </ul>
+        <p style="margin-top:7px; font-size:12px; color:var(--muted)">Sponsors are acknowledged in publications, conference talks and the project's open-source repository.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="contact">
+      <span><strong>Yaki Grossman</strong>, Project Lead &amp; Systems Architect</span>
+      <span>yakig@penflow.com · +972-54-300-0760</span>
+      <span>With Dr. Hagit Hollander &amp; Prof. Esther Adi-Japha, School of Education, Bar-Ilan University</span>
+    </div>
+    <p class="cite">Research basis: Skill learning as a predictor of literacy abilities and related impairments among second-graders from low-SES, <i>Learning and Individual Differences</i>, 2025.</p>
+  </div>
+</footer>
+</div>
