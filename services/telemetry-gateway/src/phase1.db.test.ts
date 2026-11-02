@@ -7,54 +7,16 @@ import { createHash, randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
 import { PacketType, encodePacket, encodeSampleRecords } from '@ilt/emr-protocol';
 import { PERFECT_ILT, synthBlock } from '@ilt/ilt-metrics';
 import { controlMessage, type ControlEnvelope, type PenSample } from '@ilt/shared-types';
 import { ILT_GRID_GEOMETRY, ILT_PROFILE_HE } from '@ilt/template-schemas';
 import { buildApp } from './app.js';
+import { Client, isEvent } from './ws-client.test-support.js';
 import { ageInMonths } from './routes/sessions.js';
 
 const DB_URL = process.env.TEST_DATABASE_URL;
 
-class Client {
-  readonly messages: (ControlEnvelope | Uint8Array)[] = [];
-  private waiters: (() => void)[] = [];
-  constructor(readonly ws: WebSocket) {
-    ws.on('message', (data: Buffer, binary: boolean) => {
-      this.messages.push(binary ? new Uint8Array(data) : (JSON.parse(data.toString()) as ControlEnvelope));
-      this.waiters.splice(0).forEach((w) => w());
-    });
-  }
-  static async open(url: string, auth: Record<string, string>): Promise<Client> {
-    const ws = new WebSocket(url);
-    await new Promise((resolve, reject) => {
-      ws.once('open', resolve);
-      ws.once('error', reject);
-    });
-    const c = new Client(ws);
-    ws.send(JSON.stringify(auth));
-    return c;
-  }
-  send(msg: unknown) {
-    this.ws.send(JSON.stringify(msg));
-  }
-  /** Waits for (and removes) the first message matching the predicate. */
-  async next<T = ControlEnvelope>(match: (m: ControlEnvelope | Uint8Array) => boolean, timeoutMs = 5000): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      const i = this.messages.findIndex(match);
-      if (i >= 0) return this.messages.splice(i, 1)[0] as T;
-      if (Date.now() > deadline) throw new Error('timed out waiting for a message');
-      await new Promise<void>((r) => {
-        this.waiters.push(r);
-        setTimeout(r, 100);
-      });
-    }
-  }
-}
-
-const isEvent = (event: string) => (m: ControlEnvelope | Uint8Array) => !(m instanceof Uint8Array) && m.event === event;
 
 describe.skipIf(!DB_URL)('Phase 1 flow against the database', () => {
   const pool = new pg.Pool({ connectionString: DB_URL });

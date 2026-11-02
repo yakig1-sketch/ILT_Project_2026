@@ -68,7 +68,12 @@ const s: Record<string, CSSProperties> = {
   banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem', zIndex: 2 },
   overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem', zIndex: 1 },
   countdown: { fontSize: '1.6rem', fontWeight: 600 },
+  video: { position: 'fixed', inset: 0, background: '#000', display: 'grid', placeItems: 'center', zIndex: 3 },
+  videoTap: { fontSize: '1.6rem', fontWeight: 600, paddingBlock: '1rem', paddingInline: '2.5rem', borderRadius: '0.8rem', border: 'none', background: '#0969da', color: '#fff' },
 };
+
+// Inactivity cue (FR-TAB-5): a soft, slow amber glow around the page; no motion under reduced motion.
+const CUE_CSS = '@keyframes ilt-cue { 50% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0.55); } } .ilt-cue { box-shadow: 0 0 0 6px rgba(255, 193, 7, 0.35); animation: ilt-cue 2.4s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .ilt-cue { animation: none; } }';
 
 /** Hides the browser bars. Needs a user gesture, so it is called from taps (never from a stroke on the canvas). */
 function enterFullscreen() {
@@ -192,7 +197,11 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
   const { t } = useTranslation();
   const snapshot = useSyncExternalStore(
     (fn) => session.subscribe(fn),
-    () => `${session.state.name}:${'secondsLeft' in session.state ? session.state.secondsLeft : ''}:${session.gatewayConnected}:${session.endReached}`,
+    () => {
+      const st = session.state;
+      const video = st.name === 'VIDEO' ? `${st.step_index}:${!!st.src}:${st.blocked}` : '';
+      return `${st.name}:${'secondsLeft' in st ? st.secondsLeft : ''}:${session.gatewayConnected}:${session.endReached}:${session.inactivity}:${video}`;
+    },
   );
   void snapshot;
   const state = session.state;
@@ -213,6 +222,18 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
 
   if (ended || state.name === 'DONE') {
     return <div style={s.screen}>{t('kiosk.session_done')}</div>;
+  }
+  if (state.name === 'VIDEO') {
+    return (
+      <div style={s.video}>
+        {banner}
+        {state.src ? (
+          <VideoPlayer session={session} src={state.src} blocked={state.blocked} label={t('kiosk.tap_to_play')} />
+        ) : (
+          <p style={{ color: '#fff', fontSize: '1.6rem' }}>{t(state.blocked ? 'kiosk.video_failed' : 'kiosk.video_loading')}</p>
+        )}
+      </div>
+    );
   }
   if (state.name === 'WAITING') {
     return (
@@ -241,7 +262,8 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
       }
     >
       {banner}
-      <WritingCanvas session={session} />
+      <style>{CUE_CSS}</style>
+      <WritingCanvas session={session} cue={session.inactivity !== 'NONE'} />
       {state.name === 'PAUSED' && <div style={s.overlay}>{t('kiosk.paused')}</div>}
       {state.name === 'UPLOADING' && <div style={s.overlay}>{t('kiosk.uploading')}</div>}
     </BlockFrame>
@@ -299,7 +321,24 @@ function PenButton({ label, disabled, onTap }: { label: string; disabled: boolea
   );
 }
 
-function WritingCanvas({ session }: { session: KioskSession }) {
+/** Full-screen instruction video (FR-PLAN-6). If the browser refuses autoplay with sound, a tap starts it. */
+function VideoPlayer({ session, src, blocked, label }: { session: KioskSession; src: string; blocked: boolean; label: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const play = () => {
+    ref.current?.play().then(() => session.videoStarted(), () => session.videoBlocked());
+  };
+  useEffect(play, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <>
+      <video ref={ref} src={src} playsInline onEnded={() => session.videoEnded()} style={{ inlineSize: '100vw', blockSize: '100dvh', objectFit: 'contain' }} />
+      {blocked && (
+        <button type="button" style={{ ...s.videoTap, position: 'absolute' }} onClick={() => { enterFullscreen(); play(); }}>{label}</button>
+      )}
+    </>
+  );
+}
+
+function WritingCanvas({ session, cue }: { session: KioskSession; cue: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const ink = useRef<HTMLCanvasElement>(null);
   const state = session.state;
@@ -314,13 +353,15 @@ function WritingCanvas({ session }: { session: KioskSession }) {
 
   if (!step) return null;
   return (
-    <CanvasView geometry={step.canvas} pxPerMm={pxPerMm}>
-      <canvas ref={ink} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div
-        ref={surface}
-        data-testid="capture-surface"
-        style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: 'crosshair', userSelect: 'none' }}
-      />
-    </CanvasView>
+    <div className={cue ? 'ilt-cue' : undefined} data-testid="writing-page" data-cue={cue} style={{ lineHeight: 0 }}>
+      <CanvasView geometry={step.canvas} pxPerMm={pxPerMm}>
+        <canvas ref={ink} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+        <div
+          ref={surface}
+          data-testid="capture-surface"
+          style={{ position: 'absolute', inset: 0, touchAction: 'none', cursor: 'crosshair', userSelect: 'none' }}
+        />
+      </CanvasView>
+    </div>
   );
 }

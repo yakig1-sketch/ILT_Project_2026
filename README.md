@@ -7,7 +7,7 @@ An open-source, non-commercial research and intervention platform built around t
 
 ## Status
 
-Phase 0 (foundations) and Phase 1 (capture and live mirror) are in place. An evaluator signs in to the cockpit, creates a participant and a session, and pairs the tablet with a 6-digit PIN. The cockpit sends writing blocks to the tablet and watches the child write on a live mirror. Every pen sample is saved and checked (SHA-256), with nothing lost if the network drops. Phase 2 (full test session and scores) is next: videos, timers, scoring and the summary.
+Phases 0–2 are in place. An evaluator signs in to the cockpit, creates a participant and a session, and pairs the tablet with a 6-digit PIN. A Day 1, Day 2 or Day 14 session runs start to finish: instruction videos play on the tablet in the session language, writing blocks run with the inactivity cue, and the evaluator watches a live mirror with live telemetry. Every pen sample is saved and checked (SHA-256), with nothing lost if the network drops. Each block is measured and scored as soon as it is stored; blocks can be repeated; Day 2 paper notebook pages are timed in the cockpit. The Comparative Summary shows the anchor pairs with their component scores, composite and Pass/Fail, with Replay. Phase 3 (administration) is next.
 
 To try it without the tablet, run the gateway, cockpit and kiosk (below); development builds accept the mouse as a pen.
 
@@ -68,7 +68,7 @@ Tests:
 pnpm turbo run build typecheck test
 ```
 
-The gateway's end-to-end test (`services/telemetry-gateway/src/phase1.db.test.ts`) runs only when `TEST_DATABASE_URL` points at a migrated and seeded database as the `ilt_app` role; CI sets it. It leaves its test participant and session (`TEST-…` study codes) in that database.
+The gateway's end-to-end tests (`services/telemetry-gateway/src/phase1.db.test.ts`, `phase2.db.test.ts`) run only when `TEST_DATABASE_URL` points at a migrated and seeded database as the `ilt_app` role; CI sets it. They leave their test participants and sessions (`TEST…` codes) in that database; the Phase 2 test restores the pass threshold it changes.
 
 Python analytics (from `services/analytics`, in a virtual environment): `pip install -e ".[dev]"` then `pytest`.
 

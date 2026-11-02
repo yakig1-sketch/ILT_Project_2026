@@ -1,6 +1,7 @@
 // Real-time hub (DDD §5.1, §11). One room per session with the paired tablet and the evaluator's
 // cockpit(s). The gateway is the relay for control events and WebRTC signalling, persists every
-// BATCH packet before acknowledging it, and verifies each completed block.
+// BATCH packet before acknowledging it, verifies and scores each completed block, and runs the
+// video steps (the tablet plays the session-language video).
 //
 // Socket protocol: the first text message authenticates ({ auth: token }, plus session_id for a
 // cockpit). After that, text messages are control-event envelopes or { signal } relays, and binary
@@ -21,6 +22,7 @@ import {
 import { mirrorCanvas } from '@ilt/template-schemas';
 import type { TokenClaims } from './auth.js';
 import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
+import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
 
@@ -41,6 +43,8 @@ interface Room {
    * connection it was sent on: a tablet that reconnects on a new connection without it lost it.
    */
   activeBlock?: { dispatch: ControlEnvelope; started?: ControlEnvelope; tablet?: WebSocket };
+  /** The video step playing on the tablet (VIDEO_PLAY as sent), replayed to a cockpit that connects. */
+  activeVideo?: ControlEnvelope;
 }
 
 const attemptKey = (step: number, attempt: number) => `${step}:${attempt}`;
@@ -57,8 +61,12 @@ function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: Setting
     timers: timersFrom(snapshot),
     block_number: sameType.findIndex((s) => s.step_index === step.step_index) + 1,
     block_count: sameType.length,
+    ...(step.profile && { profile: step.profile }),
   });
 }
+
+/** Where the tablet streams an instruction video from (gateway media route, DDD §14). */
+export const videoUrl = (videoId: string) => `/api/v1/media/videos/${videoId}`;
 
 export class Hub {
   private rooms = new Map<string, Room>();
@@ -152,6 +160,8 @@ export class Hub {
         this.log({ severity: 'INFO', event_type: 'session.link.restored', session_id: claims.session_id, client_ip: clientIp, message: 'Tablet link restored' });
       }
       this.notifyPeers(claims.session_id);
+      // A tablet that reloaded during a video plays it again (the kiosk ignores a repeat of the one it is playing).
+      if (r.activeVideo) this.sendTo(socket, r.activeVideo);
       return claims.session_id;
     }
 
@@ -167,6 +177,7 @@ export class Hub {
       this.sendTo(socket, r.activeBlock.dispatch);
       if (r.activeBlock.started) this.sendTo(socket, r.activeBlock.started);
     }
+    if (r.activeVideo) this.sendTo(socket, r.activeVideo);
     return sessionId;
   }
 
@@ -283,9 +294,19 @@ export class Hub {
         });
         break;
       }
+      case 'INACTIVITY_ALERT': {
+        const p = payload as ControlPayload<'INACTIVITY_ALERT'>;
+        this.log({
+          severity: p.level === 'AMBER' ? 'WARN' : 'INFO', event_type: p.level === 'AMBER' ? 'session.inactivity.amber' : 'session.inactivity.cue',
+          session_id: sessionId, message: `Inactivity ${p.level.toLowerCase()}: ${Math.round(p.idle_ms / 1000)} s without writing (box ${p.box_id})`, details: p,
+        });
+        break;
+      }
+      case 'VIDEO_ENDED':
+        await this.endVideo(sessionId, payload as ControlPayload<'VIDEO_ENDED'>);
+        break;
       case 'ACK':
       case 'ERROR':
-      case 'INACTIVITY_ALERT':
         break;
       default:
         return this.error(socket, env.message_id, 'NOT_ALLOWED', `${env.event} is not a tablet event`);
@@ -369,6 +390,7 @@ export class Hub {
     if (step.status === 'DONE' || step.status === 'SKIPPED') {
       return { code: 'STEP_DONE', message: 'This step is already finished' };
     }
+    if (this.room(sessionId).activeVideo) return { code: 'VIDEO_PLAYING', message: 'A video is playing on the tablet' };
     const last = await this.db.query(
       `SELECT coalesce(max(attempt_number), 0) AS n FROM block_attempts WHERE session_step_id = $1`,
       [step.id],
@@ -397,7 +419,7 @@ export class Hub {
     if (session.status === 'COMPLETED' || session.status === 'ABORTED') {
       return this.error(socket, env.message_id, 'SESSION_CLOSED', 'Session is closed');
     }
-    const needsTablet: ControlEventName[] = ['DISPATCH_STEP', 'PAUSE_SESSION', 'RESUME_SESSION', 'MANUAL_FINISH'];
+    const needsTablet: ControlEventName[] = ['DISPATCH_STEP', 'PAUSE_SESSION', 'RESUME_SESSION', 'MANUAL_FINISH', 'REPEAT_BLOCK', 'VIDEO_PLAY'];
     if (needsTablet.includes(env.event) && !r.tablet) {
       return this.error(socket, env.message_id, 'TABLET_OFFLINE', 'The tablet is not connected');
     }
@@ -423,6 +445,22 @@ export class Hub {
         break;
       case 'MANUAL_FINISH':
         break;
+      case 'REPEAT_BLOCK': {
+        const prepared = await this.repeatBlock(sessionId, session, payload as ControlPayload<'REPEAT_BLOCK'>);
+        if ('code' in prepared) return this.error(socket, env.message_id, prepared.code, prepared.message);
+        forward = prepared;
+        break;
+      }
+      case 'VIDEO_PLAY': {
+        const prepared = await this.playVideo(sessionId, session, (payload as ControlPayload<'VIDEO_PLAY'>).step_index, env);
+        if ('code' in prepared) return this.error(socket, env.message_id, prepared.code, prepared.message);
+        forward = prepared;
+        break;
+      }
+      case 'VIDEO_ENDED':
+        // The evaluator stops the video: the tablet closes it and the step is done.
+        await this.endVideo(sessionId, payload as ControlPayload<'VIDEO_ENDED'>);
+        break;
       case 'ABORT_SESSION': {
         const p = payload as ControlPayload<'ABORT_SESSION'>;
         await this.db.query("UPDATE sessions SET status = 'ABORTED', abort_reason = $2, completed_at = now() WHERE id = $1", [sessionId, p.reason.slice(0, 50)]);
@@ -432,6 +470,7 @@ export class Hub {
           [sessionId],
         );
         r.activeBlock = undefined;
+        r.activeVideo = undefined;
         this.log({ severity: 'WARN', event_type: 'session.aborted', session_id: sessionId, message: `Session aborted: ${p.reason}`, details: p });
         break;
       }
@@ -446,6 +485,68 @@ export class Hub {
     // Every cockpit sees what was sent (the dispatch carries the canvas for the mirror).
     for (const c of r.cockpits) this.sendTo(c, forward);
     this.ack(socket, env);
+  }
+
+  /**
+   * Repeat block (FR-COCK-3): the step's last finished attempt becomes REPEATED (kept for audit,
+   * with its scores) and the step is sent again as the next attempt.
+   */
+  private async repeatBlock(sessionId: string, session: SessionRow, p: ControlPayload<'REPEAT_BLOCK'>): Promise<ControlEnvelope | { code: string; message: string }> {
+    const r = this.room(sessionId);
+    if (r.activeBlock || r.activeVideo) return { code: 'BLOCK_ACTIVE', message: 'Another step is running' };
+    const last = await this.db.query(
+      `SELECT ba.id, ba.attempt_number, st.id AS step_id FROM block_attempts ba JOIN session_steps st ON st.id = ba.session_step_id
+        WHERE st.session_id = $1 AND st.step_index = $2 AND st.status = 'DONE'
+          AND ba.status IN ('COMPLETED', 'MANUAL_FINISH', 'TIMED_OUT')
+        ORDER BY ba.attempt_number DESC LIMIT 1`,
+      [sessionId, p.step_index],
+    ) as { rows: { id: string; attempt_number: number; step_id: string }[] };
+    const a = last.rows[0];
+    if (!a) return { code: 'NOT_REPEATABLE', message: 'Only a finished writing block can be repeated' };
+    await this.db.query("UPDATE block_attempts SET status = 'REPEATED', repeat_reason = $2 WHERE id = $1", [a.id, p.reason.slice(0, 100)]);
+    await this.db.query("UPDATE session_steps SET status = 'PENDING', completed_at = NULL WHERE id = $1", [a.step_id]);
+    this.log({
+      severity: 'INFO', event_type: 'session.block.repeated', session_id: sessionId, entity_type: 'block_attempt', entity_id: a.id,
+      message: `Block repeated: step ${p.step_index}, attempt ${a.attempt_number} kept for audit (${p.reason})`, details: { ...p, attempt_number: a.attempt_number },
+    });
+    return this.prepareDispatch(sessionId, session, p.step_index, 'COCKPIT');
+  }
+
+  /** Video step (FR-PLAN-6/8): resolves the session-language video and tells the tablet to play it. */
+  private async playVideo(sessionId: string, session: SessionRow, stepIndex: number, base: ControlEnvelope): Promise<ControlEnvelope | { code: string; message: string }> {
+    const r = this.room(sessionId);
+    if (r.activeBlock) return { code: 'BLOCK_ACTIVE', message: 'A block is running' };
+    const step = (await loadSteps(this.db, sessionId)).find((s) => s.step_index === stepIndex);
+    if (!step || step.step_type !== 'VIDEO' || !step.video_key) return { code: 'NOT_A_VIDEO', message: 'This step is not a video' };
+    if (step.status === 'DONE' || step.status === 'SKIPPED') return { code: 'STEP_DONE', message: 'This step is already finished' };
+    const video = await this.db.query(
+      "SELECT id FROM instruction_videos WHERE video_key = $1 AND language_code = $2 AND status = 'ACTIVE'",
+      [step.video_key, session.language_code],
+    ) as { rows: { id: string }[] };
+    const v = video.rows[0];
+    if (!v) return { code: 'NO_VIDEO', message: `No ${session.language_code} version of video ${step.video_key}` };
+    await this.db.query("UPDATE session_steps SET status = 'ACTIVE', started_at = coalesce(started_at, now()) WHERE id = $1", [step.id]);
+    await this.db.query(
+      "UPDATE sessions SET status = 'IN_PROGRESS', started_at = coalesce(started_at, now()) WHERE id = $1 AND status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED')",
+      [sessionId],
+    );
+    const forward = { ...base, payload: { step_index: stepIndex, video_key: step.video_key, language: session.language_code, url: videoUrl(v.id) } };
+    r.activeVideo = forward;
+    this.log({ severity: 'INFO', event_type: 'session.video.played', session_id: sessionId, entity_type: 'session_step', entity_id: step.id, message: `Video ${step.video_key} (${session.language_code}) playing, step ${stepIndex}`, details: { step_index: stepIndex, video_id: v.id } });
+    return forward;
+  }
+
+  /** The video ended on the tablet, or the evaluator stopped it: the step is done. */
+  private async endVideo(sessionId: string, p: ControlPayload<'VIDEO_ENDED'>) {
+    const r = this.room(sessionId);
+    const playing = r.activeVideo?.payload as ControlPayload<'VIDEO_PLAY'> | undefined;
+    if (playing?.step_index !== p.step_index) return;
+    r.activeVideo = undefined;
+    await this.db.query(
+      "UPDATE session_steps SET status = 'DONE', completed_at = now() WHERE session_id = $1 AND step_index = $2 AND status = 'ACTIVE'",
+      [sessionId, p.step_index],
+    );
+    this.log({ severity: 'INFO', event_type: 'session.video.ended', session_id: sessionId, message: `Video ${playing.video_key} ${p.reason === 'STOPPED' ? 'stopped by the evaluator' : 'ended'}, step ${p.step_index}`, details: p });
   }
 
   /** Ends the session when no step is left (gateway → all: SESSION_COMPLETE). */
@@ -512,6 +613,35 @@ export class Hub {
     this.toCockpits(sessionId, controlMessage('BLOCK_STORED', {
       block_attempt_id: attempt.id, step_index: stepIndex, attempt_number: attemptNumber, sample_count: stored, integrity_ok,
     }));
+    await this.score(sessionId, stepIndex, attemptNumber, attempt.id);
+  }
+
+  /** Measures and scores a stored block (DDD §8), then tells the cockpit (BLOCK_SCORED). */
+  private async score(sessionId: string, stepIndex: number, attemptNumber: number, attemptId: string) {
+    try {
+      const session = await loadSession(this.db, sessionId);
+      const step = (await loadSteps(this.db, sessionId)).find((s) => s.step_index === stepIndex);
+      if (!session || !step?.geometry) return;
+      const { score_version, summary } = await scoreAttempt(this.db, {
+        attemptId,
+        canvas: step.mirrored ? mirrorCanvas(step.geometry) : step.geometry,
+        profile: step.step_type === 'NOTEBOOK_PAGE' ? null : step.profile,
+        isScored: step.is_scored,
+        snapshot: session.settings_snapshot,
+      });
+      this.log({
+        severity: 'INFO', event_type: 'session.block.scored', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId,
+        message: score_version === null
+          ? `Block measured: step ${stepIndex}, attempt ${attemptNumber} (not scored)`
+          : `Block scored: step ${stepIndex}, attempt ${attemptNumber}, composite ${summary.composite_score ?? 'not configured'}`,
+        details: { step_index: stepIndex, attempt_number: attemptNumber, score_version, composite: summary.composite_score },
+      });
+      this.toCockpits(sessionId, controlMessage('BLOCK_SCORED', {
+        block_attempt_id: attemptId, step_index: stepIndex, attempt_number: attemptNumber, score_version, scores: { ...summary },
+      }));
+    } catch (err) {
+      this.log({ severity: 'ERROR', event_type: 'system.error', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId, message: `Scoring failed: ${(err as Error).message}` });
+    }
   }
 }
 

@@ -1,6 +1,6 @@
-// Tablet state machine (DDD §11.2) for a paired session: receives control events, runs the
-// transition countdown and the writing block, streams LIVE packets to the cockpit and persists
-// BATCH packets through the outbox.
+// Tablet state machine (DDD §11.2) for a paired session: receives control events, plays video
+// steps, runs the transition countdown and the writing block (with the inactivity cue, FR-TAB-5),
+// streams LIVE packets to the cockpit and persists BATCH packets through the outbox.
 import { PacketType, encodePacket, encodeSampleRecords } from '@ilt/emr-protocol';
 import {
   StrokeFlag,
@@ -37,6 +37,8 @@ export type KioskState =
   | { name: 'WRITING'; step: Dispatch }
   | { name: 'PAUSED'; step: Dispatch }
   | { name: 'UPLOADING'; step: Dispatch }
+  /** A video step: `src` is an object URL once the video is downloaded; `blocked` when autoplay needs a tap. */
+  | { name: 'VIDEO'; step_index: number; video_key: string; src: string | null; blocked: boolean }
   | { name: 'DONE' };
 
 interface Block {
@@ -69,6 +71,11 @@ export class KioskSession {
    */
   endReached = false;
   private lastRowStrokes = 0;
+  /** Inactivity (FR-TAB-5): CUE shows the subtle cue on the tablet; AMBER is only reported to the cockpit. */
+  inactivity: 'NONE' | 'CUE' | 'AMBER' = 'NONE';
+  private lastContactAt = 0;
+  private activeBoxId = 0;
+  private idleTimer: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<() => void>();
   private readonly link: GatewayLink;
   private readonly peer: PeerLink;
@@ -128,6 +135,7 @@ export class KioskSession {
 
   dispose(): void {
     this.stopBlock();
+    this.closeVideo();
     if (this.countdown) clearInterval(this.countdown);
     clearInterval(this.resendTimer);
     this.peer.close();
@@ -179,6 +187,13 @@ export class KioskSession {
       case 'MANUAL_FINISH':
         void this.finish('MANUAL');
         break;
+      case 'VIDEO_PLAY':
+        void this.playVideo(payload as ControlPayload<'VIDEO_PLAY'>);
+        break;
+      case 'VIDEO_ENDED':
+        // The evaluator stopped the video.
+        if (this.state.name === 'VIDEO' && this.state.step_index === (payload as ControlPayload<'VIDEO_ENDED'>).step_index) this.closeVideo();
+        break;
       case 'ABORT_SESSION':
         void this.finish(null).then(() => this.end('ABORTED'));
         break;
@@ -192,6 +207,7 @@ export class KioskSession {
 
   private end(reason: 'COMPLETE' | 'ABORTED' | 'AUTH') {
     this.stopBlock();
+    this.closeVideo();
     if (reason !== 'AUTH') this.setState({ name: 'DONE' });
     this.onEnded(reason);
   }
@@ -221,6 +237,11 @@ export class KioskSession {
     const t0 = performance.now();
     this.endReached = false;
     this.lastRowStrokes = 0;
+    this.inactivity = 'NONE';
+    this.lastContactAt = Date.now();
+    this.activeBoxId = step.fill_order[0] ?? 0;
+    if (this.idleTimer) clearInterval(this.idleTimer);
+    this.idleTimer = setInterval(() => this.checkIdle(), 1000);
     this.block = {
       step, t0, samples: [], batch: [], live: [], seq: 0, batchSeq: 0, liveSeq: 0, capture: null, ink: null,
       batchTimer: setInterval(() => this.flushBatch(), BATCH_INTERVAL_MS),
@@ -244,7 +265,10 @@ export class KioskSession {
       boxEntryMarginMm: BOX_ENTRY_MARGIN_MM,
       allowMouse: this.allowMouse,
       onSamples: (raw) => this.onSamples(raw),
-      onBoxAdvanced: (box_id, fill_position, skipped_box_ids) => this.send('BOX_ADVANCED', { box_id, fill_position, skipped_box_ids }),
+      onBoxAdvanced: (box_id, fill_position, skipped_box_ids) => {
+        this.activeBoxId = box_id;
+        this.send('BOX_ADVANCED', { box_id, fill_position, skipped_box_ids });
+      },
     });
     b.capture.start(b.t0);
     if (this.state.name === 'PAUSED') b.capture.pause();
@@ -260,7 +284,32 @@ export class KioskSession {
     b.live.push(...samples);
     b.ink?.add(samples);
     this.checkEnd(b.step, samples);
+    if (samples.some((s) => (s.flags & StrokeFlag.CONTACT) !== 0)) {
+      this.lastContactAt = Date.now();
+      if (this.inactivity !== 'NONE') {
+        this.inactivity = 'NONE';
+        this.emit();
+      }
+    }
     if (b.batch.length >= BATCH_MAX_SAMPLES) this.flushBatch();
+  }
+
+  /** Inactivity cue after inactivity_sec without writing (inactivity_last_box_sec at the end of the page), amber after amber_grace_sec more. */
+  private checkIdle() {
+    if (this.state.name !== 'WRITING') {
+      // A pause does not count as inactivity.
+      this.lastContactAt = Date.now();
+      return;
+    }
+    const t = this.state.step.timers;
+    if (!t) return;
+    const idle = Date.now() - this.lastContactAt;
+    const cueAt = (this.endReached ? t.inactivity_last_box_sec : t.inactivity_sec) * 1000;
+    const level = idle >= cueAt + t.amber_grace_sec * 1000 ? 'AMBER' : idle >= cueAt ? 'CUE' : 'NONE';
+    if (level === this.inactivity || level === 'NONE') return;
+    this.inactivity = level;
+    this.send('INACTIVITY_ALERT', { level, idle_ms: idle, box_id: this.activeBoxId });
+    this.emit();
   }
 
   private checkEnd(step: Dispatch, samples: PenSample[]) {
@@ -308,6 +357,9 @@ export class KioskSession {
   }
 
   private stopBlock() {
+    if (this.idleTimer) clearInterval(this.idleTimer);
+    this.idleTimer = null;
+    this.inactivity = 'NONE';
     const b = this.block;
     if (!b) return;
     b.capture?.stop();
@@ -358,6 +410,51 @@ export class KioskSession {
       this.block = null;
       this.setState({ name: 'WAITING' });
     }
+  }
+
+  // ---- video steps ----------------------------------------------------------------------------
+
+  /** Downloads the video with the tablet token (no token in a URL), then shows it full screen. */
+  private async playVideo(p: ControlPayload<'VIDEO_PLAY'>) {
+    if (this.state.name === 'VIDEO' && this.state.step_index === p.step_index) return;
+    if (this.state.name !== 'WAITING' || !p.url || !p.video_key) return;
+    const { step_index, video_key } = p;
+    this.setState({ name: 'VIDEO', step_index, video_key, src: null, blocked: false });
+    try {
+      const res = await fetch(p.url, { headers: { authorization: `Bearer ${this.pairing.token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const src = URL.createObjectURL(await res.blob());
+      // The state may have changed while downloading (the evaluator stopped the video).
+      const now = this.state as KioskState;
+      if (now.name !== 'VIDEO' || now.step_index !== step_index) return URL.revokeObjectURL(src);
+      this.setState({ ...now, src });
+    } catch {
+      // The cockpit can stop the step and explain verbally.
+      const now = this.state as KioskState;
+      if (now.name === 'VIDEO' && now.step_index === step_index) this.setState({ ...now, src: null, blocked: true });
+    }
+  }
+
+  /** Autoplay was refused (no tap yet on this page): a tap on the overlay starts the video. */
+  videoBlocked(): void {
+    if (this.state.name === 'VIDEO' && !this.state.blocked) this.setState({ ...this.state, blocked: true });
+  }
+
+  videoStarted(): void {
+    if (this.state.name === 'VIDEO' && this.state.blocked) this.setState({ ...this.state, blocked: false });
+  }
+
+  /** The video played to the end. */
+  videoEnded(): void {
+    if (this.state.name !== 'VIDEO') return;
+    this.send('VIDEO_ENDED', { step_index: this.state.step_index, reason: 'ENDED' });
+    this.closeVideo();
+  }
+
+  private closeVideo() {
+    if (this.state.name !== 'VIDEO') return;
+    if (this.state.src) URL.revokeObjectURL(this.state.src);
+    this.setState({ name: 'WAITING' });
   }
 
   // ---- resending ------------------------------------------------------------------------------

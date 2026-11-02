@@ -4,9 +4,11 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { AppLog, type Queryable } from './app-log.js';
 import { authPlugin, authRoutes } from './auth.js';
 import { Hub } from './hub.js';
+import { mediaRoutes, type MediaStore } from './media.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { healthRoutes } from './routes/health.js';
 import { participantRoutes } from './routes/participants.js';
+import { resultRoutes } from './routes/results.js';
 import { sessionRoutes } from './routes/sessions.js';
 
 export interface AppDeps {
@@ -16,6 +18,8 @@ export interface AppDeps {
   jwtSecret: string;
   /** Key for the school code HMAC; school names are never stored (DDD §15). */
   schoolHmacKey: string;
+  /** Object storage for instruction videos; absent in unit tests. */
+  media?: MediaStore;
   logLevel?: string;
 }
 
@@ -54,6 +58,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(authRoutes, { prefix: '/api/v1' });
   await app.register(participantRoutes, { prefix: '/api/v1' });
   await app.register(sessionRoutes, { prefix: '/api/v1' });
+  await app.register(resultRoutes, { prefix: '/api/v1' });
+  await app.register(mediaRoutes, { prefix: '/api/v1' });
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.
   app.get('/ws/tablet', { websocket: true }, (socket, req) => app.hub.accept(socket, 'tablet', req.ip));

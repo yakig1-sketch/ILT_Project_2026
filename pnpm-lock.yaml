@@ -63,6 +63,9 @@ importers:
       '@ilt/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@ilt/ilt-metrics':
+        specifier: workspace:^
+        version: link:../../packages/ilt-metrics
       '@ilt/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -261,6 +264,9 @@ importers:
 
   services/telemetry-gateway:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.700.0
+        version: 3.1159.0
       '@fastify/cors':
         specifier: ^10.0.1
         version: 10.1.0

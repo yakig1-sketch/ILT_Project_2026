@@ -14,6 +14,8 @@ export interface Config {
   port: number;
   databaseUrl: string;
   s3Endpoint: string;
+  s3AccessKey: string;
+  s3SecretKey: string;
   jwtSecret: string;
   schoolHmacKey: string;
   logLevel: string;
@@ -23,6 +25,8 @@ export const loadConfig = (): Config => ({
   port: Number(process.env.GATEWAY_PORT ?? 8080),
   databaseUrl: required('APP_DATABASE_URL'),
   s3Endpoint: required('S3_ENDPOINT'),
+  s3AccessKey: required('S3_ACCESS_KEY'),
+  s3SecretKey: required('S3_SECRET_KEY'),
   jwtSecret: required('JWT_SECRET'),
   schoolHmacKey: required('SCHOOL_CODE_HMAC_KEY'),
   logLevel: process.env.LOG_LEVEL ?? 'info',

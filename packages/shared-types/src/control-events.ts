@@ -44,6 +44,8 @@ export const ControlPayloads = {
     block_count: z.number().int().min(1).optional(),
     /** Sent by the gateway after [Next block]: the tablet starts the block without the transition countdown. */
     immediate: z.boolean().optional(),
+    /** Canvas scoring profile (dot radii, order); the cockpit uses it for the live telemetry preview. */
+    profile: z.unknown().optional(),
   }),
   STEP_STARTED: z.object({
     step_index: z.number().int(),
@@ -72,14 +74,29 @@ export const ControlPayloads = {
     last_sample_seq: z.number().int().min(-1),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
   }),
+  /** Gateway → cockpit after BLOCK_STORED: the block's measures and, for scored blocks, score version 1. */
   BLOCK_SCORED: z.object({
     block_attempt_id: uuid,
-    score_version: z.number().int(),
+    step_index: z.number().int(),
+    attempt_number: z.number().int(),
+    /** null for blocks that are measured but not scored (warm-up, notebook pages). */
+    score_version: z.number().int().nullable(),
     scores: z.record(z.unknown()),
   }),
+  /** Cockpit → gateway: the last attempt becomes REPEATED and the step is sent again as attempt + 1. */
   REPEAT_BLOCK: z.object({ step_index: z.number().int(), reason: z.string().max(200) }),
-  VIDEO_PLAY: z.object({ video_key: z.string(), language: z.string(), url: z.string() }),
-  VIDEO_ENDED: z.object({ video_key: z.string() }),
+  /**
+   * Cockpit → gateway with step_index only; the gateway resolves the session-language video and
+   * forwards it to the tablet with video_key, language and url.
+   */
+  VIDEO_PLAY: z.object({
+    step_index: z.number().int(),
+    video_key: z.string().optional(),
+    language: z.string().optional(),
+    url: z.string().optional(),
+  }),
+  /** Tablet → gateway when the video ends (ENDED), or cockpit → gateway to stop it (STOPPED). */
+  VIDEO_ENDED: z.object({ step_index: z.number().int(), reason: z.enum(['ENDED', 'STOPPED']) }),
   ABORT_SESSION: z.object({ reason: z.string().max(200), save_partial: z.boolean() }),
   SESSION_COMPLETE: z.object({ session_id: uuid, completed_steps: z.number().int() }),
   REFERENCE_START: z.object({

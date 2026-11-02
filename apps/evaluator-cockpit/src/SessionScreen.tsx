@@ -1,7 +1,9 @@
 // Live session screen: pairing, step list, 80% live mirror and 20% clinical telemetry panel,
-// and the session controls (FR-COCK-1…3, DDD §11.1).
+// and the session controls (FR-COCK-1…4, DDD §11.1): next step, video steps, paper notebook
+// timing, pause, manual finish, repeat block, block results and the comparative summary.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DEFAULT_SCORING_SETTINGS, scoreBlock, type BlockScore } from '@ilt/ilt-metrics';
 import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
 import { CanvasView, InkRenderer } from '@ilt/ui';
 import { ApiError, api } from './api';
@@ -10,33 +12,55 @@ import { pill, ui } from './styles';
 
 const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE']);
 const PAUSE_REASONS = ['STUDENT_FATIGUE', 'HARDWARE', 'EVALUATOR_INTERVENTION', 'OTHER'] as const;
+const REPEAT_REASONS = ['DISRUPTION', 'HARDWARE', 'EVALUATOR_ERROR', 'OTHER'] as const;
 // Manual finish blinks once it is available; reduced-motion users get the colour without the blink.
 const BLINK_CSS = '@keyframes ilt-blink { 50% { opacity: 0.35; } } .ilt-blink { animation: ilt-blink 1s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .ilt-blink { animation: none; } }';
+const PREVIEW_EVERY_MS = 1000;
 
 interface Step {
   step_index: number;
   step_type: string;
   label_key: string;
   block_number: number | null;
+  video_key: string | null;
   status: string;
+  paper_duration_ms: number | null;
+  notes: string | null;
 }
-interface Attempt {
+export interface AttemptScores {
+  total_time_ms: number | null;
+  pen_lifts: number | null;
+  accurate_letters: number | null;
+  accuracy_score: string | number | null;
+  avg_speed_mm_s: string | number | null;
+  speed_score: string | number | null;
+  pen_lift_score: string | number | null;
+  composite_score: string | number | null;
+  pass: boolean | null;
+}
+interface Attempt extends AttemptScores {
+  id: string;
   step_index: number;
   attempt_number: number;
   status: string;
   sample_count: number | null;
   integrity_ok: boolean | null;
+  score_version: number | null;
+  repeat_reason: string | null;
 }
 interface SessionDetail {
   id: string;
   session_code: string;
+  participant_id: string;
   study_code: string;
   session_type: string;
   language_code: string;
   status: string;
-  timers: { inactivity_sec: number; inactivity_last_box_sec: number };
+  timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
+  scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number };
   steps: Step[];
   attempts: Attempt[];
+  available_videos: string[];
 }
 
 const layout: Record<string, CSSProperties> = {
@@ -44,10 +68,20 @@ const layout: Record<string, CSSProperties> = {
   // Block layout: the mirror measures this box's width, so it must not shrink to its content.
   mirror: { border: '1px solid #d0d7de', borderRadius: 8, minBlockSize: '20rem', background: '#e9ecef', overflow: 'hidden', padding: '0.5rem', minInlineSize: 0 },
   panel: { background: '#24292f', color: '#f6f8fa', borderRadius: 8, padding: '1rem' },
+  panelAmber: { background: '#9a6700', color: '#fff', borderRadius: 8, padding: '1rem' },
   row: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.35rem', borderBlockEnd: '1px solid #444c56', fontSize: '0.9rem' },
+  result: { border: '1px solid #d0d7de', borderRadius: 8, padding: '0.75rem 1rem', background: '#f6f8fa', display: 'grid', gap: '0.4rem' },
+  figures: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1.25rem', fontSize: '0.9rem' },
 };
 
-export function SessionScreen({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
+const n = (v: string | number | null | undefined) => (v === null || v === undefined ? null : Number(v));
+
+export function SessionScreen({ sessionId, onBack, onSummary, onReplay }: {
+  sessionId: string;
+  onBack: () => void;
+  onSummary: (participantId: string) => void;
+  onReplay: (attemptId: string) => void;
+}) {
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<CockpitLink | null>(null);
@@ -68,23 +102,31 @@ export function SessionScreen({ sessionId, onBack }: { sessionId: string; onBack
   if (!link || !session) {
     return error ? <p role="alert" style={ui.error}>{t(error)}</p> : <p style={ui.muted}>{t('common.checking')}</p>;
   }
-  return <LiveSession link={link} session={session} reload={reload} onBack={onBack} />;
+  return <LiveSession link={link} session={session} reload={reload} onBack={onBack} onSummary={onSummary} onReplay={onReplay} />;
 }
 
-function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; session: SessionDetail; reload: () => void; onBack: () => void }) {
+function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
+  link: CockpitLink;
+  session: SessionDetail;
+  reload: () => void;
+  onBack: () => void;
+  onSummary: (participantId: string) => void;
+  onReplay: (attemptId: string) => void;
+}) {
   const { t } = useTranslation();
   const sessionId = session.id;
   const [error, setError] = useState<string | null>(null);
   const [pin, setPin] = useState<{ pin: string; expires_at: string } | null>(null);
   const [pauseReason, setPauseReason] = useState<(typeof PAUSE_REASONS)[number]>('STUDENT_FATIGUE');
+  const [repeatReason, setRepeatReason] = useState<(typeof REPEAT_REASONS)[number]>('DISRUPTION');
   useSyncExternalStore(
     (fn) => link.subscribe(fn),
-    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastInterrupted?.attempt_number}${link.block?.attempt_number}${link.lastError}`,
+    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastInterrupted?.attempt_number}${link.block?.attempt_number}${link.lastError}${link.lastScored?.block_attempt_id}${link.video?.step_index}${link.amber}`,
   );
-  // One-second tick for block time, inactivity and the relay indicator.
+  // One-second tick for block time, inactivity, the live preview and the relay indicator.
   const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    const id = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
@@ -97,44 +139,44 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
   const closed = session.status === 'COMPLETED' || session.status === 'ABORTED';
   const block = link.block;
   const writingActive = !!block && !block.completing;
+  const busy = !!block || !!link.video;
   const paused = session.status === 'PAUSED';
-  // Manual finish only once the child reached the last house (notebook: last row) and has not written for the last-house threshold.
-  const canFinish = writingActive && !paused && isLastBox(block) && idleSec(block) >= session.timers.inactivity_last_box_sec;
   const stepsLeft = session.steps.some((s) => s.status === 'PENDING' || s.status === 'ACTIVE');
   const liveTone = link.liveMode === 'direct' ? 'ok' : link.liveMode === 'relay' ? 'warn' : 'off';
+  // Manual finish only once the child reached the last house (notebook: last row) and has not written for the last-house threshold.
+  const canFinish = writingActive && !paused && isLastBox(block) && idleSec(block) >= session.timers.inactivity_last_box_sec;
 
-  async function openPairing() {
+  async function call(fn: () => Promise<unknown>) {
     setError(null);
     try {
-      setPin(await api(`/sessions/${sessionId}/pairing`, { method: 'POST' }));
-    } catch (e) {
-      setError((e as ApiError).messageKey);
-    }
-  }
-
-  async function skip(index: number) {
-    setError(null);
-    try {
-      await api(`/sessions/${sessionId}/steps/${index}`, { method: 'PATCH', body: { status: 'SKIPPED' } });
+      await fn();
       reload();
     } catch (e) {
       setError((e as ApiError).messageKey);
     }
   }
-
-  async function complete() {
-    setError(null);
-    try {
-      await api(`/sessions/${sessionId}/complete`, { method: 'POST' });
-      reload();
-    } catch (e) {
-      setError((e as ApiError).messageKey);
-    }
-  }
+  const openPairing = () => call(async () => setPin(await api(`/sessions/${sessionId}/pairing`, { method: 'POST' })));
+  const skip = (index: number) => call(() => api(`/sessions/${sessionId}/steps/${index}`, { method: 'PATCH', body: { status: 'SKIPPED' } }));
+  const complete = () => call(() => api(`/sessions/${sessionId}/complete`, { method: 'POST' }));
 
   const stepLabel = (s: Step) => t(s.label_key, { n: s.block_number ?? '' });
   const attemptsFor = (index: number) => session.attempts.filter((a) => a.step_index === index);
   const shownError = error ?? link.lastError;
+  const videoMissing = (s: Step) => s.step_type === 'VIDEO' && !!s.video_key && !session.available_videos.includes(s.video_key);
+  const dispatch = (s: Step) => link.command('DISPATCH_STEP', { step_index: s.step_index, step_type: s.step_type as 'ILT_BLOCK', attempt_number: 1 });
+  const play = (s: Step) => link.command('VIDEO_PLAY', { step_index: s.step_index });
+  const next = session.steps.find((s) => s.status === 'PENDING' || s.status === 'ACTIVE');
+  const scoredStep = link.lastScored && session.steps.find((s) => s.step_index === link.lastScored!.step_index);
+
+  /** "Next step": the first step not yet done, run the way its type needs (FR-COCK-3). */
+  function runNext() {
+    if (!next) return;
+    if (WRITING.has(next.step_type)) dispatch(next);
+    else if (next.step_type === 'VIDEO' && !videoMissing(next)) play(next);
+    else document.getElementById(`step-${next.step_index}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  const nextNeedsTablet = !!next && (WRITING.has(next.step_type) || next.step_type === 'VIDEO');
+  const nextDisabled = !next || busy || (nextNeedsTablet && !link.tabletConnected) || videoMissing(next);
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
@@ -148,6 +190,7 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
           {t(link.tabletConnected ? 'cockpit.pairing.tablet_connected' : 'cockpit.pairing.tablet_offline')}
         </span>
         <span style={pill(liveTone)} data-testid="live-mode">{t(`cockpit.live.${link.liveMode}`)}</span>
+        <button style={ui.button} onClick={() => onSummary(session.participant_id)} data-testid="open-summary">{t('cockpit.open_summary')}</button>
       </div>
 
       {!closed && !link.tabletConnected && (
@@ -169,15 +212,22 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
         <section style={layout.mirror} aria-label="mirror">
           {block ? (
             <Mirror link={link} canvas={block.canvas} activeBoxId={block.activeBoxId} />
+          ) : link.video ? (
+            <p style={{ ...ui.muted, textAlign: 'center', marginBlockStart: '8rem', fontSize: '1rem' }} data-testid="video-playing">
+              {t('cockpit.video_playing', { name: t(`video.${link.video.video_key}`) })}
+            </p>
           ) : (
             <p style={{ ...ui.muted, textAlign: 'center', marginBlockStart: '8rem' }}>{t('kiosk.waiting')}</p>
           )}
         </section>
-        <Telemetry block={block} timers={session.timers} />
+        <Telemetry block={block} timers={session.timers} amber={link.amber} scoring={session.scoring} />
       </div>
 
       {!closed && (
         <div style={ui.row}>
+          <button style={ui.primary} disabled={nextDisabled} onClick={runNext} data-testid="next-step" title={next ? stepLabel(next) : undefined}>
+            {next ? t('cockpit.next_step', { step: stepLabel(next) }) : t('cockpit.no_steps_left')}
+          </button>
           {paused ? (
             <button style={ui.primary} disabled={!writingActive} onClick={() => link.command('RESUME_SESSION', {})}>{t('cockpit.resume')}</button>
           ) : (
@@ -201,7 +251,7 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
           >
             {t('cockpit.manual_finish')}
           </button>
-          <button style={ui.primary} disabled={stepsLeft || !!block} onClick={() => void complete()}>{t('cockpit.complete')}</button>
+          <button style={ui.primary} disabled={stepsLeft || busy} onClick={() => void complete()} data-testid="complete-session">{t('cockpit.complete')}</button>
           <button
             style={ui.danger}
             onClick={() => {
@@ -216,9 +266,25 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
       {link.lastInterrupted && (
         <p role="alert" style={{ margin: 0, color: '#9a6700' }}>{t('cockpit.block_interrupted')}</p>
       )}
-      {link.lastStored && (
+      {link.lastStored && !link.lastScored && (
         <p role="status" style={{ margin: 0, color: link.lastStored.integrity_ok ? '#1a7f37' : '#cf222e' }}>
           {t('cockpit.block_stored', { n: link.lastStored.sample_count })} · {t(link.lastStored.integrity_ok ? 'cockpit.integrity_ok' : 'cockpit.integrity_failed')}
+        </p>
+      )}
+      {link.lastScored && scoredStep && (
+        <BlockResult
+          title={stepLabel(scoredStep)}
+          stepType={scoredStep.step_type}
+          scores={link.lastScored.scores as unknown as AttemptScores & { letters_expected: number | null }}
+          stored={link.lastStored?.block_attempt_id === link.lastScored.block_attempt_id ? link.lastStored : null}
+          threshold={session.scoring.pass_threshold}
+          onReplay={() => onReplay(link.lastScored!.block_attempt_id)}
+        />
+      )}
+      {closed && session.status === 'COMPLETED' && (
+        <p role="status" style={{ margin: 0 }}>
+          {t('cockpit.session_completed')}{' '}
+          <button style={ui.primary} onClick={() => onSummary(session.participant_id)}>{t('cockpit.open_summary')}</button>
         </p>
       )}
 
@@ -229,33 +295,57 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
             {session.steps.map((s) => {
               const writing = WRITING.has(s.step_type);
               const attempts = attemptsFor(s.step_index);
-              const lastAttempt = attempts[attempts.length - 1];
+              const current = [...attempts].reverse().find((a) => a.status !== 'REPEATED' && a.status !== 'ABORTED') ?? null;
+              const repeated = attempts.filter((a) => a.status === 'REPEATED').length;
+              const open = !closed && (s.status === 'PENDING' || s.status === 'ACTIVE');
+              const playing = link.video?.step_index === s.step_index;
               return (
-                <tr key={s.step_index} data-testid={`step-${s.step_index}`}>
+                <tr key={s.step_index} id={`step-${s.step_index}`} data-testid={`step-${s.step_index}`} style={next?.step_index === s.step_index && !closed ? { background: '#f6f8fa' } : undefined}>
                   <td style={ui.cell}>{s.step_index + 1}</td>
                   <td style={ui.cell}>{stepLabel(s)}</td>
                   <td style={ui.cell}>{t(`enum.step_status.${s.status}`)}</td>
-                  <td style={ui.cell}>
-                    {lastAttempt?.sample_count != null && (
-                      <span style={ui.muted}>
-                        {t('cockpit.block_stored', { n: lastAttempt.sample_count })}
-                        {lastAttempt.integrity_ok === false && ` · ${t('cockpit.integrity_failed')}`}
-                      </span>
+                  <td style={{ ...ui.cell, ...ui.muted }}>
+                    {current && writing && <AttemptFigures a={current} stepType={s.step_type} onReplay={() => onReplay(current.id)} />}
+                    {repeated > 0 && <div>{t('cockpit.repeated_count', { n: repeated })}</div>}
+                    {s.step_type === 'PAPER_NOTEBOOK_PAGE' && s.paper_duration_ms !== null && (
+                      <span>{t('cockpit.paper_time', { s: (s.paper_duration_ms / 1000).toFixed(1) })}{s.notes ? ` · ${s.notes}` : ''}</span>
                     )}
+                    {videoMissing(s) && s.status === 'PENDING' && <span style={{ color: '#9a6700' }}>{t('cockpit.video_missing')}</span>}
                   </td>
                   <td style={ui.cell}>
-                    {!closed && (s.status === 'PENDING' || s.status === 'ACTIVE') && (
-                      writing ? (
+                    {open && writing && (
+                      <button style={ui.primary} disabled={!link.tabletConnected || busy} onClick={() => dispatch(s)}>{t('cockpit.dispatch')}</button>
+                    )}
+                    {open && s.step_type === 'VIDEO' && (playing ? (
+                      <button style={ui.button} onClick={() => link.command('VIDEO_ENDED', { step_index: s.step_index, reason: 'STOPPED' })}>{t('cockpit.stop_video')}</button>
+                    ) : (
+                      <span style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                        <button style={ui.primary} disabled={!link.tabletConnected || busy || videoMissing(s)} onClick={() => play(s)}>{t('cockpit.play_video')}</button>
+                        <button style={ui.button} disabled={playing} onClick={() => void skip(s.step_index)}>{t('cockpit.skip')}</button>
+                      </span>
+                    ))}
+                    {open && s.step_type === 'PAPER_NOTEBOOK_PAGE' && (
+                      <PaperTimer onSave={(ms, notes) => call(() => api(`/sessions/${sessionId}/steps/${s.step_index}/paper`, { method: 'POST', body: { duration_ms: ms, notes } }))} />
+                    )}
+                    {open && s.step_type === 'INTERVENTION_SHEET' && (
+                      <button style={ui.button} onClick={() => void skip(s.step_index)}>{t('cockpit.skip')}</button>
+                    )}
+                    {!closed && writing && s.status === 'DONE' && (
+                      <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <select aria-label={t('cockpit.repeat_reason')} value={repeatReason} onChange={(e) => setRepeatReason(e.target.value as typeof repeatReason)}>
+                          {REPEAT_REASONS.map((r) => <option key={r} value={r}>{t(`enum.repeat_reason.${r}`)}</option>)}
+                        </select>
                         <button
-                          style={ui.primary}
-                          disabled={!link.tabletConnected || !!block}
-                          onClick={() => link.command('DISPATCH_STEP', { step_index: s.step_index, step_type: s.step_type as 'ILT_BLOCK', attempt_number: 1 })}
+                          style={ui.button}
+                          disabled={!link.tabletConnected || busy}
+                          data-testid={`repeat-${s.step_index}`}
+                          onClick={() => {
+                            if (confirm(t('cockpit.repeat_confirm'))) link.command('REPEAT_BLOCK', { step_index: s.step_index, reason: repeatReason });
+                          }}
                         >
-                          {t('cockpit.dispatch')}
+                          {t('cockpit.repeat')}
                         </button>
-                      ) : (
-                        <button style={ui.button} onClick={() => void skip(s.step_index)} title={t('cockpit.skip_note')}>{t('cockpit.skip')}</button>
-                      )
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -263,9 +353,101 @@ function LiveSession({ link, session, reload, onBack }: { link: CockpitLink; ses
             })}
           </tbody>
         </table>
-        <p style={ui.muted}>{t('cockpit.skip_note')}</p>
       </section>
     </div>
+  );
+}
+
+/** Compact figures for a step's current attempt in the step list. */
+function AttemptFigures({ a, stepType, onReplay }: { a: Attempt; stepType: string; onReplay: () => void }) {
+  const { t } = useTranslation();
+  const sec = a.total_time_ms !== null ? (a.total_time_ms / 1000).toFixed(1) : null;
+  const parts: string[] = [];
+  if (a.sample_count !== null) parts.push(t('cockpit.block_stored', { n: a.sample_count }));
+  if (a.integrity_ok === false) parts.push(t('cockpit.integrity_failed'));
+  if (sec) parts.push(`${t('summary.time')} ${sec} ${t('units.seconds')}`);
+  if (stepType === 'ILT_BLOCK' && a.score_version !== null) {
+    parts.push(`${t('summary.composite')} ${n(a.composite_score) ?? t('summary.not_configured')}`);
+  }
+  return (
+    <span>
+      {parts.join(' · ')}{' '}
+      {a.sample_count !== null && <button style={{ ...ui.button, paddingBlock: 0 }} onClick={onReplay}>{t('replay.open')}</button>}
+    </span>
+  );
+}
+
+/** The last finished block: components next to the composite, never instead of them (FR-SCORE-13). */
+function BlockResult({ title, stepType, scores, stored, threshold, onReplay }: {
+  title: string;
+  stepType: string;
+  scores: AttemptScores & { letters_expected: number | null };
+  stored: { sample_count: number; integrity_ok: boolean } | null;
+  threshold: number | null;
+  onReplay: () => void;
+}) {
+  const { t } = useTranslation();
+  const nc = t('summary.not_configured');
+  const f = (v: string | number | null, digits = 1) => (n(v) === null ? nc : n(v)!.toFixed(digits));
+  const scored = stepType === 'ILT_BLOCK';
+  const measured = stepType !== 'NOTEBOOK_PAGE';
+  return (
+    <section style={layout.result} data-testid="block-result" aria-live="polite">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
+        <strong>{t('cockpit.result_title', { step: title })}</strong>
+        <button style={ui.button} onClick={onReplay}>{t('replay.open')}</button>
+      </div>
+      <div style={layout.figures}>
+        {stored && (
+          <span style={{ color: stored.integrity_ok ? '#1a7f37' : '#cf222e' }}>
+            {t('cockpit.block_stored', { n: stored.sample_count })} · {t(stored.integrity_ok ? 'cockpit.integrity_ok' : 'cockpit.integrity_failed')}
+          </span>
+        )}
+        <span>{t('summary.time')}: {scores.total_time_ms === null ? '—' : `${(scores.total_time_ms / 1000).toFixed(1)} ${t('units.seconds')}`}</span>
+        <span>{t('summary.pen_lifts')}: {scores.pen_lifts ?? '—'}</span>
+        {measured && <span>{t('summary.accuracy')}: {f(scores.accuracy_score)} ({t('summary.accurate_letters', { n: scores.accurate_letters ?? 0, total: scores.letters_expected ?? 15 })})</span>}
+        {measured && <span>{t('summary.avg_speed')}: {n(scores.avg_speed_mm_s) === null ? '—' : `${f(scores.avg_speed_mm_s, 2)} ${t('units.mm_s')}`}</span>}
+      </div>
+      {scored ? (
+        <div style={layout.figures}>
+          <span>{t('summary.speed_score')}: {f(scores.speed_score)}</span>
+          <span>{t('summary.accuracy_score')}: {f(scores.accuracy_score)}</span>
+          <span>{t('summary.pen_lift_score')}: {f(scores.pen_lift_score)}</span>
+          <strong>{t('summary.composite')}: {f(scores.composite_score)}</strong>
+          <strong>{scores.pass === null ? `${t('summary.pass_fail')}: ${nc}` : t(scores.pass ? 'summary.pass' : 'summary.fail')}</strong>
+          {threshold === null && <span style={ui.muted}>{t('summary.threshold_not_set')}</span>}
+        </div>
+      ) : (
+        <div style={ui.muted}>{t(stepType === 'NOTEBOOK_PAGE' ? 'cockpit.notebook_timed_only' : 'cockpit.warmup_not_scored')}</div>
+      )}
+    </section>
+  );
+}
+
+/** Paper notebook page (FR-COCK-4): start / stop timer, notes, save. */
+function PaperTimer({ onSave }: { onSave: (ms: number, notes: string) => void }) {
+  const { t } = useTranslation();
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [notes, setNotes] = useState('');
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (startedAt === null) return;
+    const id = setInterval(() => setTick((x) => x + 1), 200);
+    return () => clearInterval(id);
+  }, [startedAt]);
+  const ms = startedAt === null ? elapsed : elapsed + (Date.now() - startedAt);
+  return (
+    <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }} data-testid="paper-timer">
+      <bdi style={{ fontVariantNumeric: 'tabular-nums', minInlineSize: '4.5rem' }}>{(ms / 1000).toFixed(1)} {t('units.seconds')}</bdi>
+      {startedAt === null ? (
+        <button style={ui.primary} onClick={() => setStartedAt(Date.now())}>{t(elapsed ? 'cockpit.paper_resume' : 'cockpit.paper_start')}</button>
+      ) : (
+        <button style={ui.button} onClick={() => { setElapsed(ms); setStartedAt(null); }}>{t('cockpit.paper_stop')}</button>
+      )}
+      <input aria-label={t('cockpit.paper_notes')} placeholder={t('cockpit.paper_notes')} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <button style={ui.button} disabled={startedAt !== null || elapsed === 0} onClick={() => onSave(Math.round(elapsed), notes.trim())}>{t('cockpit.paper_save')}</button>
+    </span>
   );
 }
 
@@ -310,7 +492,30 @@ function Mirror({ link, canvas, activeBoxId }: { link: CockpitLink; canvas: Canv
 const isLastBox = (b: LiveBlock | null) => !!b && atLastUnit(b.canvas, b.fill_order, b.activeBoxId);
 const idleSec = (b: LiveBlock | null) => (b?.lastContactAt ? (Date.now() - b.lastContactAt) / 1000 : 0);
 
-function Telemetry({ block, timers }: { block: LiveBlock | null; timers: SessionDetail['timers'] }) {
+/** Live preview with the same scoring engine as the gateway (DDD §8), at most once a second. */
+function useLivePreview(block: LiveBlock | null, scoring: SessionDetail['scoring']): BlockScore | null {
+  const cache = useRef<{ key: string; at: number; result: BlockScore | null }>({ key: '', at: 0, result: null });
+  if (!block?.profile || block.samples.length === 0) return null;
+  const key = `${block.step_index}:${block.attempt_number}`;
+  const c = cache.current;
+  if (c.key === key && Date.now() - c.at < PREVIEW_EVERY_MS) return c.result;
+  let result: BlockScore | null = null;
+  try {
+    result = scoreBlock(block.samples, block.canvas, block.profile, {
+      ...DEFAULT_SCORING_SETTINGS,
+      weight_speed_pct: scoring.weight_speed_pct,
+      weight_accuracy_pct: scoring.weight_accuracy_pct,
+      weight_pen_lifts_pct: scoring.weight_pen_lifts_pct,
+      pass_threshold: scoring.pass_threshold,
+    });
+  } catch {
+    result = null;
+  }
+  cache.current = { key, at: Date.now(), result };
+  return result;
+}
+
+function Telemetry({ block, timers, amber, scoring }: { block: LiveBlock | null; timers: SessionDetail['timers']; amber: boolean; scoring: SessionDetail['scoring'] }) {
   const { t, i18n } = useTranslation();
   const num = (v: number, digits = 1) => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(v);
   const s = t('units.seconds');
@@ -320,29 +525,38 @@ function Telemetry({ block, timers }: { block: LiveBlock | null; timers: Session
   const lastBox = isLastBox(block);
   const idle = block?.lastContactAt ? idleSec(block) : null;
   const threshold = lastBox ? timers.inactivity_last_box_sec : timers.inactivity_sec;
-  const later = <span style={{ opacity: 0.6 }}>{t('common.later_phase')}</span>;
+  // Amber (FR-TAB-5): reported by the tablet, or reached here after the grace period.
+  const isAmber = !!block && !block.completing && (amber || (idle !== null && idle >= threshold + timers.amber_grace_sec));
+  const notebook = !!block && locksByRow(block.canvas);
+  const preview = useLivePreview(block, scoring);
+  const written = preview?.letters.filter((l) => l.status === 'WRITTEN') ?? [];
+  const house = (boxId: number) => (block ? block.fill_order.indexOf(boxId) + 1 : 0);
+  const internal = written.filter((l) => l.internal_pen_lifts > 0);
+  const none = '—';
 
   const rows: [string, React.ReactNode][] = [
-    ['active_box', block ? <bdi>{t('cockpit.house_of', { n: position, total })}</bdi> : '—'],
-    ['block_time', blockTime !== null ? <bdi>{num(blockTime)} {s}</bdi> : '—'],
-    ['inactivity', idle !== null && block?.started ? <bdi>{num(idle, 0)} / {threshold} {s}</bdi> : '—'],
-    ['pen_lifts', block ? <bdi>{block.penLifts}</bdi> : '—'],
-    ['internal_lifts', later],
-    ['width_outside', later],
-    ['dot_b', later],
+    ['active_box', block ? <bdi>{t('cockpit.house_of', { n: position, total })}</bdi> : none],
+    ['block_time', blockTime !== null ? <bdi>{num(blockTime)} {s}</bdi> : none],
+    ['inactivity', idle !== null && block?.started ? <bdi>{num(idle, 0)} / {threshold} {s}</bdi> : none],
+    ['pen_lifts', block ? <bdi>{block.penLifts}</bdi> : none],
+    ['internal_lifts', preview ? <bdi>{preview.internal_pen_lifts}{internal.length > 0 && ` (${t('cockpit.houses')} ${internal.map((l) => house(l.box_id)).join(', ')})`}</bdi> : none],
+    ['width_outside', preview ? <bdi>{written.filter((l) => l.width_in_band === false).length} / {written.length}</bdi> : none],
+    ['dot_b', preview ? <bdi>{written.filter((l) => l.dots.B?.hit).length} / {written.length}</bdi> : none],
     // Notebook letters are written freely along the lines, so passed cells are not skipped houses.
-    ['skipped', block && !locksByRow(block.canvas) ? <bdi>{block.skipped.length}</bdi> : '—'],
-    ['avg_speed', later],
+    ['skipped', block && !notebook ? <bdi>{block.skipped.length}</bdi> : none],
+    ['avg_speed', preview?.avg_speed_mm_s != null ? <bdi>{num(preview.avg_speed_mm_s, 2)} {t('units.mm_s')}</bdi> : none],
   ];
   return (
-    <aside style={layout.panel} data-testid="telemetry">
+    <aside style={isAmber ? layout.panelAmber : layout.panel} data-testid="telemetry" data-amber={isAmber}>
       <h2 style={{ marginBlockStart: 0, fontSize: '1rem' }}>{t('cockpit.telemetry.title')}</h2>
+      {isAmber && <p role="alert" style={{ marginBlock: '0 0.5rem', fontWeight: 600 }}>{t('cockpit.inactivity_amber')}</p>}
       {rows.map(([k, v]) => (
         <div key={k} style={layout.row}>
           <span>{t(`cockpit.telemetry.${k}`)}</span>
           <span>{v}</span>
         </div>
       ))}
+      {block && block.step_type !== 'ILT_BLOCK' && <p style={{ fontSize: '0.8rem', opacity: 0.8, marginBlockEnd: 0 }}>{t(notebook ? 'cockpit.notebook_timed_only' : 'cockpit.warmup_not_scored')}</p>}
     </aside>
   );
 }

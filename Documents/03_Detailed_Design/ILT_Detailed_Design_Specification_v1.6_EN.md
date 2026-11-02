@@ -155,16 +155,17 @@ Every event except `ACK`, `ERROR` and `HEARTBEAT` is acknowledged with `ACK { ac
 |---|---|---|
 | `PAIRING_REQUEST` | tablet → gateway | `pin` (6 digits), `device_id`, `css_px_per_mm`, `device_pixel_ratio`, `screen_w_mm`, `screen_h_mm` |
 | `PAIRING_RESPONSE` | gateway → tablet | `status` ACCEPTED/REJECTED, `session_id`, `language`, `direction`, `mode` SESSION/REFERENCE |
-| `DISPATCH_STEP` | cockpit → tablet (or gateway → all after [Next block]) | `step_index`, `step_type`, `canvas` (resolved geometry incl. mirroring), `fill_order`, `timers` {in_transition_sec, inactivity_sec, inactivity_last_box_sec, amber_grace_sec}, `attempt_number`, `block_number` / `block_count` (position among the session's steps of the same type, shown on the tablet as "Block 2 of 4"), `immediate` (true when the gateway sends it after [Next block]: the tablet starts at once, with no transition countdown) |
+| `DISPATCH_STEP` | cockpit → tablet (or gateway → all after [Next block]) | `step_index`, `step_type`, `canvas` (resolved geometry incl. mirroring), `fill_order`, `timers` {in_transition_sec, inactivity_sec, inactivity_last_box_sec, amber_grace_sec}, `attempt_number`, `block_number` / `block_count` (position among the session's steps of the same type, shown on the tablet as "Block 2 of 4"), `immediate` (true when the gateway sends it after [Next block]: the tablet starts at once, with no transition countdown), `profile` (the step's scoring-profile snapshot; the cockpit uses it for the live telemetry preview, the tablet ignores it) |
 | `STEP_STARTED` | tablet → all | `step_index`, `attempt_number`, `block_started_at` (wall clock) |
 | `BOX_ADVANCED` | tablet → all | `box_id`, `fill_position`, `skipped_box_ids[]` |
-| `INACTIVITY_ALERT` | tablet → all | `level` CUE/AMBER, `idle_ms`, `box_id` |
+| `INACTIVITY_ALERT` | tablet → all | `level` CUE/AMBER, `idle_ms`, `box_id`. CUE after `inactivity_sec` without pen contact (`inactivity_last_box_sec` once the end of the page is reached): the tablet shows a soft amber glow around the page. AMBER after `amber_grace_sec` more: the cockpit's telemetry panel turns amber. Each is sent once per idle period and logged (`session.inactivity.cue` / `.amber`) |
 | `PAUSE_SESSION` / `RESUME_SESSION` | cockpit → tablet | `reason` STUDENT_FATIGUE / HARDWARE / EVALUATOR_INTERVENTION / OTHER, `note` |
 | `MANUAL_FINISH` | cockpit → tablet | `reason` |
 | `BLOCK_COMPLETE` | tablet → all | `step_index`, `attempt_number`, `end_reason` LAST_BOX/MANUAL/TIMEOUT/NEXT_BLOCK, `sample_count`, `last_sample_seq`, `sha256` (over all sample bytes in seq order). NEXT_BLOCK: the [Next block] button on the tablet, offered once the child has reached the last house and answering only a pen tap (finger and palm are ignored); the attempt is stored as COMPLETED and the gateway dispatches the next pending step if it is a writing step (videos, paper steps and the end of the session stay with the evaluator) |
-| `BLOCK_SCORED` | gateway → cockpit | `block_attempt_id`, `score_version`, block scores, per-letter summary |
-| `REPEAT_BLOCK` | cockpit → tablet | `step_index`, `reason`; tablet replies with a new `STEP_STARTED` (attempt + 1) |
-| `VIDEO_PLAY` / `VIDEO_ENDED` | cockpit ↔ tablet | `video_key`, `language`, `url` (resolved from `instruction_videos` for the session language; the tablet pre-loads it during the previous step) |
+| `BLOCK_SCORED` | gateway → cockpit | `block_attempt_id`, `step_index`, `attempt_number`, `score_version` (1, or null for blocks measured but not scored: warm-up, notebook pages), `scores` {total time, pen lifts, skipped boxes, accuracy, accurate letters, average speed, speed / accuracy / pen-lift scores, composite, pass, per-letter speed and accuracy}. Sent right after `BLOCK_STORED` |
+| `REPEAT_BLOCK` | cockpit → gateway | `step_index`, `reason`. Only for a finished writing step: the last finished attempt becomes `REPEATED` (kept with its scores, `repeat_reason` stored), the step returns to PENDING and the gateway sends `DISPATCH_STEP` for attempt + 1. Refused with `NOT_REPEATABLE` or `BLOCK_ACTIVE` |
+| `VIDEO_PLAY` | cockpit → gateway → tablet | Cockpit sends `step_index`; the gateway resolves the ACTIVE video for the step's `video_key` in the session language (`NO_VIDEO` if there is none, FR-PLAN-8), marks the step ACTIVE and forwards `step_index`, `video_key`, `language`, `url` (`/api/v1/media/videos/:id`). The tablet downloads the video with its session token (never a token in a URL) and plays it full screen; a tablet that reconnects during the video gets it again. No block can be dispatched while a video plays (`VIDEO_PLAYING`) |
+| `VIDEO_ENDED` | tablet → gateway (ENDED) · cockpit → gateway → tablet (STOPPED) | `step_index`, `reason` ENDED/STOPPED. The step becomes DONE; logged as `session.video.ended` |
 | `ABORT_SESSION` | cockpit → all | `reason`, `save_partial` |
 | `SESSION_COMPLETE` | gateway → all | `session_id`, `completed_steps` |
 | `REFERENCE_START` | admin → tablet | `canvas_id`, `kind` SAMPLE_BLOCK_FILL/NORMAL_SPEED, `rows` (for speed: 1) |
@@ -1024,14 +1025,15 @@ Day 1 template steps:
 | `VIDEO_PLAYING` | `VIDEO_ENDED` or skip | `STEP_REVIEW` | Mark step done |
 | `STEP_PREVIEW` | Dispatch (writing step) | `STEP_ACTIVE` | `DISPATCH_STEP`, live mirror on |
 | `STEP_PREVIEW` | Dispatch (paper page) | `PAPER_TIMING` | Show start/stop timer |
-| `PAPER_TIMING` | Stop | `STEP_REVIEW` | Save duration and notes |
+| `PAPER_TIMING` | Stop | `STEP_REVIEW` | Save duration and notes (`POST /sessions/:id/steps/:index/paper`); the timer can be stopped and continued before saving |
+| any (no step running) | [Next step] | per step type | Runs the first step not yet done: dispatches a writing step, plays a video, or scrolls to the paper page's timer |
 | `STEP_ACTIVE` | `INACTIVITY_ALERT` CUE | `STEP_ACTIVE` | Show idle time |
 | `STEP_ACTIVE` | `INACTIVITY_ALERT` AMBER | `STEP_ACTIVE` | Amber panel, Manual Finish flashes |
 | `STEP_ACTIVE` | Last house reached (notebook page: the last row) and no pen contact for `inactivity_last_box_sec` | `STEP_ACTIVE` | Manual Finish becomes available: amber and blinking (no blink under reduced motion); before that it stays lightened and disabled. Inactivity counts time without pen contact; hover does not reset it |
 | `STEP_ACTIVE` | Pause | `PAUSED` | `PAUSE_SESSION`, reason logged |
 | `PAUSED` | Resume | `STEP_ACTIVE` | `RESUME_SESSION` |
 | `STEP_ACTIVE` | Manual finish / `BLOCK_COMPLETE` | `SCORING` | Wait for persistence ACK of the last sample, then score |
-| `SCORING` | `BLOCK_SCORED` | `STEP_REVIEW` | Show block result; for intervention, the marking form with suggestions |
+| `SCORING` | `BLOCK_SCORED` | `STEP_REVIEW` | Show block result (components next to the composite, never instead of them, with [Replay]); for intervention, the marking form with suggestions |
 | `STEP_REVIEW` | Repeat block | `STEP_ACTIVE` | Attempt 1 → `REPEATED`; `REPEAT_BLOCK`; attempt 2 starts |
 | `STEP_REVIEW` | No steps left | `SESSION_COMPLETE` | `SESSION_COMPLETE`, open the comparative summary |
 | any | Abort | `ABORTED` | `ABORT_SESSION`, partial data kept |
@@ -1053,7 +1055,9 @@ Day 1 template steps:
 | `UPLOADING` | All batches ACKed | `WAITING` | — |
 | `WRITING` | `PAUSE_SESSION` | `PAUSED` | Freeze timers, rest overlay |
 | `PAUSED` | `RESUME_SESSION` | `WRITING` | — |
-| `WAITING` | `VIDEO_PLAY` | `VIDEO` | Play full screen; `VIDEO_ENDED` → `WAITING` |
+| `WAITING` | `VIDEO_PLAY` | `VIDEO` | Download with the tablet token, play full screen; if the browser refuses autoplay with sound, a "tap to play" button; at the end `VIDEO_ENDED` → `WAITING` |
+| `VIDEO` | `VIDEO_ENDED` (STOPPED by the evaluator) | `WAITING` | Close the video |
+| `WRITING` | No pen contact for the CUE / AMBER time | `WRITING` | Soft amber glow around the page (CUE); `INACTIVITY_ALERT`; the next pen contact clears it. A pause does not count |
 | `WAITING` | `REFERENCE_START` | `REFERENCE` | Banner "reference recording"; same capture |
 | any | `ABORT_SESSION` / `SESSION_COMPLETE` | `IDLE` | Clear screen, keep unsent buffers until ACKed |
 
@@ -1113,16 +1117,18 @@ Day 1 template steps:
 | GET/POST/PATCH | `/instruction-videos?key=&language=` | ADMIN (write), all (read) | Video library: upload, new version, retire |
 | GET/POST | `/protocol-templates` | ADMIN (write), RESEARCHER, EVALUATOR | Templates |
 | GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent. POST takes `study_code` (shown as "Participant code"), Domain, Region, `school` (hashed with `SCHOOL_CODE_HMAC_KEY` after trimming, collapsing spaces and lower-casing; the name is never stored, logged or returned), `birth_year_month` (YYYY-MM, stored as the 1st of the month), grade, gender, dominant hand. Session creation stores `age_months` from the birth month |
-| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions |
+| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions. The detail includes each attempt's current score version, the scoring weights and threshold from the snapshot, and `available_videos` (video keys with a version in the session language) |
 | POST | `/sessions/:id/pairing` | EVALUATOR | Open room, issue PIN |
 | POST | `/sessions/pair` | tablet | Pair with PIN (body = `PAIRING_REQUEST` payload); returns `PAIRING_RESPONSE` fields, the session code and the tablet token. 5 wrong PINs from one address lock pairing for 15 min |
-| PATCH | `/sessions/:id/steps/:index` | EVALUATOR | Change canvas before dispatch; paper timing and notes; `{ "status": "SKIPPED" }` skips a pending step (logged) |
+| PATCH | `/sessions/:id/steps/:index` | EVALUATOR | `{ "status": "SKIPPED" }` skips a pending step (logged). Changing the canvas before dispatch comes later |
+| POST | `/sessions/:id/steps/:index/paper` | EVALUATOR | Paper notebook page (FR-COCK-4): `duration_ms` (0–3,600,000), `notes` (≤ 2000); the step becomes DONE; logged as `session.paper_page.timed` |
+| GET | `/media/videos/:id` | tablet token or staff access token | Instruction video bytes from object storage |
 | POST | `/sessions/:id/complete` | EVALUATOR | Close the session when every step is done or skipped; sends `SESSION_COMPLETE` |
 | GET | `/ws/tablet` · `/ws/cockpit` | tablet · EVALUATOR | Real-time links (§5.1) |
-| GET | `/sessions/:id/results` | EVALUATOR (own), RESEARCHER | Blocks, scores, letters |
 | PUT | `/block-attempts/:id/intervention-marks/:boxId` | EVALUATOR | Set or change a mark |
-| GET | `/sessions/:id/summary` | EVALUATOR (own), RESEARCHER | Comparative summary (anchor pairs) |
-| GET | `/block-attempts/:id/samples` | EVALUATOR (own), RESEARCHER, ANALYST (research only) | Replay data (binary §5.2) |
+| GET | `/participants/:id/summary` | EVALUATOR, RESEARCHER, ADMIN | Comparative summary (FR-SUM-1…4): the participant's latest non-aborted session of each type; per anchor pair the latest finished attempt of each ILT block (a REPEATED attempt is kept for audit only); averages of time and pen lifts, accuracy %, average speed (Σ length ÷ Σ time), component scores, composite; Pass/Fail against the threshold in effect now for the participant's Domain; the weights and threshold |
+| PUT | `/settings/pass-threshold` | ADMIN (+ director PIN when required) | Sets (`value` 0–100) or clears (`null`, "not configured") the System pass threshold; with director approval on, `director_email` and `director_pin` of an active RESEARCHER with a director PIN; writes `setting_value_history` and logs `auth.director_pin.verified/failed` and `settings.value.changed/removed` |
+| GET | `/attempts/:id/replay` | EVALUATOR (own), RESEARCHER, ADMIN | Replay data (FR-REP-1/2): the canvas as written (mirroring applied), every sample as columnar arrays, per-house speed and accuracy from the current score version; logs `data.replay.opened` |
 | POST | `/scores/recompute` | ADMIN | Recompute selected blocks with given settings; creates new score versions |
 | POST | `/paper-scores` · `POST /legacy/import` | EVALUATOR · ADMIN | Paper cohort, legacy import |
 | POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed S3 URL, 15 min) |
@@ -1175,3 +1181,4 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Dev users | Hashes generated at seed time from environment variables |
 | Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
+| Session flow (Phase 2) | Video steps through the gateway (`VIDEO_PLAY` from the cockpit with `step_index`, resolved per session language; `VIDEO_ENDED` ENDED/STOPPED); inactivity cue and alerts; scoring on storage with `BLOCK_SCORED`; `REPEAT_BLOCK` via the gateway; paper notebook timing route; Comparative Summary by participant; pass-threshold route with director PIN; replay as JSON (`/attempts/:id/replay`) instead of binary `/block-attempts/:id/samples` |

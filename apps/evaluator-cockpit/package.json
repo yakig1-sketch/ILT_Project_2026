@@ -13,6 +13,7 @@
   "dependencies": {
     "@ilt/emr-protocol": "workspace:^",
     "@ilt/i18n": "workspace:*",
+    "@ilt/ilt-metrics": "workspace:^",
     "@ilt/shared-types": "workspace:*",
     "@ilt/template-schemas": "workspace:*",
     "@ilt/ui": "workspace:*",

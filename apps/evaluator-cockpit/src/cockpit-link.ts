@@ -9,7 +9,7 @@ import {
   type ControlPayload,
   type PenSample,
 } from '@ilt/shared-types';
-import type { CanvasGeometry } from '@ilt/template-schemas';
+import type { CanvasGeometry, ScoringProfile } from '@ilt/template-schemas';
 import { GatewayLink, PeerLink } from '@ilt/ui';
 import { getAuth } from './api';
 
@@ -18,9 +18,14 @@ const RELAY_FRESH_MS = 1500;
 
 export interface LiveBlock {
   step_index: number;
+  step_type: string;
   attempt_number: number;
   canvas: CanvasGeometry;
   fill_order: number[];
+  /** Scoring profile for the live telemetry preview; null on notebook pages. */
+  profile: ScoringProfile | null;
+  /** Every mirrored sample of the block, for the live preview. */
+  samples: PenSample[];
   started: boolean;
   completing: boolean;
   activeBoxId: number | null;
@@ -35,6 +40,7 @@ export interface LiveBlock {
 }
 
 export interface StoredResult {
+  block_attempt_id: string;
   step_index: number;
   attempt_number: number;
   sample_count: number;
@@ -50,6 +56,12 @@ export class CockpitLink {
   lastStored: StoredResult | null = null;
   /** The tablet restarted and lost this block; it can be sent again. */
   lastInterrupted: ControlPayload<'BLOCK_INTERRUPTED'> | null = null;
+  /** Measures and scores of the last finished block (BLOCK_SCORED). */
+  lastScored: ControlPayload<'BLOCK_SCORED'> | null = null;
+  /** The video step playing on the tablet. */
+  video: ControlPayload<'VIDEO_PLAY'> | null = null;
+  /** The tablet reported AMBER inactivity (FR-TAB-5); cleared by the next pen contact. */
+  amber = false;
   lastError: string | null = null;
   /** Called with each batch of mirror samples for the current block. */
   onSamples: ((samples: PenSample[]) => void) | null = null;
@@ -121,13 +133,15 @@ export class CockpitLink {
       }
       case 'DISPATCH_STEP': {
         const p = payload as ControlPayload<'DISPATCH_STEP'>;
+        this.amber = false;
         this.block = {
-          step_index: p.step_index, attempt_number: p.attempt_number,
+          step_index: p.step_index, step_type: p.step_type, attempt_number: p.attempt_number,
           canvas: p.canvas as CanvasGeometry, fill_order: p.fill_order ?? [],
+          profile: (p.profile as ScoringProfile | undefined) ?? null, samples: [],
           started: false, completing: false, activeBoxId: p.fill_order?.[0] ?? null, fillPosition: 0, skipped: [],
           firstContactUs: null, lastUs: null, lastContactAt: null, penLifts: 0, lastStrokeEndUs: null,
         };
-        this.lastStored = null;
+        // lastStored stays: the previous block's result card keeps its integrity line.
         this.lastInterrupted = null;
         this.onSessionChanged();
         break;
@@ -141,6 +155,21 @@ export class CockpitLink {
       }
       case 'STEP_STARTED':
         if (this.block) this.block.started = true;
+        break;
+      case 'INACTIVITY_ALERT':
+        if ((payload as ControlPayload<'INACTIVITY_ALERT'>).level === 'AMBER') this.amber = true;
+        break;
+      case 'BLOCK_SCORED':
+        this.lastScored = payload as ControlPayload<'BLOCK_SCORED'>;
+        this.onSessionChanged();
+        break;
+      case 'VIDEO_PLAY':
+        this.video = payload as ControlPayload<'VIDEO_PLAY'>;
+        this.onSessionChanged();
+        break;
+      case 'VIDEO_ENDED':
+        this.video = null;
+        this.onSessionChanged();
         break;
       case 'BOX_ADVANCED': {
         const p = payload as ControlPayload<'BOX_ADVANCED'>;
@@ -192,6 +221,7 @@ export class CockpitLink {
       if ((s.flags & StrokeFlag.CONTACT) !== 0) {
         if (b.firstContactUs === null) b.firstContactUs = s.t_us;
         b.lastContactAt = Date.now();
+        this.amber = false;
       }
       if ((s.flags & StrokeFlag.STROKE_START) !== 0) {
         // A lift shorter than the minimum gap joins the strokes: it is not a pen lift (DDD §8.2).
@@ -200,6 +230,7 @@ export class CockpitLink {
       if ((s.flags & StrokeFlag.STROKE_END) !== 0) b.lastStrokeEndUs = s.t_us;
       b.lastUs = s.t_us;
     }
+    b.samples.push(...packet.samples);
     this.onSamples?.(packet.samples);
     this.emit();
   }

@@ -1,4 +1,4 @@
-// Sessions: planning, pairing with a 6-digit PIN, and step skipping (DDD §11.1, §14).
+// Sessions: planning, pairing with a 6-digit PIN, step skipping and paper notebook pages (DDD §11.1, §14).
 import { randomInt } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
@@ -14,6 +14,7 @@ import {
 import type { Queryable } from '../app-log.js';
 import type { UserClaims } from '../auth.js';
 import { inTransaction, one, rows } from '../db.js';
+import { scoringSettingsFrom } from '../scoring-store.js';
 import { loadEffectiveSettings, setting, type SettingsSnapshot } from '../settings-store.js';
 
 const PIN_TTL_MINUTES = 10;
@@ -69,8 +70,12 @@ export interface StepRow {
   geometry: CanvasGeometry | null;
   mirrored: boolean;
   fill_order: number[] | null;
+  /** Canvas scoring profile copied at session creation; null for notebook pages and videos. */
+  profile: ScoringProfile | null;
   video_key: string | null;
   status: string;
+  paper_duration_ms: number | null;
+  notes: string | null;
 }
 
 export async function loadSession(db: Queryable, id: string): Promise<SessionRow | undefined> {
@@ -87,7 +92,8 @@ export async function loadSteps(db: Queryable, sessionId: string): Promise<StepR
   return rows<StepRow>(
     db,
     `SELECT st.id, st.step_index, st.step_type, st.label_key, st.block_number, st.is_scored, st.canvas_id,
-            c.code AS canvas_code, c.geometry, st.mirrored, st.fill_order, st.video_key, st.status
+            c.code AS canvas_code, c.geometry, st.mirrored, st.fill_order, st.canvas_profile_snapshot AS profile, st.video_key, st.status,
+            st.paper_duration_ms, st.notes
        FROM session_steps st LEFT JOIN canvases c ON c.id = st.canvas_id
       WHERE st.session_id = $1 ORDER BY st.step_index`,
     [sessionId],
@@ -141,13 +147,28 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const steps = await loadSteps(app.deps.db, s.id);
     const attempts = await rows(
       app.deps.db,
-      `SELECT ba.id, st.step_index, ba.attempt_number, ba.status, ba.sample_count, ba.integrity_ok, ba.started_at, ba.ended_at
+      `SELECT ba.id, st.step_index, ba.attempt_number, ba.status, ba.sample_count, ba.integrity_ok, ba.started_at, ba.ended_at,
+              ba.total_time_ms, ba.repeat_reason, sv.version AS score_version, sv.pen_lifts, sv.accurate_letters, sv.accuracy_score,
+              sv.avg_speed_mm_s, sv.speed_score, sv.pen_lift_score, sv.composite_score, sv.pass
          FROM block_attempts ba JOIN session_steps st ON st.id = ba.session_step_id
+         LEFT JOIN score_versions sv ON sv.block_attempt_id = ba.id AND sv.is_current
         WHERE st.session_id = $1 ORDER BY st.step_index, ba.attempt_number`,
       [s.id],
     );
+    // Videos available in the session language: the cockpit warns about the others (FR-PLAN-8).
+    const videos = await rows<{ video_key: string }>(
+      app.deps.db, "SELECT video_key FROM instruction_videos WHERE language_code = $1 AND status = 'ACTIVE'", [s.language_code],
+    );
     const { settings_snapshot, ...session } = s;
-    return { ...session, timers: timersFrom(settings_snapshot), steps, attempts };
+    const scoring = scoringSettingsFrom(settings_snapshot);
+    return {
+      ...session,
+      timers: timersFrom(settings_snapshot),
+      scoring: { pass_threshold: scoring.pass_threshold, weight_speed_pct: scoring.weight_speed_pct, weight_accuracy_pct: scoring.weight_accuracy_pct, weight_pen_lifts_pct: scoring.weight_pen_lifts_pct },
+      steps: steps.map(({ geometry: _g, profile: _p, ...st }) => st),
+      attempts,
+      available_videos: videos.map((v) => v.video_key),
+    };
   });
 
   app.post('/sessions', { preHandler: evaluator }, async (req, reply) => {
@@ -314,7 +335,39 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
-  /** Video and paper steps run in Phase 2; until then the evaluator can skip them (logged). */
+  /** Paper notebook page (FR-COCK-4): the evaluator times the page in the cockpit and may add notes. */
+  const PaperBody = z.object({ duration_ms: z.number().int().min(0).max(3_600_000), notes: z.string().trim().max(2000).optional() });
+  app.post<{ Params: { id: string; index: string } }>('/sessions/:id/steps/:index/paper', { preHandler: evaluator }, async (req, reply) => {
+    const s = await ownSession(req);
+    if (!s) return reply.status(404).send(notFound);
+    if (s.status === 'COMPLETED' || s.status === 'ABORTED') {
+      return reply.status(409).send({ error: { code: 'SESSION_CLOSED', message_key: 'sessions.closed', details: {} } });
+    }
+    const body = PaperBody.safeParse(req.body);
+    if (!body.success) return reply.status(400).send({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details: body.error.flatten() } });
+    const user = req.user as UserClaims;
+    const index = Number(req.params.index);
+    const updated = await one<{ id: string }>(
+      app.deps.db,
+      `UPDATE session_steps SET status = 'DONE', paper_duration_ms = $3, notes = $4, started_at = coalesce(started_at, now()), completed_at = now()
+        WHERE session_id = $1 AND step_index = $2 AND step_type = 'PAPER_NOTEBOOK_PAGE' AND status IN ('PENDING', 'ACTIVE') RETURNING id`,
+      [s.id, index, body.data.duration_ms, body.data.notes || null],
+    );
+    if (!updated) return reply.status(409).send({ error: { code: 'STEP_NOT_PENDING', message_key: 'sessions.step_not_pending', details: {} } });
+    await app.deps.db.query(
+      "UPDATE sessions SET status = 'IN_PROGRESS', started_at = coalesce(started_at, now()) WHERE id = $1 AND status IN ('PLANNED', 'PAIRED', 'PAUSED')",
+      [s.id],
+    );
+    app.appLog.write({
+      severity: 'INFO', event_type: 'session.paper_page.timed', actor_user_id: user.sub, actor_role: user.role, session_id: s.id,
+      entity_type: 'session_step', entity_id: updated.id,
+      message: `Paper notebook page timed: step ${index}, ${(body.data.duration_ms / 1000).toFixed(1)} s`,
+      details: { step_index: index, duration_ms: body.data.duration_ms, has_notes: !!body.data.notes },
+    });
+    return { ok: true };
+  });
+
+  /** The evaluator can skip a pending step, for example a video with no version in the session language (logged). */
   app.patch<{ Params: { id: string; index: string } }>('/sessions/:id/steps/:index', { preHandler: evaluator }, async (req, reply) => {
     const s = await ownSession(req);
     if (!s) return reply.status(404).send(notFound);

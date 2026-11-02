@@ -11,7 +11,7 @@ export const ui = {
   // A control that is not available yet: lightened so it does not draw the eye.
   faded: { opacity: 0.4, cursor: 'default' },
   // A control that needs the evaluator now (Manual finish once available): amber, bold, blinking.
-  attention: { background: '#bf8700', borderColor: '#9a6700', color: '#fff', fontWeight: 600 },
+  attention: { background: '#bf8700', border: '1px solid #9a6700', color: '#fff', fontWeight: 600 },
   error: { color: '#cf222e', margin: 0 },
   muted: { color: '#57606a', fontSize: '0.85rem' },
   table: { inlineSize: '100%', borderCollapse: 'collapse' },

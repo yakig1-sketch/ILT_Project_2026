@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { s3MediaStore } from './media.js';
 import { VERSION } from './routes/health.js';
 
 const config = loadConfig();
@@ -11,6 +12,7 @@ const app = await buildApp({
   checkS3: async () => (await fetch(`${config.s3Endpoint}/`, { signal: AbortSignal.timeout(2000) })).status < 500,
   jwtSecret: config.jwtSecret,
   schoolHmacKey: config.schoolHmacKey,
+  media: s3MediaStore(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
   logLevel: config.logLevel,
 });
 

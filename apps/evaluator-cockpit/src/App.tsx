@@ -1,10 +1,13 @@
-// Evaluator cockpit: sign-in, sessions, and the live session screen (FR-COCK-1…3).
+// Evaluator cockpit: sign-in, sessions, the live session screen (FR-COCK-1…4), the Comparative
+// Summary Dashboard (FR-SUM) and Replay (FR-REP).
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell } from '@ilt/ui';
 import { ApiError, getAuth, login, logout, onAuthChange } from './api';
+import { ReplayScreen } from './ReplayScreen';
 import { SessionScreen } from './SessionScreen';
 import { SessionsScreen } from './SessionsScreen';
+import { SummaryScreen } from './SummaryScreen';
 import { ui } from './styles';
 
 function useHashRoute(): [string, (to: string) => void] {
@@ -22,6 +25,8 @@ export function App() {
   const auth = useSyncExternalStore(onAuthChange, getAuth);
   const [hash, go] = useHashRoute();
   const sessionId = /^#\/sessions\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+  const summaryId = /^#\/summary\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+  const replayId = /^#\/replay\/([0-9a-f-]{36})$/.exec(hash)?.[1];
 
   return (
     <AppShell titleKey="app.cockpit">
@@ -33,8 +38,18 @@ export function App() {
             <span style={{ color: '#57606a' }}>{auth.user.full_name}</span>
             <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
           </div>
-          {sessionId ? (
-            <SessionScreen key={sessionId} sessionId={sessionId} onBack={() => go('#/sessions')} />
+          {replayId ? (
+            <ReplayScreen key={replayId} attemptId={replayId} onBack={() => history.back()} />
+          ) : summaryId ? (
+            <SummaryScreen key={summaryId} participantId={summaryId} onBack={() => history.back()} onReplay={(id) => go(`#/replay/${id}`)} />
+          ) : sessionId ? (
+            <SessionScreen
+              key={sessionId}
+              sessionId={sessionId}
+              onBack={() => go('#/sessions')}
+              onSummary={(id) => go(`#/summary/${id}`)}
+              onReplay={(id) => go(`#/replay/${id}`)}
+            />
           ) : (
             <SessionsScreen onOpen={(id) => go(`#/sessions/${id}`)} />
           )}
