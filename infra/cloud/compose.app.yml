@@ -1,0 +1,56 @@
+# ILT application server (one per app VM): four gateway cells and the Caddy web front.
+# Each cell is one telemetry-gateway process with its own hostname; all cells share the database
+# and the S3 storage. A school's tablets and cockpits all use the same cell (Installation Guide §3.3).
+#   docker compose -f compose.app.yml up -d
+#   docker compose -f compose.app.yml run --rm ops src/migrate.ts     (install and upgrade only)
+name: ilt-app
+
+x-gateway: &gateway
+  image: ${ILT_SERVER_IMAGE:?set ILT_SERVER_IMAGE in .env}
+  restart: unless-stopped
+  env_file: ilt.env
+  environment:
+    NODE_OPTIONS: --max-old-space-size=1536
+  deploy:
+    resources:
+      limits: { cpus: '2', memory: 2g }
+  logging: &logging
+    driver: json-file
+    options: { max-size: 50m, max-file: '10' }
+
+services:
+  gateway-1: *gateway
+  gateway-2: *gateway
+  gateway-3: *gateway
+  gateway-4: *gateway
+
+  web:
+    image: ${ILT_WEB_IMAGE:?set ILT_WEB_IMAGE in .env}
+    restart: unless-stopped
+    env_file: ilt.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.app:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [gateway-1, gateway-2, gateway-3, gateway-4]
+    logging: *logging
+
+  # Database tools: migrations, reference-data seed, user accounts. Needs ops.env (owner credentials),
+  # which exists only while installing or upgrading.
+  ops:
+    image: ${ILT_SERVER_IMAGE:?set ILT_SERVER_IMAGE in .env}
+    profiles: [ops]
+    env_file:
+      - ilt.env
+      - path: ops.env
+        required: false
+    working_dir: /app/infra/db
+    entrypoint: ["/app/infra/db/node_modules/.bin/tsx"]
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -16,6 +16,7 @@ The latest version of each specification sits at the top of its folder; older ve
 | [09_Samples](09_Samples) | Session photos, notebook samples, Hebrew letter practice sheets, intervention program | |
 | [10_Equipment](10_Equipment) | Hardware specs (camera) | |
 | [11_Sponsorship](11_Sponsorship) | Wacom and cloud resource sponsorship requests | |
+| [12_Installation](12_Installation) | System Installation Guide for a cloud deployment: hardware, software and network requirements for 100–500 concurrent sessions, installation and operations manual (deployment files in `infra/cloud/`) | [v1.0](12_Installation/ILT_System_Installation_Guide_v1.0_EN.md) (EN, Markdown + [PDF](12_Installation/ILT_System_Installation_Guide_v1.0_EN.pdf)) |
 
 ## Notes
 

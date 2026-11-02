@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+**/.venv
+**/__pycache__
+**/*.egg-info
+.git
+.env
+.env.*
+!.env.example
+# Documents are not needed in the images, except the two instruction videos the seed uploads.
+Documents/**
+!Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4
+!Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4

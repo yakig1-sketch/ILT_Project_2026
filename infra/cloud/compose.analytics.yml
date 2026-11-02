@@ -1,0 +1,42 @@
+# ILT analytics server: analyst portal, an administration/analyst gateway cell, and the analytics
+# service, which reads the research views on the read replica as ilt_analyst.
+#   docker compose -f compose.analytics.yml up -d
+name: ilt-analytics
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 50m, max-file: '10' }
+
+services:
+  gateway-admin:
+    image: ${ILT_SERVER_IMAGE:?set ILT_SERVER_IMAGE in .env}
+    restart: unless-stopped
+    env_file: ilt.env
+    environment:
+      NODE_OPTIONS: --max-old-space-size=3072
+    logging: *logging
+
+  analytics:
+    image: ${ILT_ANALYTICS_IMAGE:?set ILT_ANALYTICS_IMAGE in .env}
+    restart: unless-stopped
+    env_file: ilt.env
+    logging: *logging
+
+  web:
+    image: ${ILT_WEB_IMAGE:?set ILT_WEB_IMAGE in .env}
+    restart: unless-stopped
+    env_file: ilt.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.analytics:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [gateway-admin, analytics]
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:

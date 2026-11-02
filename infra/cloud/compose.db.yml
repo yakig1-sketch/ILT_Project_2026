@@ -1,0 +1,96 @@
+# ILT database server: PostgreSQL 16 + TimescaleDB, and (on the primary only) SeaweedFS S3 storage.
+#   Primary:  docker compose -f compose.db.yml --profile storage up -d
+#   Replica:  docker compose -f compose.db.yml up -d      (after pg_basebackup, Installation Guide §7.6)
+# Ports bind to the VM's private address only; never to the internet.
+name: ilt-db
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 50m, max-file: '10' }
+
+services:
+  db:
+    image: timescale/timescaledb:2.31.0-pg16
+    restart: unless-stopped
+    shm_size: ${PG_SHM_SIZE:-8g}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ilt_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ilt}
+      TIMESCALEDB_TELEMETRY: "off"
+      NO_TS_TUNE: "true"
+    command:
+      - postgres
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-300}
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-16GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-48GB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-32MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-2GB}
+      - -c
+      - max_wal_size=${PG_MAX_WAL_SIZE:-32GB}
+      - -c
+      - min_wal_size=4GB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - max_worker_processes=${PG_MAX_WORKERS:-32}
+      - -c
+      - max_parallel_workers=${PG_MAX_PARALLEL_WORKERS:-8}
+      - -c
+      - timescaledb.max_background_workers=${PG_TS_BG_WORKERS:-16}
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - wal_keep_size=16GB
+      - -c
+      - max_slot_wal_keep_size=${PG_MAX_SLOT_WAL_KEEP:-200GB}
+      - -c
+      - hot_standby=on
+      - -c
+      - hot_standby_feedback=on
+      - -c
+      - max_standby_streaming_delay=10min
+      - -c
+      - log_min_duration_statement=2000
+      - -c
+      - password_encryption=scram-sha-256
+    ports:
+      - "${DB_BIND_IP:?set DB_BIND_IP in .env}:5432:5432"
+    volumes:
+      - ${PG_DATA_DIR:-/data/pg}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ilt_owner} -d ${POSTGRES_DB:-ilt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  s3:
+    image: chrislusf/seaweedfs:4.50
+    profiles: [storage]
+    restart: unless-stopped
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+    entrypoint: ["/bin/sh", "/etc/ilt/start-s3.sh"]
+    ports:
+      - "${DB_BIND_IP:?set DB_BIND_IP in .env}:8333:8333"
+    volumes:
+      - ${S3_DATA_DIR:-/data/s3}:/data
+      - ../s3/start-s3.sh:/etc/ilt/start-s3.sh:ro
+    logging: *logging

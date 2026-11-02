@@ -6,6 +6,7 @@
   "scripts": {
     "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seed.ts",
+    "create-user": "tsx src/create-user.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

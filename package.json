@@ -13,7 +13,8 @@
     "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
     "db:migrate": "pnpm --filter @ilt/db migrate",
-    "db:seed": "pnpm --filter @ilt/db seed"
+    "db:seed": "pnpm --filter @ilt/db seed",
+    "db:create-user": "pnpm --filter @ilt/db create-user"
   },
   "devDependencies": {
     "turbo": "^2.2.3",

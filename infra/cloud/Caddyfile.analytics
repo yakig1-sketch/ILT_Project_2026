@@ -1,0 +1,37 @@
+# Caddy on the analytics VM, one site:
+#   /analyst/    analyst portal        /cockpit/    cockpit for administrators and researchers
+#   /analytics/* analytics service     /api/*, /ws/*  the admin gateway cell
+{
+	email {$ACME_EMAIL}
+}
+
+{$ANALYST_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	@gateway path /api/* /ws/*
+	handle @gateway {
+		reverse_proxy gateway-admin:8080
+	}
+	handle_path /analytics/* {
+		reverse_proxy analytics:8090
+	}
+	redir /analyst /analyst/
+	redir /cockpit /cockpit/
+	handle_path /analyst/* {
+		root * /srv/analyst
+		try_files {path} /index.html
+		file_server
+	}
+	handle_path /cockpit/* {
+		root * /srv/cockpit
+		try_files {path} /index.html
+		file_server
+	}
+	handle {
+		redir * /analyst/
+	}
+}
