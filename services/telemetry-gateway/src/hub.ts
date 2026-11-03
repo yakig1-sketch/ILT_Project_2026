@@ -20,7 +20,8 @@ import {
   type ControlPayload,
 } from '@ilt/shared-types';
 import { mirrorCanvas } from '@ilt/template-schemas';
-import type { TokenClaims } from './auth.js';
+import type { TokenClaims, UserClaims } from './auth.js';
+import { one } from './db.js';
 import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
 import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
@@ -152,6 +153,11 @@ export class Hub {
 
     if (kind === 'tablet') {
       if (claims.typ !== 'tablet') return reject('wrong token');
+      // Only the session's current pairing: a released tablet (or an older pairing) goes back to the PIN screen.
+      const current = await one<{ status: string; tablet_token_id: string | null }>(
+        this.db, 'SELECT status, tablet_token_id FROM sessions WHERE id = $1', [claims.session_id],
+      );
+      if (!current || !claims.tid || current.tablet_token_id !== claims.tid) return reject('released');
       const r = this.room(claims.session_id);
       if (r.tablet && r.tablet !== socket) r.tablet.close(4409, 'replaced');
       r.tablet = socket;
@@ -160,8 +166,14 @@ export class Hub {
         this.log({ severity: 'INFO', event_type: 'session.link.restored', session_id: claims.session_id, client_ip: clientIp, message: 'Tablet link restored' });
       }
       this.notifyPeers(claims.session_id);
+      // The session ended while the tablet was away: it sends what it still holds, shows the end and returns to the PIN screen.
+      if (current.status === 'COMPLETED') {
+        this.sendTo(socket, controlMessage('SESSION_COMPLETE', { session_id: claims.session_id, completed_steps: await this.doneSteps(claims.session_id) }));
+      } else if (current.status === 'ABORTED') {
+        this.sendTo(socket, controlMessage('ABORT_SESSION', { reason: 'SESSION_ABORTED', save_partial: true }));
+      }
       // A tablet that reloaded during a video plays it again (the kiosk ignores a repeat of the one it is playing).
-      if (r.activeVideo) this.sendTo(socket, r.activeVideo);
+      else if (r.activeVideo) this.sendTo(socket, r.activeVideo);
       return claims.session_id;
     }
 
@@ -547,6 +559,35 @@ export class Hub {
       [sessionId, p.step_index],
     );
     this.log({ severity: 'INFO', event_type: 'session.video.ended', session_id: sessionId, message: `Video ${playing.video_key} ${p.reason === 'STOPPED' ? 'stopped by the evaluator' : 'ended'}, step ${p.step_index}`, details: p });
+  }
+
+  /**
+   * Releases the tablet from an unfinished session (Phase 2 QA): the pairing's token id is cleared, so
+   * the tablet is turned away (4401) and returns to the PIN screen; the session can be paired again.
+   * Refused while a block or video runs, so no writing is cut off.
+   */
+  async releaseTablet(sessionId: string, user: UserClaims): Promise<'RELEASED' | 'STEP_RUNNING'> {
+    const r = this.room(sessionId);
+    r.activeBlock ??= await this.activeBlockFromDb(sessionId);
+    if (r.activeBlock || r.activeVideo) return 'STEP_RUNNING';
+    await this.db.query(
+      "UPDATE sessions SET tablet_token_id = NULL, status = CASE WHEN status = 'PAIRED' THEN 'PLANNED' ELSE status END WHERE id = $1",
+      [sessionId],
+    );
+    const tablet = r.tablet;
+    r.tablet = undefined;
+    r.linkLost = false;
+    tablet?.close(4401, 'released');
+    this.log({
+      severity: 'INFO', event_type: 'session.tablet.released', actor_user_id: user.sub, actor_role: user.role, session_id: sessionId,
+      message: `Tablet released from the session (${tablet ? 'it was connected' : 'it was not connected'})`, details: { was_connected: !!tablet },
+    });
+    this.notifyPeers(sessionId);
+    return 'RELEASED';
+  }
+
+  private async doneSteps(sessionId: string): Promise<number> {
+    return (await loadSteps(this.db, sessionId)).filter((s) => s.status === 'DONE').length;
   }
 
   /** Ends the session when no step is left (gateway → all: SESSION_COMPLETE). */

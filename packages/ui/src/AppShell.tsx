@@ -7,13 +7,14 @@ import type { LanguageCode } from '@ilt/shared-types';
 const styles = {
   header: {
     display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
-    paddingBlock: '0.75rem', paddingInline: '1rem', borderBlockEnd: '1px solid #d0d7de', background: '#f6f8fa',
+    paddingBlock: '0.75rem', paddingInline: '1rem', borderBlockEnd: '1px solid var(--ilt-border, #d0d7de)', background: 'var(--ilt-header, #f6f8fa)',
   },
   title: { margin: 0, fontSize: '1.25rem', marginInlineEnd: 'auto' },
   main: { padding: '1rem' },
   pill: (ok: boolean | null): CSSProperties => ({
     paddingInline: '0.6rem', paddingBlock: '0.15rem', borderRadius: '999px', fontSize: '0.85rem',
-    background: ok === null ? '#eaeef2' : ok ? '#dafbe1' : '#ffebe9', color: ok === null ? '#57606a' : ok ? '#1a7f37' : '#cf222e',
+    background: ok === null ? 'var(--ilt-off-bg, #eaeef2)' : ok ? 'var(--ilt-ok-bg, #dafbe1)' : 'var(--ilt-bad-bg, #ffebe9)',
+    color: ok === null ? 'var(--ilt-muted, #57606a)' : ok ? 'var(--ilt-ok, #1a7f37)' : 'var(--ilt-bad, #cf222e)',
   }),
 } satisfies Record<string, CSSProperties | ((ok: boolean | null) => CSSProperties)>;
 
@@ -53,7 +54,8 @@ export function ServerStatus({ healthUrl = '/api/v1/health' }: { healthUrl?: str
   );
 }
 
-export function AppShell({ titleKey, children }: { titleKey: string; children: ReactNode }) {
+/** `controls` are extra header items before the language switch (the cockpit's theme choice). */
+export function AppShell({ titleKey, controls, children }: { titleKey: string; controls?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
   return (
     <>
@@ -62,6 +64,7 @@ export function AppShell({ titleKey, children }: { titleKey: string; children: R
           {t('app.name')} · {t(titleKey)}
         </h1>
         <ServerStatus />
+        {controls}
         <LanguageSwitcher />
       </header>
       <main style={styles.main}>{children}</main>

@@ -1,5 +1,7 @@
 export { initI18n } from './i18n.js';
 export { AppShell, LanguageSwitcher, ServerStatus } from './AppShell.js';
 export { CanvasView } from './CanvasView.js';
-export { InkRenderer, type InkOptions } from './ink.js';
+export { HOVER_COLOUR, InkRenderer, PRESSURE_BANDS, type InkOptions } from './ink.js';
+export { PressureLegend } from './PressureLegend.js';
+export { ThemeSwitcher, useTheme, type ThemeChoice } from './theme.js';
 export { GatewayLink, PeerLink, type GatewayLinkHandlers } from './realtime.js';

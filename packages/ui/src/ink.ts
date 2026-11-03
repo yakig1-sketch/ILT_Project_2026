@@ -13,10 +13,16 @@ export interface InkOptions {
 
 const DEFAULTS: InkOptions = { pressureColour: false, showHover: false, lineWidthMm: 0.5, inkColour: '#1a3fa8' };
 
-/** Light blue at low pressure to dark navy at high pressure. */
+/** Pressure bands of the mirror and replay (FR-COCK-1, prototype figure 5); `upTo` is the raw pressure bound. */
+export const PRESSURE_BANDS = [
+  { key: 'light', upTo: 0.2, colour: '#2da44e' },
+  { key: 'medium', upTo: 0.4, colour: '#1f6feb' },
+  { key: 'firm', upTo: Infinity, colour: '#e5383b' },
+] as const;
+export const HOVER_COLOUR = 'rgba(234, 179, 8, 0.7)';
+
 function pressureStyle(p: number): string {
-  const v = Math.max(0, Math.min(1, p));
-  return `hsl(215 85% ${Math.round(70 - v * 55)}%)`;
+  return PRESSURE_BANDS.find((b) => p < b.upTo)!.colour;
 }
 
 export class InkRenderer {
@@ -73,7 +79,7 @@ export class InkRenderer {
           ctx.lineWidth = options.lineWidthMm;
           this.segment(prev, s);
         } else if (options.showHover && !contact && !prevContact) {
-          ctx.strokeStyle = 'rgba(234, 179, 8, 0.7)';
+          ctx.strokeStyle = HOVER_COLOUR;
           ctx.lineWidth = options.lineWidthMm * 0.5;
           this.segment(prev, s);
         }

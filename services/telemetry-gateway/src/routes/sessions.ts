@@ -1,5 +1,5 @@
 // Sessions: planning, pairing with a 6-digit PIN, step skipping and paper notebook pages (DDD §11.1, §14).
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -13,7 +13,7 @@ import {
 } from '@ilt/template-schemas';
 import type { Queryable } from '../app-log.js';
 import type { UserClaims } from '../auth.js';
-import { inTransaction, one, rows } from '../db.js';
+import { inTransaction, likeAny, one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
 import { loadEffectiveSettings, setting, type SettingsSnapshot } from '../settings-store.js';
 
@@ -28,6 +28,27 @@ const CreateSession = z.object({
   language_code: z.enum(['he', 'en']),
   region_id: z.number().int().positive().nullable().optional(),
 });
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** Session list filters (cockpit). Dates are the creation day, both ends included. */
+const SessionFilter = z.object({
+  q: z.string().trim().max(40).optional(),
+  status: z.enum(['PLANNED', 'PAIRED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'ABORTED']).optional(),
+  session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14']).optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+  /** The evaluator's time zone (IANA name), so a day is the evaluator's day. */
+  tz: z.string().max(64).refine(validTimeZone).default('UTC'),
+});
+
+function validTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const TEMPLATE_SETTING: Record<z.infer<typeof CreateSession>['session_type'], string> = {
   DAY_1: 'ilt.protocol.day1_template',
@@ -54,6 +75,8 @@ export interface SessionRow {
   session_type: string;
   status: string;
   css_px_per_mm: string | null;
+  /** A tablet holds a valid pairing for this session (connected or not); released tablets do not count. */
+  tablet_paired: boolean;
   settings_snapshot: SettingsSnapshot;
   created_at: string;
 }
@@ -82,7 +105,8 @@ export async function loadSession(db: Queryable, id: string): Promise<SessionRow
   return one<SessionRow>(
     db,
     `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.evaluator_id, s.domain_id, s.region_id,
-            s.language_code, s.session_type, s.status, s.css_px_per_mm, s.settings_snapshot, s.created_at
+            s.language_code, s.session_type, s.status, s.css_px_per_mm, s.tablet_token_id IS NOT NULL AS tablet_paired,
+            s.settings_snapshot, s.created_at
        FROM sessions s JOIN participants p ON p.id = s.participant_id WHERE s.id = $1`,
     [id],
   );
@@ -130,14 +154,23 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
   }
   const notFound = { error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } };
 
-  app.get('/sessions', { preHandler: evaluator }, async (req) => {
+  app.get('/sessions', { preHandler: evaluator }, async (req, reply) => {
     const user = req.user as UserClaims;
+    const f = SessionFilter.safeParse(req.query);
+    if (!f.success) return reply.status(400).send({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details: f.error.flatten() } });
+    const { q, status, session_type, from, to, tz } = f.data;
     return rows(
       app.deps.db,
       `SELECT s.id, s.session_code, p.study_code, s.session_type, s.language_code, s.status, s.created_at
          FROM sessions s JOIN participants p ON p.id = s.participant_id
-        WHERE ($1::uuid IS NULL OR s.evaluator_id = $1) ORDER BY s.created_at DESC LIMIT 200`,
-      [user.role === 'EVALUATOR' ? user.sub : null],
+        WHERE ($1::uuid IS NULL OR s.evaluator_id = $1)
+          AND ($2::text IS NULL OR s.session_code ILIKE $2 OR p.study_code ILIKE $2)
+          AND ($3::text IS NULL OR s.status = $3)
+          AND ($4::text IS NULL OR s.session_type = $4)
+          AND ($5::date IS NULL OR (s.created_at AT TIME ZONE $7)::date >= $5::date)
+          AND ($6::date IS NULL OR (s.created_at AT TIME ZONE $7)::date <= $6::date)
+        ORDER BY s.created_at DESC LIMIT 200`,
+      [user.role === 'EVALUATOR' ? user.sub : null, q ? likeAny(q) : null, status ?? null, session_type ?? null, from ?? null, to ?? null, tz],
     );
   });
 
@@ -296,12 +329,14 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     pairFailures.delete(ip);
 
     const d = body.data;
+    // A new token id: a tablet still holding an older pairing of this session is turned away.
+    const tokenId = randomUUID();
     await app.deps.db.query(
       `UPDATE sessions SET status = CASE WHEN status = 'PLANNED' THEN 'PAIRED' ELSE status END,
               css_px_per_mm = $2, device_pixel_ratio = $3, device_model = 'DTH-A116', device_id = $4,
-              pairing_pin_hash = NULL, pairing_expires_at = NULL
+              pairing_pin_hash = NULL, pairing_expires_at = NULL, tablet_token_id = $5
         WHERE id = $1`,
-      [sessionId, d.css_px_per_mm, d.device_pixel_ratio, d.device_id ?? null],
+      [sessionId, d.css_px_per_mm, d.device_pixel_ratio, d.device_id ?? null, tokenId],
     );
     const s = (await loadSession(app.deps.db, sessionId))!;
     app.appLog.write({
@@ -318,8 +353,25 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       language: s.language_code,
       direction: LANGUAGE_DIRECTION[s.language_code],
       mode: 'SESSION',
-      token: app.jwt.sign({ typ: 'tablet', session_id: s.id }, { expiresIn: TABLET_TOKEN_TTL }),
+      token: app.jwt.sign({ typ: 'tablet', session_id: s.id, tid: tokenId }, { expiresIn: TABLET_TOKEN_TTL }),
     };
+  });
+
+  /**
+   * Releases the tablet from an unfinished session (Phase 2 QA): the tablet returns to the PIN screen
+   * and its token stops working. The session stays open and can be resumed with a new pairing code.
+   */
+  app.post<{ Params: { id: string } }>('/sessions/:id/release-tablet', { preHandler: evaluator }, async (req, reply) => {
+    const s = await ownSession(req);
+    if (!s) return reply.status(404).send(notFound);
+    if (s.status === 'COMPLETED' || s.status === 'ABORTED') {
+      return reply.status(409).send({ error: { code: 'SESSION_CLOSED', message_key: 'sessions.closed', details: {} } });
+    }
+    const result = await app.hub.releaseTablet(s.id, req.user as UserClaims);
+    if (result === 'STEP_RUNNING') {
+      return reply.status(409).send({ error: { code: 'STEP_RUNNING', message_key: 'sessions.release_step_running', details: {} } });
+    }
+    return { ok: true };
   });
 
   /** Closes the session when every step is done or skipped. */

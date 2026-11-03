@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useTranslation } from 'react-i18next';
 import { StrokeFlag, type PenSample } from '@ilt/shared-types';
 import type { CanvasGeometry } from '@ilt/template-schemas';
-import { CanvasView, InkRenderer } from '@ilt/ui';
+import { CanvasView, InkRenderer, PressureLegend } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { ui } from './styles';
 
@@ -21,9 +21,9 @@ interface ReplayData {
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const s: Record<string, CSSProperties> = {
   // Extra space below the canvas for the speed labels under the last row of houses.
-  stage: { border: '1px solid #d0d7de', borderRadius: 8, background: '#e9ecef', padding: '0.5rem', paddingBlockEnd: '1.75rem', overflow: 'hidden', minInlineSize: 0 },
+  stage: { border: '1px solid var(--ilt-border)', borderRadius: 8, background: 'var(--ilt-stage)', padding: '0.5rem', paddingBlockEnd: '1.75rem', overflow: 'hidden', minInlineSize: 0 },
   bar: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' },
-  speedLabel: { position: 'absolute', transform: 'translateX(-50%)', fontSize: '0.75rem', color: '#0969da', fontWeight: 600, whiteSpace: 'nowrap', pointerEvents: 'none' },
+  speedLabel: { position: 'absolute', transform: 'translateX(-50%)', fontSize: '0.75rem', color: 'var(--ilt-link)', fontWeight: 600, whiteSpace: 'nowrap', pointerEvents: 'none' },
 };
 
 export function ReplayScreen({ attemptId, onBack }: { attemptId: string; onBack: () => void }) {
@@ -150,6 +150,7 @@ function Player({ data, onBack }: { data: ReplayData; onBack: () => void }) {
           </CanvasView>
         </div>
       </section>
+      <PressureLegend />
       <div style={s.bar} data-testid="replay-controls">
         <button style={ui.button} aria-label={t('replay.step_back')} onClick={() => { setPlaying(false); showTo(index - 1); }}>⏮</button>
         <button style={ui.primary} onClick={() => setPlaying((p) => !p)} data-testid="replay-play">{t(playing ? 'replay.pause' : 'replay.play')}</button>

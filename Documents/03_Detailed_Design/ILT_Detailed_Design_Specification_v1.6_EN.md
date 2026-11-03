@@ -111,7 +111,7 @@ export const DTH_A116 = {
 
 **Control events go through the gateway** (changed in Phase 1; earlier editions had a second WebRTC channel, `control-events`). The gateway is the hub: it validates, stores and logs every event, adds the resolved canvas to `DISPATCH_STEP`, and forwards each event to the other end. One ordered path means one reconnection story and no event that the gateway has not seen. WebRTC carries only the live mirror; the gateway only relays its signalling (`{ "signal": { description | candidate } }`), with no STUN or TURN on the local network. When the direct channel is not open, the tablet sends `LIVE` packets over its socket and the gateway relays them to the cockpit; the cockpit shows which path the mirror uses.
 
-**Socket authentication:** the first text message on a socket carries the credential: `{ "auth": <tablet token> }` on `/ws/tablet` (issued by `POST /sessions/pair`, bound to one session, 12 h), `{ "auth": <access token>, "session_id": ... }` on `/ws/cockpit` (evaluators only for their own sessions). A bad credential closes the socket with code 4401; a second tablet socket for the same session replaces the first (4409).
+**Socket authentication:** the first text message on a socket carries the credential: `{ "auth": <tablet token> }` on `/ws/tablet` (issued by `POST /sessions/pair`, bound to one session, 12 h), `{ "auth": <access token>, "session_id": ... }` on `/ws/cockpit` (evaluators only for their own sessions). A bad credential closes the socket with code 4401; a second tablet socket for the same session replaces the first (4409). The tablet token carries the pairing's token id (`tid`), which must equal `sessions.tablet_token_id`: a released tablet, or one holding an older pairing, is closed with 4401 and returns to the PIN screen. A tablet that reconnects to a session that has ended meanwhile receives `SESSION_COMPLETE` or `ABORT_SESSION` at once.
 
 **No data loss:** the tablet keeps every batch in IndexedDB until the gateway acknowledges it with `BATCH_ACK`, and keeps control events until their `ACK`. After a reconnect it resends unacknowledged control events first, then unacknowledged batches; a batch without an ACK after 3 s is also resent (e.g. one that arrived before its `STEP_STARTED` was stored). The gateway ignores duplicate samples by `(block_attempt_id, sample_seq)`: `sample_time` is the attempt's start plus `t_us`, so a resent sample maps to the same key. Over one TCP connection, events are not resent on a timer.
 
@@ -684,6 +684,7 @@ CREATE TABLE sessions (
   video_enabled         BOOLEAN NOT NULL DEFAULT FALSE,  -- setting AND consent
   pairing_pin_hash      TEXT NULL,
   pairing_expires_at    TIMESTAMPTZ NULL,
+  tablet_token_id       UUID NULL,          -- current pairing; NULL after release (migration 0002)
   abort_reason          VARCHAR(50) NULL,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   started_at            TIMESTAMPTZ NULL,
@@ -1039,6 +1040,10 @@ Day 1 template steps:
 | any | Abort | `ABORTED` | `ABORT_SESSION`, partial data kept |
 | any | Link lost > 6 s | same + banner | Tablet keeps buffering; resume when back |
 
+**Ink colours (FR-COCK-1, mirror and replay):** contact ink is coloured by the raw pressure in three bands: light < 0.20 green, medium 0.20–0.40 blue, firm ≥ 0.40 red. The in-air hover path is yellow. A legend under the mirror and the replay names the bands. The bands are a display aid only; the stored pressure is never rescaled. The tablet itself always draws plain blue ink.
+
+**Staff screens:** the cockpit offers a light, dark or "like the computer" theme, kept per browser. The writing canvas stays white in both themes. The tablet kiosk has no dark theme.
+
 ### 11.2 Tablet kiosk
 
 | State | Event | Next | Action |
@@ -1073,7 +1078,7 @@ Day 1 template steps:
 | auth | `auth.login.succeeded`, `auth.login.failed`, `auth.logout`, `auth.account.locked`, `auth.director_pin.verified`, `auth.director_pin.failed` |
 | users | `users.user.created`, `users.user.updated`, `users.user.deactivated` |
 | participants | `participants.participant.created`, `participants.participant.updated`, `participants.consent.recorded` |
-| sessions | `session.created`, `session.paired`, `session.step.dispatched`, `session.step.started`, `session.box.advanced`, `session.inactivity.cue`, `session.inactivity.amber`, `session.paused`, `session.resumed`, `session.block.completed`, `session.block.manual_finish`, `session.block.interrupted`, `session.block.repeated`, `session.block.scored`, `session.paper_page.timed`, `session.completed`, `session.aborted`, `session.link.lost`, `session.link.restored` |
+| sessions | `session.created`, `session.paired`, `session.step.dispatched`, `session.step.started`, `session.box.advanced`, `session.inactivity.cue`, `session.inactivity.amber`, `session.paused`, `session.resumed`, `session.block.completed`, `session.block.manual_finish`, `session.block.interrupted`, `session.block.repeated`, `session.block.scored`, `session.paper_page.timed`, `session.completed`, `session.aborted`, `session.link.lost`, `session.link.restored`, `session.tablet.released` |
 | telemetry | `telemetry.batch.rejected` (CRC/format), `telemetry.integrity.failed`, `telemetry.box_mismatch` |
 | intervention | `intervention.mark.suggested`, `intervention.mark.changed` (old/new) |
 | settings | `settings.value.changed` (old/new/approver), `settings.value.removed`, `settings.override.changed` |
@@ -1116,10 +1121,11 @@ Day 1 template steps:
 | POST | `/canvases/:id/reference-recordings` · `/reference-recordings/:id/decision` | ADMIN | Reference mode |
 | GET/POST/PATCH | `/instruction-videos?key=&language=` | ADMIN (write), all (read) | Video library: upload, new version, retire |
 | GET/POST | `/protocol-templates` | ADMIN (write), RESEARCHER, EVALUATOR | Templates |
-| GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent. POST takes `study_code` (shown as "Participant code"), Domain, Region, `school` (hashed with `SCHOOL_CODE_HMAC_KEY` after trimming, collapsing spaces and lower-casing; the name is never stored, logged or returned), `birth_year_month` (YYYY-MM, stored as the 1st of the month), grade, gender, dominant hand. Session creation stores `age_months` from the birth month |
-| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions. The detail includes each attempt's current score version, the scoring weights and threshold from the snapshot, and `available_videos` (video keys with a version in the session language) |
+| GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent. POST takes `study_code` (shown as "Participant code"), Domain, Region, `school` (hashed with `SCHOOL_CODE_HMAC_KEY` after trimming, collapsing spaces and lower-casing; the name is never stored, logged or returned), `birth_year_month` (YYYY-MM, stored as the 1st of the month), grade, gender, dominant hand. Session creation stores `age_months` from the birth month. GET takes `q` (part of the study code, any case; `%` and `_` are literal) and `limit` (1–500, default 500); the cockpit's participant search asks for 20 |
+| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions. The list (newest 200) takes the filters `q` (part of the session or study code), `status`, `session_type`, and `from` / `to` (creation day, both included, in the time zone `tz`, an IANA name, default UTC); 400 on an unknown value. The detail includes each attempt's current score version, the scoring weights and threshold from the snapshot, and `available_videos` (video keys with a version in the session language) |
 | POST | `/sessions/:id/pairing` | EVALUATOR | Open room, issue PIN |
 | POST | `/sessions/pair` | tablet | Pair with PIN (body = `PAIRING_REQUEST` payload); returns `PAIRING_RESPONSE` fields, the session code and the tablet token. 5 wrong PINs from one address lock pairing for 15 min |
+| POST | `/sessions/:id/release-tablet` | EVALUATOR | Release the tablet from an unfinished session: clears `tablet_token_id`, disconnects the tablet (4401, back to the PIN screen); the session stays open and can be paired again. 409 `STEP_RUNNING` while a block or video runs |
 | PATCH | `/sessions/:id/steps/:index` | EVALUATOR | `{ "status": "SKIPPED" }` skips a pending step (logged). Changing the canvas before dispatch comes later |
 | POST | `/sessions/:id/steps/:index/paper` | EVALUATOR | Paper notebook page (FR-COCK-4): `duration_ms` (0–3,600,000), `notes` (≤ 2000); the step becomes DONE; logged as `session.paper_page.timed` |
 | GET | `/media/videos/:id` | tablet token or staff access token | Instruction video bytes from object storage |

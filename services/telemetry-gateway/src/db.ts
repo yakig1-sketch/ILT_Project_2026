@@ -34,3 +34,6 @@ export async function inTransaction<T>(db: Queryable, fn: (q: Queryable) => Prom
     client.release();
   }
 }
+
+/** A substring pattern for ILIKE with the user's % and _ taken literally. */
+export const likeAny = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;

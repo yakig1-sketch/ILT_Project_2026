@@ -14,7 +14,8 @@ export interface UserClaims {
   role: Role;
 }
 
-export type TokenClaims = UserClaims | { typ: 'tablet'; session_id: string };
+/** `tid` is the pairing's token id (sessions.tablet_token_id); tokens from before it existed have none. */
+export type TokenClaims = UserClaims | { typ: 'tablet'; session_id: string; tid?: string };
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {

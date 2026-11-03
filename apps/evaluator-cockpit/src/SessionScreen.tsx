@@ -5,10 +5,10 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_SCORING_SETTINGS, scoreBlock, type BlockScore } from '@ilt/ilt-metrics';
 import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
-import { CanvasView, InkRenderer } from '@ilt/ui';
+import { CanvasView, InkRenderer, PressureLegend } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
-import { pill, ui } from './styles';
+import { pill, tone, ui } from './styles';
 
 const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE']);
 const PAUSE_REASONS = ['STUDENT_FATIGUE', 'HARDWARE', 'EVALUATOR_INTERVENTION', 'OTHER'] as const;
@@ -56,6 +56,8 @@ interface SessionDetail {
   session_type: string;
   language_code: string;
   status: string;
+  /** A tablet holds this session's pairing, connected or not (released tablets do not count). */
+  tablet_paired: boolean;
   timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
   scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number };
   steps: Step[];
@@ -66,11 +68,11 @@ interface SessionDetail {
 const layout: Record<string, CSSProperties> = {
   grid: { display: 'grid', gridTemplateColumns: 'minmax(0, 4fr) minmax(0, 1fr)', gap: '1rem', alignItems: 'start' },
   // Block layout: the mirror measures this box's width, so it must not shrink to its content.
-  mirror: { border: '1px solid #d0d7de', borderRadius: 8, minBlockSize: '20rem', background: '#e9ecef', overflow: 'hidden', padding: '0.5rem', minInlineSize: 0 },
-  panel: { background: '#24292f', color: '#f6f8fa', borderRadius: 8, padding: '1rem' },
-  panelAmber: { background: '#9a6700', color: '#fff', borderRadius: 8, padding: '1rem' },
-  row: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.35rem', borderBlockEnd: '1px solid #444c56', fontSize: '0.9rem' },
-  result: { border: '1px solid #d0d7de', borderRadius: 8, padding: '0.75rem 1rem', background: '#f6f8fa', display: 'grid', gap: '0.4rem' },
+  mirror: { border: '1px solid var(--ilt-border)', borderRadius: 8, minBlockSize: '20rem', background: 'var(--ilt-stage)', overflow: 'hidden', padding: '0.5rem', minInlineSize: 0 },
+  panel: { background: 'var(--ilt-panel)', color: 'var(--ilt-panel-fg)', border: '1px solid var(--ilt-panel-line)', borderRadius: 8, padding: '1rem' },
+  panelAmber: { background: '#9a6700', color: '#fff', border: '1px solid #9a6700', borderRadius: 8, padding: '1rem' },
+  row: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.35rem', borderBlockEnd: '1px solid var(--ilt-panel-line)', fontSize: '0.9rem' },
+  result: { border: '1px solid var(--ilt-border)', borderRadius: 8, padding: '0.75rem 1rem', background: 'var(--ilt-surface-2)', display: 'grid', gap: '0.4rem' },
   figures: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1.25rem', fontSize: '0.9rem' },
 };
 
@@ -158,6 +160,22 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
   const openPairing = () => call(async () => setPin(await api(`/sessions/${sessionId}/pairing`, { method: 'POST' })));
   const skip = (index: number) => call(() => api(`/sessions/${sessionId}/steps/${index}`, { method: 'PATCH', body: { status: 'SKIPPED' } }));
   const complete = () => call(() => api(`/sessions/${sessionId}/complete`, { method: 'POST' }));
+  const releaseTablet = () => api(`/sessions/${sessionId}/release-tablet`, { method: 'POST' });
+  const canRelease = !closed && session.tablet_paired && !busy;
+
+  /** Back from an unfinished session with the tablet still connected: offer to release it first. */
+  const [leaving, setLeaving] = useState(false);
+  const back = () => (!closed && link.tabletConnected && !busy ? setLeaving(true) : onBack());
+  async function releaseAndBack() {
+    setError(null);
+    try {
+      await releaseTablet();
+      onBack();
+    } catch (e) {
+      setLeaving(false);
+      setError((e as ApiError).messageKey);
+    }
+  }
 
   const stepLabel = (s: Step) => t(s.label_key, { n: s.block_number ?? '' });
   const attemptsFor = (index: number) => session.attempts.filter((a) => a.step_index === index);
@@ -182,7 +200,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
     <div style={{ display: 'grid', gap: '1rem' }}>
       <style>{BLINK_CSS}</style>
       <div style={{ ...ui.row, alignItems: 'center' }}>
-        <button style={ui.button} onClick={onBack}>{t('common.back')}</button>
+        <button style={ui.button} onClick={back} data-testid="back">{t('common.back')}</button>
         <strong><bdi>{session.session_code}</bdi></strong>
         <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)} · {session.language_code === 'he' ? t('common.hebrew') : t('common.english')}</span>
         <span style={pill(closed ? 'off' : 'ok')}>{t(`enum.session_status.${session.status}`)}</span>
@@ -192,6 +210,17 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
         <span style={pill(liveTone)} data-testid="live-mode">{t(`cockpit.live.${link.liveMode}`)}</span>
         <button style={ui.button} onClick={() => onSummary(session.participant_id)} data-testid="open-summary">{t('cockpit.open_summary')}</button>
       </div>
+
+      {leaving && (
+        <section role="alertdialog" aria-labelledby="leave-text" style={{ ...ui.card, borderColor: 'var(--ilt-warn)', display: 'grid', gap: '0.75rem' }} data-testid="leave-dialog">
+          <p id="leave-text" style={{ margin: 0 }}>{t('cockpit.leave.text')}</p>
+          <div style={ui.row}>
+            <button style={ui.primary} onClick={() => void releaseAndBack()} data-testid="leave-release">{t('cockpit.leave.release')}</button>
+            <button style={ui.button} onClick={onBack} data-testid="leave-keep">{t('cockpit.leave.keep')}</button>
+            <button style={ui.button} onClick={() => setLeaving(false)}>{t('cockpit.leave.stay')}</button>
+          </div>
+        </section>
+      )}
 
       {!closed && !link.tabletConnected && (
         <section style={ui.card}>
@@ -211,7 +240,10 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
       <div style={layout.grid}>
         <section style={layout.mirror} aria-label="mirror">
           {block ? (
-            <Mirror link={link} canvas={block.canvas} activeBoxId={block.activeBoxId} />
+            <>
+              <Mirror link={link} canvas={block.canvas} activeBoxId={block.activeBoxId} />
+              <PressureLegend />
+            </>
           ) : link.video ? (
             <p style={{ ...ui.muted, textAlign: 'center', marginBlockStart: '8rem', fontSize: '1rem' }} data-testid="video-playing">
               {t('cockpit.video_playing', { name: t(`video.${link.video.video_key}`) })}
@@ -252,6 +284,19 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
             {t('cockpit.manual_finish')}
           </button>
           <button style={ui.primary} disabled={stepsLeft || busy} onClick={() => void complete()} data-testid="complete-session">{t('cockpit.complete')}</button>
+          {session.tablet_paired && (
+            <button
+              style={ui.button}
+              disabled={!canRelease}
+              title={busy ? t('sessions.release_step_running') : undefined}
+              onClick={() => {
+                if (confirm(t('cockpit.release_confirm'))) void call(releaseTablet);
+              }}
+              data-testid="release-tablet"
+            >
+              {t('cockpit.release')}
+            </button>
+          )}
           <button
             style={ui.danger}
             onClick={() => {
@@ -264,10 +309,10 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
       )}
       {shownError && <p role="alert" style={ui.error}>{t(shownError, { code: shownError.split('.').pop() })}</p>}
       {link.lastInterrupted && (
-        <p role="alert" style={{ margin: 0, color: '#9a6700' }}>{t('cockpit.block_interrupted')}</p>
+        <p role="alert" style={{ margin: 0, color: tone.warn }}>{t('cockpit.block_interrupted')}</p>
       )}
       {link.lastStored && !link.lastScored && (
-        <p role="status" style={{ margin: 0, color: link.lastStored.integrity_ok ? '#1a7f37' : '#cf222e' }}>
+        <p role="status" style={{ margin: 0, color: link.lastStored.integrity_ok ? tone.ok : tone.bad }}>
           {t('cockpit.block_stored', { n: link.lastStored.sample_count })} · {t(link.lastStored.integrity_ok ? 'cockpit.integrity_ok' : 'cockpit.integrity_failed')}
         </p>
       )}
@@ -300,7 +345,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
               const open = !closed && (s.status === 'PENDING' || s.status === 'ACTIVE');
               const playing = link.video?.step_index === s.step_index;
               return (
-                <tr key={s.step_index} id={`step-${s.step_index}`} data-testid={`step-${s.step_index}`} style={next?.step_index === s.step_index && !closed ? { background: '#f6f8fa' } : undefined}>
+                <tr key={s.step_index} id={`step-${s.step_index}`} data-testid={`step-${s.step_index}`} style={next?.step_index === s.step_index && !closed ? { background: 'var(--ilt-surface-2)' } : undefined}>
                   <td style={ui.cell}>{s.step_index + 1}</td>
                   <td style={ui.cell}>{stepLabel(s)}</td>
                   <td style={ui.cell}>{t(`enum.step_status.${s.status}`)}</td>
@@ -310,7 +355,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
                     {s.step_type === 'PAPER_NOTEBOOK_PAGE' && s.paper_duration_ms !== null && (
                       <span>{t('cockpit.paper_time', { s: (s.paper_duration_ms / 1000).toFixed(1) })}{s.notes ? ` · ${s.notes}` : ''}</span>
                     )}
-                    {videoMissing(s) && s.status === 'PENDING' && <span style={{ color: '#9a6700' }}>{t('cockpit.video_missing')}</span>}
+                    {videoMissing(s) && s.status === 'PENDING' && <span style={{ color: tone.warn }}>{t('cockpit.video_missing')}</span>}
                   </td>
                   <td style={ui.cell}>
                     {open && writing && (
@@ -399,7 +444,7 @@ function BlockResult({ title, stepType, scores, stored, threshold, onReplay }: {
       </div>
       <div style={layout.figures}>
         {stored && (
-          <span style={{ color: stored.integrity_ok ? '#1a7f37' : '#cf222e' }}>
+          <span style={{ color: stored.integrity_ok ? tone.ok : tone.bad }}>
             {t('cockpit.block_stored', { n: stored.sample_count })} · {t(stored.integrity_ok ? 'cockpit.integrity_ok' : 'cockpit.integrity_failed')}
           </span>
         )}

@@ -37,8 +37,8 @@ interface Summary {
 
 const s: Record<string, CSSProperties> = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: '1rem' },
-  box: { border: '1px solid #d0d7de', borderRadius: 8, padding: '0.9rem', background: '#fff', display: 'grid', gap: '0.3rem', alignContent: 'start' },
-  line: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.9rem', borderBlockEnd: '1px solid #eaeef2', paddingBlock: '0.15rem' },
+  box: { border: '1px solid var(--ilt-border)', borderRadius: 8, padding: '0.9rem', background: 'var(--ilt-surface)', display: 'grid', gap: '0.3rem', alignContent: 'start' },
+  line: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.9rem', borderBlockEnd: '1px solid var(--ilt-border-soft)', paddingBlock: '0.15rem' },
 };
 
 export function SummaryScreen({ participantId, onBack, onReplay }: { participantId: string; onBack: () => void; onReplay: (attemptId: string) => void }) {
@@ -73,7 +73,7 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
               <p style={ui.muted}>{t('summary.no_data')}</p>
             ) : (
               <>
-                {!b.complete && <p style={{ ...ui.muted, color: '#9a6700', margin: 0 }}>{t('summary.incomplete')}</p>}
+                {!b.complete && <p style={{ ...ui.muted, color: 'var(--ilt-warn)', margin: 0 }}>{t('summary.incomplete')}</p>}
                 <div style={s.line}><span>{t('summary.avg_time')}</span><bdi>{b.avg_time_ms === null ? '—' : `${(b.avg_time_ms / 1000).toFixed(1)} ${t('units.seconds')}`}</bdi></div>
                 <div style={s.line}><span>{t('summary.pen_lifts')}</span><bdi>{fmt(b.avg_pen_lifts)}</bdi></div>
                 <div style={s.line}><span>{t('summary.accuracy_pct')}</span><bdi>{fmt(b.accuracy_pct)}</bdi></div>
@@ -144,7 +144,7 @@ function ThresholdForm({ current, onSaved }: { current: number | null; onSaved: 
         <button type="submit" style={ui.primary}>{t('summary.save')}</button>
       </div>
       <p style={{ ...ui.muted, margin: 0 }}>{t('summary.threshold_note')}</p>
-      {msg && <p role={msg.ok ? 'status' : 'alert'} style={msg.ok ? { margin: 0, color: '#1a7f37' } : ui.error}>{t(msg.key)}</p>}
+      {msg && <p role={msg.ok ? 'status' : 'alert'} style={msg.ok ? { margin: 0, color: 'var(--ilt-ok)' } : ui.error}>{t(msg.key)}</p>}
     </form>
   );
 }

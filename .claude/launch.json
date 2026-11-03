@@ -40,6 +40,12 @@
       "url": "https://localhost:5174"
     },
     {
+      "name": "evaluator-cockpit-check",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/evaluator-cockpit", "exec", "vite", "--port", "5176", "--strictPort"],
+      "port": 5176
+    },
+    {
       "name": "analyst-portal",
       "runtimeExecutable": "pnpm.cmd",
       "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev"],

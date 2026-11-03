@@ -313,4 +313,108 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     const events = await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [day2.body.id]);
     expect(events.rows.map((r) => r.event_type)).toContain('session.paper_page.timed');
   });
+
+  it('releases the tablet from an unfinished session and turns away tablets of released or ended sessions', async () => {
+    const token = users.evaluator.token;
+    const domainId = (await pool.query("SELECT id FROM domains WHERE code = 'GENERAL'")).rows[0].id as number;
+    const participant = await call<{ id: string }>('/participants', {
+      method: 'POST', auth: token,
+      body: { study_code: `TEST2C-${run}`, domain_id: domainId, school: 'Phase 2 School', birth_year_month: '2018-11', grade_level: 'GRADE_2', gender: 'FEMALE', dominant_hand: 'RIGHT' },
+    });
+    const created = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_1', language_code: 'he' } });
+    const sessionId = created.body.id;
+    const pair = async () => {
+      const { body: room } = await call<{ pin: string }>(`/sessions/${sessionId}/pairing`, { method: 'POST', auth: token });
+      return (await call<{ token: string }>('/sessions/pair', { method: 'POST', body: { pin: room.pin, css_px_per_mm: 5.195, device_pixel_ratio: 1.75, screen_w_mm: 242, screen_h_mm: 158 } })).body.token;
+    };
+    const closeCode = (c: Client) => new Promise<number>((resolve) => c.ws.once('close', (code: number) => resolve(code)));
+    const tabletOnline = (online: boolean) => (m: ControlEnvelope | Uint8Array) =>
+      isEvent('PEER_STATUS')(m) && ((m as ControlEnvelope).payload as { tablet: boolean }).tablet === online;
+    type Detail = { status: string; tablet_paired: boolean };
+
+    const first = await pair();
+    const tablet = await Client.open(`${wsBase}/ws/tablet`, { auth: first });
+    const cockpit = await Client.open(`${wsBase}/ws/cockpit`, { auth: token, session_id: sessionId });
+    await cockpit.next(tabletOnline(true));
+    expect((await call<Detail>(`/sessions/${sessionId}`, { auth: token })).body.tablet_paired).toBe(true);
+
+    // Not while a step runs on the tablet (here the intro video).
+    cockpit.send(controlMessage('VIDEO_PLAY', { step_index: 0 }));
+    await tablet.next(isEvent('VIDEO_PLAY'));
+    const refused = await call<{ error: { code: string } }>(`/sessions/${sessionId}/release-tablet`, { method: 'POST', auth: token });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('STEP_RUNNING');
+    cockpit.send(controlMessage('VIDEO_ENDED', { step_index: 0, reason: 'STOPPED' }));
+    await tablet.next(isEvent('VIDEO_ENDED'));
+
+    // Released: the tablet is disconnected as rejected (it returns to the PIN screen); the session stays open.
+    const closed = closeCode(tablet);
+    expect((await call(`/sessions/${sessionId}/release-tablet`, { method: 'POST', auth: token })).status).toBe(200);
+    expect(await closed).toBe(4401);
+    await cockpit.next(tabletOnline(false));
+    const released = await call<Detail>(`/sessions/${sessionId}`, { auth: token });
+    expect(released.body).toMatchObject({ status: 'IN_PROGRESS', tablet_paired: false });
+    // The old token no longer connects (a reload on the tablet cannot return to the session).
+    const stale = await Client.open(`${wsBase}/ws/tablet`, { auth: first });
+    expect(await closeCode(stale)).toBe(4401);
+
+    // A new pairing continues the session.
+    const second = await pair();
+    const again = await Client.open(`${wsBase}/ws/tablet`, { auth: second });
+    await cockpit.next(tabletOnline(true));
+
+    // Ended while the tablet was away: on reconnect the tablet is told the session is over.
+    again.ws.close();
+    await cockpit.next(tabletOnline(false));
+    cockpit.send(controlMessage('ABORT_SESSION', { reason: 'TEST', save_partial: true }));
+    await cockpit.next(isEvent('ABORT_SESSION'));
+    const late = await Client.open(`${wsBase}/ws/tablet`, { auth: second });
+    await late.next(isEvent('ABORT_SESSION'));
+    late.ws.close();
+    cockpit.ws.close();
+    // A closed session has no tablet to release.
+    expect((await call(`/sessions/${sessionId}/release-tablet`, { method: 'POST', auth: token })).status).toBe(409);
+
+    await app.appLog.flush();
+    const events = await pool.query<{ event_type: string; actor_user_id: string | null }>(
+      "SELECT event_type, actor_user_id FROM app_events WHERE session_id = $1 AND event_type = 'session.tablet.released'", [sessionId],
+    );
+    expect(events.rowCount).toBe(1);
+    expect(events.rows[0]!.actor_user_id).not.toBeNull();
+  });
+
+  it('filters the session list and searches participants by code', async () => {
+    const token = users.evaluator.token;
+    const domainId = (await pool.query("SELECT id FROM domains WHERE code = 'GENERAL'")).rows[0].id as number;
+    const code = `FLT_${run}`;
+    const participant = await call<{ id: string }>('/participants', {
+      method: 'POST', auth: token,
+      body: { study_code: code, domain_id: domainId, school: 'Phase 2 School', birth_year_month: '2019-02', grade_level: 'GRADE_1', gender: 'MALE', dominant_hand: 'LEFT' },
+    });
+    const day1 = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_1', language_code: 'he' } });
+    const day2 = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_2', language_code: 'he' } });
+    type Row = { id: string; study_code: string; session_type: string; status: string };
+    const list = async (q: string) => (await call<Row[]>(`/sessions?${q}`, { auth: token })).body.map((r) => r.id);
+
+    // Search matches the participant code in any case; '_' is a literal character, not a wildcard.
+    expect(await list(`q=${code.toLowerCase()}`)).toEqual([day2.body.id, day1.body.id]);
+    expect(await list(`q=FLTX${run}`)).toEqual([]);
+    expect(await list(`q=${code}&session_type=DAY_2`)).toEqual([day2.body.id]);
+    expect(await list(`q=${code}&status=PLANNED`)).toHaveLength(2);
+    expect(await list(`q=${code}&status=COMPLETED`)).toEqual([]);
+    const today = new Date().toISOString().slice(0, 10);
+    expect(await list(`q=${code}&from=${today}&to=${today}`)).toHaveLength(2);
+    expect(await list(`q=${code}&to=2000-01-01`)).toEqual([]);
+    expect((await call(`/sessions?status=DONE`, { auth: token })).status).toBe(400);
+    expect((await call(`/sessions?from=yesterday`, { auth: token })).status).toBe(400);
+    expect((await call(`/sessions?tz=Mars/Base`, { auth: token })).status).toBe(400);
+    // A day is the evaluator's day: far ahead of UTC, "today" in Kiritimati may already be tomorrow in UTC terms.
+    const kiri = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Kiritimati' }).format(new Date());
+    expect(await list(`q=${code}&from=${kiri}&to=${kiri}&tz=Pacific/Kiritimati`)).toHaveLength(2);
+
+    const found = await call<{ id: string; study_code: string }[]>(`/participants?q=${encodeURIComponent(`lt_${run}`)}&limit=5`, { auth: token });
+    expect(found.body.map((p) => p.id)).toEqual([participant.body.id]);
+    expect((await call<unknown[]>(`/participants?q=FLT%25${run}`, { auth: token })).body).toEqual([]);
+    expect((await call(`/participants?limit=0`, { auth: token })).status).toBe(400);
+  });
 });

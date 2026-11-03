@@ -39,6 +39,7 @@ export const LOG_EVENT_TYPES = [
   'session.aborted',
   'session.link.lost',
   'session.link.restored',
+  'session.tablet.released',
   // telemetry
   'telemetry.batch.rejected',
   'telemetry.integrity.failed',
