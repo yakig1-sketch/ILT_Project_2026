@@ -1,9 +1,11 @@
 // Evaluator cockpit: sign-in, sessions, the live session screen (FR-COCK-1…4), the Comparative
-// Summary Dashboard (FR-SUM) and Replay (FR-REP).
+// Summary Dashboard (FR-SUM) and Replay (FR-REP). At <base>admin the same build is the Administrator
+// cockpit: its own sign-in, for the System Administrator only, and the Administration screens.
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell, ThemeSwitcher } from '@ilt/ui';
-import { ApiError, getAuth, login, logout, onAuthChange } from './api';
+import { AdminScreen, ADMIN_TABS, type AdminTab } from './AdminScreen';
+import { ADMIN_ENTRY, ApiError, entryAddress, getAuth, login, logout, onAuthChange } from './api';
 import { ReplayScreen } from './ReplayScreen';
 import { SessionScreen } from './SessionScreen';
 import { SessionsScreen } from './SessionsScreen';
@@ -27,18 +29,35 @@ export function App() {
   const sessionId = /^#\/sessions\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const summaryId = /^#\/summary\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const replayId = /^#\/replay\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+  const adminTab: AdminTab = ADMIN_TABS.find((k) => hash === `#/${k}`) ?? 'users';
+  // A role changed since sign-in (seen at the token refresh) may no longer belong at this address.
+  const wrongEntry = !!auth && (auth.user.role === 'ADMIN') !== ADMIN_ENTRY;
+  useEffect(() => {
+    if (wrongEntry) void logout();
+  }, [wrongEntry]);
+  // The admin address always names its tab, so the address bar matches the open tab from sign-in on.
+  useEffect(() => {
+    if (ADMIN_ENTRY && auth && !wrongEntry && !ADMIN_TABS.some((k) => hash === `#/${k}`)) {
+      history.replaceState(null, '', `#/${adminTab}`);
+    }
+  }, [auth, wrongEntry, hash, adminTab]);
+  useEffect(() => {
+    document.title = `${t('app.name')} · ${t(ADMIN_ENTRY ? 'app.admin' : 'app.cockpit')}`;
+  }, [t]);
 
   return (
-    <AppShell titleKey="app.cockpit" controls={<ThemeSwitcher />}>
-      {!auth ? (
+    <AppShell titleKey={ADMIN_ENTRY ? 'app.admin' : 'app.cockpit'} controls={<ThemeSwitcher />}>
+      {!auth || wrongEntry ? (
         <LoginForm />
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', alignItems: 'center', marginBlockEnd: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: 'flex-end', marginBlockEnd: '0.75rem' }}>
             <span style={{ color: 'var(--ilt-muted)' }}>{auth.user.full_name}</span>
             <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
           </div>
-          {replayId ? (
+          {ADMIN_ENTRY ? (
+            <AdminScreen tab={adminTab} onTab={(k) => go(`#/${k}`)} />
+          ) : replayId ? (
             <ReplayScreen key={replayId} attemptId={replayId} onBack={() => history.back()} />
           ) : summaryId ? (
             <SummaryScreen key={summaryId} participantId={summaryId} onBack={() => history.back()} onReplay={(id) => go(`#/replay/${id}`)} />
@@ -89,7 +108,7 @@ function IltMark() {
 }
 
 function LoginForm() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -102,6 +121,9 @@ function LoginForm() {
     setError(null);
     try {
       await login(email.trim(), password);
+      // Each user has their own interface language (FR-LANG-4); the switcher can still change it.
+      const language = getAuth()?.user.ui_language;
+      if (language && language !== i18n.language) await i18n.changeLanguage(language);
     } catch (err) {
       setError(err instanceof ApiError ? err.messageKey : 'error.500');
     } finally {
@@ -114,8 +136,8 @@ function LoginForm() {
       <form onSubmit={submit} style={login_.card} data-testid="sign-in">
         <div style={login_.head}>
           <IltMark />
-          <h2 style={{ margin: 0, fontSize: '1.35rem' }}>{t('cockpit.sign_in_title')}</h2>
-          <p style={{ ...ui.muted, margin: 0, fontSize: '0.9rem' }}>{t('cockpit.sign_in_subtitle')}</p>
+          <h2 style={{ margin: 0, fontSize: '1.35rem' }}>{t(ADMIN_ENTRY ? 'admin.sign_in_title' : 'cockpit.sign_in_title')}</h2>
+          <p style={{ ...ui.muted, margin: 0, fontSize: '0.9rem' }}>{t(ADMIN_ENTRY ? 'admin.sign_in_subtitle' : 'cockpit.sign_in_subtitle')}</p>
         </div>
         <label style={ui.field}>
           {t('common.email')}
@@ -149,7 +171,7 @@ function LoginForm() {
             </button>
           </span>
         </label>
-        {error && <p role="alert" style={login_.alert}>{t(error)}</p>}
+        {error && <p role="alert" style={login_.alert}>{t(error, { address: entryAddress(!ADMIN_ENTRY) })}</p>}
         <button type="submit" style={{ ...ui.primary, paddingBlock: '0.6rem', fontWeight: 600 }} disabled={busy}>
           {t(busy ? 'cockpit.signing_in' : 'common.sign_in')}
         </button>

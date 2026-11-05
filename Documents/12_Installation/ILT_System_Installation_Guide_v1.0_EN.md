@@ -116,7 +116,8 @@ The installation therefore splits the load into cells:
 |---|---|
 | Tablet of a school in cell *N* | `https://cN.ilt.example.org/tablet/` |
 | Evaluator of a school in cell *N* | `https://cN.ilt.example.org/cockpit/` |
-| Administrators, researchers (settings, summary, replay) | `https://research.ilt.example.org/cockpit/` |
+| Researchers (summary, replay) | `https://research.ilt.example.org/cockpit/` |
+| System Administrator (users, Domains, Regions, settings) | `https://research.ilt.example.org/cockpit/admin` |
 | Analysts | `https://research.ilt.example.org/analyst/` |
 
 `ilt.example.org` stands for the organisation's real domain throughout this guide.

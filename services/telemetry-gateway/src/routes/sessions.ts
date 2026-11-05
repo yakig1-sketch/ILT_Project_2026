@@ -219,6 +219,9 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     if (!participant) return reply.status(404).send(notFound);
     const regionId = body.data.region_id === undefined ? participant.region_id : body.data.region_id;
     const settings = await loadEffectiveSettings(app.deps.db, participant.domain_id, regionId);
+    if (!setting<string[]>(settings, 'language.enabled', ['he', 'en']).includes(language_code)) {
+      return reply.status(409).send({ error: { code: 'LANGUAGE_DISABLED', message_key: 'sessions.language_disabled', details: { language_code } } });
+    }
 
     const templateCode = setting(settings, TEMPLATE_SETTING[session_type], session_type);
     const template = await one<{ id: string; steps: ProtocolStep[] }>(

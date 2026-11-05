@@ -12,6 +12,11 @@ export const LOG_EVENT_TYPES = [
   'users.user.created',
   'users.user.updated',
   'users.user.deactivated',
+  // organisation
+  'organisation.domain.created',
+  'organisation.domain.updated',
+  'organisation.region.created',
+  'organisation.region.updated',
   // participants
   'participants.participant.created',
   'participants.participant.updated',

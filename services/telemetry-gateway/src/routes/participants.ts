@@ -32,13 +32,6 @@ export function schoolCodeHmac(key: string, school: string): string {
 export const participantRoutes: FastifyPluginAsync = async (app) => {
   const staff = app.requireRole('EVALUATOR', 'RESEARCHER', 'ADMIN');
 
-  app.get('/domains', { preHandler: app.requireRole() }, async () =>
-    rows(app.deps.db, 'SELECT id, code, name_he, name_en FROM domains WHERE is_active ORDER BY id'),
-  );
-  app.get('/regions', { preHandler: app.requireRole() }, async () =>
-    rows(app.deps.db, 'SELECT id, code, name_he, name_en FROM regions WHERE is_active ORDER BY id'),
-  );
-
   // ?q= narrows the list to study codes containing the text (the cockpit's participant search).
   app.get('/participants', { preHandler: staff }, async (req, reply) => {
     const f = ParticipantFilter.safeParse(req.query);

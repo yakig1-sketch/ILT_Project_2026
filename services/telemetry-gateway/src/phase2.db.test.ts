@@ -80,10 +80,25 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
   });
 
   afterAll(async () => {
+    // Leave the pass threshold as it was, through the API so the history records the restore too.
+    const restore = users.admin.token
+      ? await call('/settings', {
+          method: 'PUT',
+          auth: users.admin.token,
+          body: {
+            scope: 'SYSTEM',
+            changes: [previousThreshold === undefined ? { key: 'scoring.pass_threshold', reset: true } : { key: 'scoring.pass_threshold', value: previousThreshold }],
+            director_email: users.director.email,
+            director_pin: directorPin,
+            reason: 'Phase 2 test cleanup',
+          },
+        }).catch(() => null)
+      : null;
     await app?.close();
-    // Leave the pass threshold as it was.
-    await pool.query("DELETE FROM setting_values WHERE key = 'scoring.pass_threshold' AND scope = 'SYSTEM'");
-    if (previousThreshold !== undefined) {
+    if (restore?.status !== 200) {
+      await pool.query("DELETE FROM setting_values WHERE key = 'scoring.pass_threshold' AND scope = 'SYSTEM'");
+    }
+    if (restore?.status !== 200 && previousThreshold !== undefined) {
       await pool.query(
         "INSERT INTO setting_values (key, scope, value, set_by) VALUES ('scoring.pass_threshold', 'SYSTEM', $1, (SELECT id FROM users WHERE email = $2))",
         [JSON.stringify(previousThreshold), users.admin.email],
@@ -239,12 +254,13 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     expect(summary.body.boxes.find((b) => b.key === 'DAY_14')!.blocks.every((b) => b.attempt_id === null)).toBe(true);
 
     // ---- Pass threshold: admin only, approved with a Research Director's PIN.
-    const put = (auth: string, body: unknown) => call<{ error?: { code: string } }>('/settings/pass-threshold', { method: 'PUT', auth, body });
-    expect((await put(token, { value: 80 })).status).toBe(403);
-    expect((await put(users.admin.token, { value: 80 })).body.error?.code).toBe('DIRECTOR_PIN');
+    const put = (auth: string, extra: Record<string, unknown> = {}) =>
+      call<{ error?: { code: string } }>('/settings', { method: 'PUT', auth, body: { scope: 'SYSTEM', changes: [{ key: 'scoring.pass_threshold', value: 80 }], ...extra } });
+    expect((await put(token)).status).toBe(403);
+    expect((await put(users.admin.token)).body.error?.code).toBe('DIRECTOR_PIN');
     const wrongPin = directorPin === '111111' ? '222222' : '111111';
-    expect((await put(users.admin.token, { value: 80, director_email: users.director.email, director_pin: wrongPin })).status).toBe(403);
-    expect((await put(users.admin.token, { value: 80, director_email: users.director.email, director_pin: directorPin })).status).toBe(200);
+    expect((await put(users.admin.token, { director_email: users.director.email, director_pin: wrongPin })).status).toBe(403);
+    expect((await put(users.admin.token, { director_email: users.director.email, director_pin: directorPin })).status).toBe(200);
     summary = await call<Summary>(`/participants/${pid}/summary`, { auth: token });
     expect(summary.body.scoring.pass_threshold).toBe(80);
     const firstNow = summary.body.boxes.find((b) => b.key === 'DAY_1_FIRST')!;

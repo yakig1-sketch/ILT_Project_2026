@@ -49,6 +49,8 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
   const [regions, setRegions] = useState<Domain[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ participant_id: '', session_type: 'DAY_1', language_code: 'he' });
+  /** Session languages allowed by the participant's Domain (FR-LANG-5); both until a participant is chosen. */
+  const [languages, setLanguages] = useState<string[]>(['he', 'en']);
   const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; dominant_hand: string } | null>(null);
   const thisMonth = new Date().toISOString().slice(0, 7);
 
@@ -72,6 +74,24 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
   }, [filter]);
 
   const name = (d: Domain) => (i18n.language === 'he' ? d.name_he : d.name_en);
+
+  useEffect(() => {
+    if (!form.participant_id) {
+      setLanguages(['he', 'en']);
+      return;
+    }
+    let alive = true;
+    api<{ enabled: string[]; default: string }>(`/participants/${form.participant_id}/languages`)
+      .then((l) => {
+        if (!alive) return;
+        setLanguages(l.enabled);
+        setForm((f) => ({ ...f, language_code: l.default }));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [form.participant_id]);
 
   async function createParticipant(e: FormEvent) {
     e.preventDefault();
@@ -130,8 +150,7 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
           <label style={ui.field}>
             {t('cockpit.session_language')}
             <select value={form.language_code} onChange={(e) => setForm({ ...form, language_code: e.target.value })}>
-              <option value="he">{t('common.hebrew')}</option>
-              <option value="en">{t('common.english')}</option>
+              {languages.map((code) => <option key={code} value={code}>{t(code === 'he' ? 'common.hebrew' : 'common.english')}</option>)}
             </select>
           </label>
           <button type="submit" style={ui.primary}>{t('common.create')}</button>

@@ -1,13 +1,12 @@
-// Results: Comparative Summary Dashboard (FR-SUM-1…4), the pass threshold with director approval
-// (FR-ROLE-3), and replay data for one block (FR-REP-1/2, DDD §14).
-import { verify } from '@node-rs/argon2';
+// Results: Comparative Summary Dashboard (FR-SUM-1…4) and replay data for one block (FR-REP-1/2, DDD §14).
+// The pass threshold is set with the other settings (routes/settings.ts).
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
 import type { UserClaims } from '../auth.js';
-import { inTransaction, one, rows } from '../db.js';
+import { one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
-import { loadEffectiveSettings, setting } from '../settings-store.js';
+import { loadEffectiveSettings } from '../settings-store.js';
 
 /** Anchor pairs compared on the dashboard (FR-SUM-1). */
 export const ANCHORS = [
@@ -113,70 +112,6 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       },
       boxes,
     };
-  });
-
-  /**
-   * Pass threshold (FR-SUM-4), set by the System Administrator at System level. A clinically
-   * governed setting: with director approval on, a Research Director's PIN is checked on the server.
-   */
-  const ThresholdBody = z.object({
-    value: z.number().min(0).max(100).nullable(),
-    director_email: z.string().email().optional(),
-    director_pin: z.string().regex(/^\d{4,8}$/).optional(),
-    reason: z.string().max(500).optional(),
-  });
-  app.put('/settings/pass-threshold', { preHandler: app.requireRole('ADMIN') }, async (req, reply) => {
-    const body = ThresholdBody.safeParse(req.body);
-    if (!body.success) return reply.status(400).send({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details: body.error.flatten() } });
-    const user = req.user as UserClaims;
-    const key = 'scoring.pass_threshold';
-    const def = await one<{ requires_director_approval: boolean }>(app.deps.db, 'SELECT requires_director_approval FROM setting_definitions WHERE key = $1', [key]);
-    if (!def) return reply.status(404).send(notFound);
-    const system = await loadEffectiveSettings(app.deps.db, -1, null);
-    const needsDirector = def.requires_director_approval && setting(system, 'governance.require_director_approval', true);
-
-    let approvedBy: string | null = null;
-    if (needsDirector) {
-      const { director_email, director_pin } = body.data;
-      const director = director_email
-        ? await one<{ id: string; director_pin_hash: string | null }>(
-          app.deps.db, "SELECT id, director_pin_hash FROM users WHERE email = $1 AND role = 'RESEARCHER' AND is_active", [director_email.toLowerCase()],
-        )
-        : undefined;
-      const ok = !!director?.director_pin_hash && !!director_pin && (await verify(director.director_pin_hash, director_pin));
-      if (!ok) {
-        app.appLog.write({ severity: 'SECURITY', event_type: 'auth.director_pin.failed', actor_user_id: user.sub, actor_role: user.role, client_ip: req.ip, entity_type: 'setting', entity_id: key, message: 'Director PIN check failed for the pass threshold' });
-        return reply.status(403).send({ error: { code: 'DIRECTOR_PIN', message_key: 'summary.director_pin_failed', details: {} } });
-      }
-      approvedBy = director!.id;
-      app.appLog.write({ severity: 'INFO', event_type: 'auth.director_pin.verified', actor_user_id: user.sub, actor_role: user.role, entity_type: 'setting', entity_id: key, message: 'Director PIN verified for the pass threshold', details: { director_id: approvedBy } });
-    }
-
-    const old = await inTransaction(app.deps.db, async (q) => {
-      const prev = await one<{ value: unknown }>(q, "SELECT value FROM setting_values WHERE key = $1 AND scope = 'SYSTEM'", [key]);
-      if (body.data.value === null) {
-        await q.query("DELETE FROM setting_values WHERE key = $1 AND scope = 'SYSTEM'", [key]);
-      } else {
-        await q.query(
-          `INSERT INTO setting_values (key, scope, value, set_by, approved_by) VALUES ($1, 'SYSTEM', $2, $3, $4)
-           ON CONFLICT (key, scope, domain_id, region_id) DO UPDATE SET value = EXCLUDED.value, set_by = EXCLUDED.set_by,
-             approved_by = EXCLUDED.approved_by, set_at = now()`,
-          [key, JSON.stringify(body.data.value), user.sub, approvedBy],
-        );
-      }
-      await q.query(
-        `INSERT INTO setting_value_history (key, scope, old_value, new_value, changed_by, approved_by, reason)
-         VALUES ($1, 'SYSTEM', $2, $3, $4, $5, $6)`,
-        [key, prev ? JSON.stringify(prev.value) : null, body.data.value === null ? null : JSON.stringify(body.data.value), user.sub, approvedBy, body.data.reason ?? null],
-      );
-      return prev?.value ?? null;
-    });
-    app.appLog.write({
-      severity: 'INFO', event_type: body.data.value === null ? 'settings.value.removed' : 'settings.value.changed', actor_user_id: user.sub, actor_role: user.role,
-      entity_type: 'setting', entity_id: key, message: `Pass threshold changed from ${old ?? 'not configured'} to ${body.data.value ?? 'not configured'}`,
-      details: { key, scope: 'SYSTEM', old_value: old, new_value: body.data.value, approved_by: approvedBy },
-    });
-    return { key, value: body.data.value };
   });
 
   /** Replay data for one block attempt (FR-REP-1/2): the canvas as written, every sample, and per-house speed. */

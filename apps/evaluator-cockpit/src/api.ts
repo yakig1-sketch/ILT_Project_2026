@@ -1,5 +1,10 @@
 // REST client for the gateway (DDD §14): bearer access token, refreshed with the refresh token.
-const AUTH_KEY = 'ilt.cockpit.auth';
+
+/** The System Administrator has their own address, <base>admin; everyone else uses <base>. */
+export const ADMIN_ENTRY = /\/admin\/?$/.test(location.pathname);
+export const entryAddress = (admin: boolean) => `${location.origin}${import.meta.env.BASE_URL}${admin ? 'admin' : ''}`;
+
+const AUTH_KEY = ADMIN_ENTRY ? 'ilt.admin.auth' : 'ilt.cockpit.auth';
 const REFRESH_EVERY_MS = 10 * 60_000;
 
 export interface AuthUser {
@@ -19,6 +24,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly messageKey: string,
+    readonly code?: string,
+    readonly details?: unknown,
   ) {
     super(messageKey);
   }
@@ -59,8 +66,9 @@ async function refresh(): Promise<boolean> {
     body: JSON.stringify({ refresh_token: auth.refresh_token }),
   }).catch(() => null);
   if (!res?.ok) return false;
-  const tokens = (await res.json()) as Pick<Auth, 'access_token' | 'refresh_token'>;
-  setAuth({ ...auth, ...tokens });
+  const { role, ...tokens } = (await res.json()) as Pick<Auth, 'access_token' | 'refresh_token'> & { role?: string };
+  // An administrator may have changed the role since sign-in.
+  setAuth({ ...auth, ...tokens, user: { ...auth.user, role: role ?? auth.user.role } });
   return true;
 }
 
@@ -85,13 +93,19 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     throw new ApiError(0, 'error.network');
   }
   if (res.status === 401 && path !== '/auth/login') setAuth(null);
-  const body = (await res.json().catch(() => ({}))) as T & { error?: { message_key?: string } };
-  if (!res.ok) throw new ApiError(res.status, body.error?.message_key ?? `error.${res.status}`);
+  const body = (await res.json().catch(() => ({}))) as T & { error?: { code?: string; message_key?: string; details?: unknown } };
+  if (!res.ok) throw new ApiError(res.status, body.error?.message_key ?? `error.${res.status}`, body.error?.code, body.error?.details);
   return body;
 }
 
 export async function login(email: string, password: string): Promise<void> {
-  setAuth(await api<Auth>('/auth/login', { method: 'POST', body: { email, password } }));
+  const next = await api<Auth>('/auth/login', { method: 'POST', body: { email, password } });
+  if ((next.user.role === 'ADMIN') !== ADMIN_ENTRY) {
+    // Signed in at the wrong address: end that sign-in at once and say where to go.
+    await fetch('/api/v1/auth/logout', { method: 'POST', headers: { authorization: `Bearer ${next.access_token}` } }).catch(() => undefined);
+    throw new ApiError(403, ADMIN_ENTRY ? 'admin.not_admin' : 'admin.use_admin_entry');
+  }
+  setAuth(next);
 }
 
 export async function logout(): Promise<void> {

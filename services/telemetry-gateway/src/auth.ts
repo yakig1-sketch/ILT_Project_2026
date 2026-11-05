@@ -114,9 +114,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       if (!token.success) throw new Error('missing');
       const claims = app.jwt.verify<TokenClaims>(token.data.refresh_token);
       if (claims.typ !== 'refresh') throw new Error('wrong type');
-      const user = await one<{ is_active: boolean }>(app.deps.db, 'SELECT is_active FROM users WHERE id = $1', [claims.sub]);
+      // The role is read again, so a role change by the administrator applies at the next refresh.
+      const user = await one<{ is_active: boolean; role: Role }>(app.deps.db, 'SELECT is_active, role FROM users WHERE id = $1', [claims.sub]);
       if (!user?.is_active) throw new Error('inactive');
-      return issueTokens(app, claims.sub, claims.role);
+      return { ...issueTokens(app, claims.sub, user.role), role: user.role };
     } catch {
       return reply.status(401).send({ error: { code: 'UNAUTHORIZED', message_key: 'error.401', details: {} } });
     }

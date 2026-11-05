@@ -1,9 +1,9 @@
 // Comparative Summary Dashboard (FR-SUM-1…4): anchor pairs across Day 1, Day 2 and Day 14, each with
 // time, pen lifts, accuracy, average ILT speed, the separate component scores, the composite and
-// Pass/Fail, plus [Replay]. The System Administrator sets the pass threshold here (director PIN).
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+// Pass/Fail, plus [Replay]. The System Administrator sets the pass threshold in the Administrator cockpit.
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, api, getAuth } from './api';
+import { ApiError, api } from './api';
 import { pill, ui } from './styles';
 
 interface SummaryBlock {
@@ -98,53 +98,6 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
           </section>
         ))}
       </div>
-      {getAuth()?.user.role === 'ADMIN' && <ThresholdForm current={w.pass_threshold} onSaved={load} />}
     </div>
-  );
-}
-
-/** Pass threshold (FR-SUM-4): System Administrator only; a Research Director's PIN approves it (FR-ROLE-3). */
-function ThresholdForm({ current, onSaved }: { current: number | null; onSaved: () => void }) {
-  const { t } = useTranslation();
-  const [value, setValue] = useState(current === null ? '' : String(current));
-  const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
-  const [msg, setMsg] = useState<{ ok: boolean; key: string } | null>(null);
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setMsg(null);
-    try {
-      await api('/settings/pass-threshold', {
-        method: 'PUT',
-        body: { value: value.trim() === '' ? null : Number(value), director_email: email.trim() || undefined, director_pin: pin || undefined },
-      });
-      setPin('');
-      setMsg({ ok: true, key: 'summary.threshold_saved' });
-      onSaved();
-    } catch (err) {
-      setMsg({ ok: false, key: (err as ApiError).messageKey });
-    }
-  }
-  return (
-    <form onSubmit={submit} style={{ ...ui.card, display: 'grid', gap: '0.75rem' }} data-testid="threshold-form">
-      <h3 style={{ margin: 0, fontSize: '1rem' }}>{t('summary.threshold_edit')}</h3>
-      <div style={ui.row}>
-        <label style={ui.field}>
-          {t('summary.threshold')}
-          <input type="number" min={0} max={100} step={0.01} dir="ltr" value={value} placeholder={t('summary.not_configured')} onChange={(e) => setValue(e.target.value)} />
-        </label>
-        <label style={ui.field}>
-          {t('summary.director_email')}
-          <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label style={ui.field}>
-          {t('summary.director_pin')}
-          <input type="password" inputMode="numeric" autoComplete="off" dir="ltr" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
-        </label>
-        <button type="submit" style={ui.primary}>{t('summary.save')}</button>
-      </div>
-      <p style={{ ...ui.muted, margin: 0 }}>{t('summary.threshold_note')}</p>
-      {msg && <p role={msg.ok ? 'status' : 'alert'} style={msg.ok ? { margin: 0, color: 'var(--ilt-ok)' } : ui.error}>{t(msg.key)}</p>}
-    </form>
   );
 }
