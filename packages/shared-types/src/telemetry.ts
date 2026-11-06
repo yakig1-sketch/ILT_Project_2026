@@ -48,6 +48,9 @@ export const DTH_A116 = {
   CSS_PX_PER_MM: 5.195,
   DEVICE_PIXEL_RATIO: 1.75,
   PHYSICAL_PPI: 230.9,
+  /** Screen at true size: 1920 x 1200 device px at 230.9 PPI. The largest canvas the kiosk can show (FR-CAN-6). */
+  SCREEN_W_MM: 211,
+  SCREEN_H_MM: 132,
   DISPLAY_REFRESH_HZ: 60,
   HOVER_RATE_HZ: 60,
   PRESSURE_OBSERVED_MAX: 0.86,

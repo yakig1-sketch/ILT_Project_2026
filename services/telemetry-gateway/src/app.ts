@@ -11,6 +11,7 @@ import { organisationRoutes } from './routes/organisation.js';
 import { participantRoutes } from './routes/participants.js';
 import { resultRoutes } from './routes/results.js';
 import { sessionRoutes } from './routes/sessions.js';
+import { canvasRoutes } from './routes/canvases.js';
 import { settingsRoutes } from './routes/settings.js';
 import { userRoutes } from './routes/users.js';
 
@@ -65,6 +66,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(sessionRoutes, { prefix: '/api/v1' });
   await app.register(resultRoutes, { prefix: '/api/v1' });
   await app.register(settingsRoutes, { prefix: '/api/v1' });
+  await app.register(canvasRoutes, { prefix: '/api/v1' });
   await app.register(mediaRoutes, { prefix: '/api/v1' });
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.

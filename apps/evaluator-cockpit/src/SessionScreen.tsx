@@ -78,11 +78,13 @@ const layout: Record<string, CSSProperties> = {
 
 const n = (v: string | number | null | undefined) => (v === null || v === undefined ? null : Number(v));
 
-export function SessionScreen({ sessionId, onBack, onSummary, onReplay }: {
+export function SessionScreen({ sessionId, onBack, onSummary, onReplay, onConsole }: {
   sessionId: string;
   onBack: () => void;
   onSummary: (participantId: string) => void;
   onReplay: (attemptId: string) => void;
+  /** The participant's Dispatch Console. */
+  onConsole: (participantId: string) => void;
 }) {
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,16 +106,17 @@ export function SessionScreen({ sessionId, onBack, onSummary, onReplay }: {
   if (!link || !session) {
     return error ? <p role="alert" style={ui.error}>{t(error)}</p> : <p style={ui.muted}>{t('common.checking')}</p>;
   }
-  return <LiveSession link={link} session={session} reload={reload} onBack={onBack} onSummary={onSummary} onReplay={onReplay} />;
+  return <LiveSession link={link} session={session} reload={reload} onBack={onBack} onSummary={onSummary} onReplay={onReplay} onConsole={onConsole} />;
 }
 
-function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
+function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onConsole }: {
   link: CockpitLink;
   session: SessionDetail;
   reload: () => void;
   onBack: () => void;
   onSummary: (participantId: string) => void;
   onReplay: (attemptId: string) => void;
+  onConsole: (participantId: string) => void;
 }) {
   const { t } = useTranslation();
   const sessionId = session.id;
@@ -208,6 +211,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay }: {
           {t(link.tabletConnected ? 'cockpit.pairing.tablet_connected' : 'cockpit.pairing.tablet_offline')}
         </span>
         <span style={pill(liveTone)} data-testid="live-mode">{t(`cockpit.live.${link.liveMode}`)}</span>
+        <button style={ui.button} onClick={() => onConsole(session.participant_id)} data-testid="open-console">{t('console.open')}</button>
         <button style={ui.button} onClick={() => onSummary(session.participant_id)} data-testid="open-summary">{t('cockpit.open_summary')}</button>
       </div>
 

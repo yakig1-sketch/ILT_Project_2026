@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ControlPayloads, LANGUAGE_DIRECTION, type LanguageCode } from '@ilt/shared-types';
 import {
   fillOrderFor,
+  mergeProfile,
   type CanvasGeometry,
   type FillDirection,
   type ProtocolStep,
@@ -161,7 +162,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const { q, status, session_type, from, to, tz } = f.data;
     return rows(
       app.deps.db,
-      `SELECT s.id, s.session_code, p.study_code, s.session_type, s.language_code, s.status, s.created_at
+      `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.session_type, s.language_code, s.status, s.created_at
          FROM sessions s JOIN participants p ON p.id = s.participant_id
         WHERE ($1::uuid IS NULL OR s.evaluator_id = $1)
           AND ($2::text IS NULL OR s.session_code ILIKE $2 OR p.study_code ILIKE $2)
@@ -231,13 +232,19 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     );
     if (!template) return reply.status(409).send({ error: { code: 'NO_TEMPLATE', message_key: 'sessions.no_template', details: { templateCode } } });
 
+    /** The language's Active canvas for the role, with the participant's Domain override merged into its profile (FR-CAN-8). */
     const canvasFor = async (role: 'ILT' | 'NOTEBOOK'): Promise<CanvasRow | undefined> => {
       const code = setting(settings, `language.${language_code}.${role === 'ILT' ? 'ilt_canvas' : 'notebook_canvas'}`, '');
-      return one<CanvasRow>(
+      const c = await one<CanvasRow & { profile_patch: unknown }>(
         app.deps.db,
-        "SELECT id, code, geometry, default_scoring_profile FROM canvases WHERE code = $1 AND status = 'ACTIVE'",
-        [code],
+        `SELECT c.id, c.code, c.geometry, c.default_scoring_profile, o.profile_patch
+           FROM canvases c LEFT JOIN canvas_scoring_overrides o ON o.canvas_id = c.id AND o.domain_id = $2
+          WHERE c.code = $1 AND c.status = 'ACTIVE'`,
+        [code, participant.domain_id],
       );
+      if (!c) return undefined;
+      const { profile_patch, ...canvas } = c;
+      return { ...canvas, default_scoring_profile: canvas.default_scoring_profile && mergeProfile(canvas.default_scoring_profile, profile_patch) };
     };
     const canvases = { ILT: await canvasFor('ILT'), NOTEBOOK: await canvasFor('NOTEBOOK') };
     const mirrored = setting(settings, `language.${language_code}.mirrored`, false);

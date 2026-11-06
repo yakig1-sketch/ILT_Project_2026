@@ -1,5 +1,6 @@
 // Session list and planning: find or create a participant, then create a session. The list can be
-// filtered by code, status, type and creation date (filtered on the server).
+// filtered by code, status, type and creation date (filtered on the server). A participant's code
+// and the Protocol button open their Dispatch Console.
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
@@ -8,6 +9,7 @@ import { ui } from './styles';
 interface SessionListRow {
   id: string;
   session_code: string;
+  participant_id: string;
   study_code: string;
   session_type: string;
   language_code: string;
@@ -39,7 +41,7 @@ const query = (f: Record<string, string>) => {
   return p.size ? `?${p}` : '';
 };
 
-export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
+export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => void; onConsole: (participantId: string) => void }) {
   const { t, i18n } = useTranslation();
   const [sessions, setSessions] = useState<SessionListRow[]>([]);
   const [participant, setParticipant] = useState<Participant | null>(null);
@@ -256,12 +258,17 @@ export function SessionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
               {sessions.map((s) => (
                 <tr key={s.id}>
                   <td style={ui.cell}><bdi>{s.session_code}</bdi></td>
-                  <td style={ui.cell}><bdi>{s.study_code}</bdi></td>
+                  <td style={ui.cell}>
+                    <a href={`#/participant/${s.participant_id}`} title={t('console.title')}><bdi>{s.study_code}</bdi></a>
+                  </td>
                   <td style={ui.cell}>{t(`enum.session_type.${s.session_type}`)}</td>
                   <td style={ui.cell}>{s.language_code === 'he' ? t('common.hebrew') : t('common.english')}</td>
                   <td style={ui.cell}>{t(`enum.session_status.${s.status}`)}</td>
                   <td style={ui.cell}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(s.created_at))}</td>
-                  <td style={ui.cell}><button style={ui.button} onClick={() => onOpen(s.id)}>{t('cockpit.open')}</button></td>
+                  <td style={{ ...ui.cell, whiteSpace: 'nowrap' }}>
+                    <button style={ui.button} onClick={() => onConsole(s.participant_id)} data-testid="open-console">{t('console.open')}</button>{' '}
+                    <button style={ui.button} onClick={() => onOpen(s.id)}>{t('cockpit.open')}</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

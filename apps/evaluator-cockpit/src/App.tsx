@@ -1,10 +1,12 @@
-// Evaluator cockpit: sign-in, sessions, the live session screen (FR-COCK-1…4), the Comparative
+// Evaluator cockpit: sign-in, sessions, the Dispatch Console per participant (FRS v3.3 Figure 2),
+// the live session screen (FR-COCK-1…4), the Comparative
 // Summary Dashboard (FR-SUM) and Replay (FR-REP). At <base>admin the same build is the Administrator
 // cockpit: its own sign-in, for the System Administrator only, and the Administration screens.
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell, ThemeSwitcher } from '@ilt/ui';
 import { AdminScreen, ADMIN_TABS, type AdminTab } from './AdminScreen';
+import { DispatchConsole } from './DispatchConsole';
 import { ADMIN_ENTRY, ApiError, entryAddress, getAuth, login, logout, onAuthChange } from './api';
 import { ReplayScreen } from './ReplayScreen';
 import { SessionScreen } from './SessionScreen';
@@ -29,6 +31,7 @@ export function App() {
   const sessionId = /^#\/sessions\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const summaryId = /^#\/summary\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const replayId = /^#\/replay\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+  const consoleId = /^#\/participant\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const adminTab: AdminTab = ADMIN_TABS.find((k) => hash === `#/${k}`) ?? 'users';
   // A role changed since sign-in (seen at the token refresh) may no longer belong at this address.
   const wrongEntry = !!auth && (auth.user.role === 'ADMIN') !== ADMIN_ENTRY;
@@ -59,6 +62,14 @@ export function App() {
             <AdminScreen tab={adminTab} onTab={(k) => go(`#/${k}`)} />
           ) : replayId ? (
             <ReplayScreen key={replayId} attemptId={replayId} onBack={() => history.back()} />
+          ) : consoleId ? (
+            <DispatchConsole
+              key={consoleId}
+              participantId={consoleId}
+              onBack={() => go('#/sessions')}
+              onOpenSession={(id) => go(`#/sessions/${id}`)}
+              onSummary={(id) => go(`#/summary/${id}`)}
+            />
           ) : summaryId ? (
             <SummaryScreen key={summaryId} participantId={summaryId} onBack={() => history.back()} onReplay={(id) => go(`#/replay/${id}`)} />
           ) : sessionId ? (
@@ -68,9 +79,10 @@ export function App() {
               onBack={() => go('#/sessions')}
               onSummary={(id) => go(`#/summary/${id}`)}
               onReplay={(id) => go(`#/replay/${id}`)}
+              onConsole={(id) => go(`#/participant/${id}`)}
             />
           ) : (
-            <SessionsScreen onOpen={(id) => go(`#/sessions/${id}`)} />
+            <SessionsScreen onOpen={(id) => go(`#/sessions/${id}`)} onConsole={(id) => go(`#/participant/${id}`)} />
           )}
         </>
       )}

@@ -6,7 +6,7 @@ import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
 import type { UserClaims } from '../auth.js';
 import { one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
-import { loadEffectiveSettings } from '../settings-store.js';
+import { loadEffectiveSettings, setting } from '../settings-store.js';
 
 /** Anchor pairs compared on the dashboard (FR-SUM-1). */
 export const ANCHORS = [
@@ -40,7 +40,8 @@ interface BlockRow {
 }
 
 const num = (v: string | number | null) => (v === null ? null : Number(v));
-const mean = (vs: (number | null)[]) => (vs.length === 0 || vs.some((v) => v === null) ? null : (vs as number[]).reduce((a, b) => a + b, 0) / vs.length);
+const roundOrNull = (v: number | null) => (v === null ? null : Math.round(v));
+const mean = (vs:(number | null)[]) => (vs.length === 0 || vs.some((v) => v === null) ? null : (vs as number[]).reduce((a, b) => a + b, 0) / vs.length);
 const r2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
 
 export const resultRoutes: FastifyPluginAsync = async (app) => {
@@ -92,7 +93,8 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
           ? { block_number: a.blocks[i], attempt_id: b.attempt_id, attempt_number: b.attempt_number, session_code: b.session_code, composite_score: num(b.composite_score) }
           : { block_number: a.blocks[i], attempt_id: null })),
         avg_time_ms: found.length ? mean(found.map((b) => b.total_time_ms)) : null,
-        avg_pen_lifts: found.length ? mean(found.map((b) => b.pen_lifts)) : null,
+        // Pen lifts are counted, so the pair's mean is a whole number (14 and 15 → 15, half rounds up).
+        avg_pen_lifts: roundOrNull(found.length ? mean(found.map((b) => b.pen_lifts)) : null),
         accuracy_pct: found.length ? r2(mean(found.map((b) => num(b.accuracy_score)))) : null,
         avg_speed_mm_s: sumTime > 0 ? r2(sumLen / (sumTime / 1000)) : null,
         speed_score: found.length ? r2(mean(found.map((b) => num(b.speed_score)))) : null,
@@ -111,6 +113,76 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
         weight_pen_lifts_pct: scoring.weight_pen_lifts_pct,
       },
       boxes,
+    };
+  });
+
+  /**
+   * The participant's protocol at a glance (FRS v3.3 Figure 2, Dispatch Console): the latest
+   * non-aborted session of each type with its steps and their status, the Day 14 block average, and
+   * the timer and warm-up settings in effect now for the participant.
+   */
+  app.get<{ Params: { id: string } }>('/participants/:id/protocol', { preHandler: staff }, async (req, reply) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
+    const user = req.user as UserClaims;
+    const p = await one<{ id: string; study_code: string; grade_level: string | null; domain_id: number; region_id: number | null;
+      domain_code: string; domain_name_he: string; domain_name_en: string }>(
+      app.deps.db,
+      `SELECT p.id, p.study_code, p.grade_level, p.domain_id, p.region_id, d.code AS domain_code, d.name_he AS domain_name_he, d.name_en AS domain_name_en
+         FROM participants p JOIN domains d ON d.id = p.domain_id WHERE p.id = $1`,
+      [req.params.id],
+    );
+    if (!p) return reply.status(404).send(notFound);
+
+    // Each day shows the session that carries its protocol: one running now, else the latest completed,
+    // else the latest planned. A later duplicate (for example a second Day 1 planned after Day 1 was
+    // completed) must not hide the completed day; it is listed in `others` instead.
+    const all = await rows<{ id: string; session_code: string; session_type: string; status: string; language_code: string;
+      created_at: string; evaluator_id: string }>(
+      app.deps.db,
+      `SELECT id, session_code, session_type, status, language_code, created_at, evaluator_id FROM sessions
+        WHERE participant_id = $1 AND status <> 'ABORTED'
+        ORDER BY session_type,
+                 CASE WHEN status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED') THEN 0 WHEN status = 'COMPLETED' THEN 1 ELSE 2 END,
+                 created_at DESC`,
+      [p.id],
+    );
+    const sessions = all.filter((s, i) => i === 0 || all[i - 1]!.session_type !== s.session_type);
+    const canOpen = (s: { evaluator_id: string }) => user.role !== 'EVALUATOR' || s.evaluator_id === user.sub;
+    const steps = sessions.length === 0 ? [] : await rows<{ session_id: string; step_index: number; step_type: string; label_key: string;
+      block_number: number | null; is_scored: boolean; status: string; video_key: string | null; composite_score: string | null }>(
+      app.deps.db,
+      `SELECT st.session_id, st.step_index, st.step_type, st.label_key, st.block_number, st.is_scored, st.status, st.video_key,
+              (SELECT sv.composite_score FROM block_attempts ba JOIN score_versions sv ON sv.block_attempt_id = ba.id AND sv.is_current
+                WHERE ba.session_step_id = st.id AND ba.status IN ${FINISHED} ORDER BY ba.attempt_number DESC LIMIT 1) AS composite_score
+         FROM session_steps st WHERE st.session_id = ANY($1::uuid[]) ORDER BY st.session_id, st.step_index`,
+      [sessions.map((s) => s.id)],
+    );
+
+    const settings = await loadEffectiveSettings(app.deps.db, p.domain_id, p.region_id);
+    const sourceOf = (key: string) => settings[key]?.source ?? 'DEFAULT';
+    const day14 = sessions.find((s) => s.session_type === 'DAY_14');
+    const day14Scores = steps.filter((st) => st.session_id === day14?.id && st.step_type === 'ILT_BLOCK').map((st) => num(st.composite_score));
+    return {
+      participant: {
+        id: p.id, study_code: p.study_code, grade_level: p.grade_level,
+        domain: { code: p.domain_code, name_he: p.domain_name_he, name_en: p.domain_name_en },
+      },
+      sessions: Object.fromEntries(sessions.map((s) => [s.session_type, {
+        id: s.id, session_code: s.session_code, status: s.status, language_code: s.language_code, created_at: s.created_at,
+        // Evaluators open only their own sessions (as GET /sessions/:id).
+        can_open: canOpen(s),
+        others: all.filter((o) => o.session_type === s.session_type && o.id !== s.id)
+          .map((o) => ({ id: o.id, session_code: o.session_code, status: o.status, can_open: canOpen(o) })),
+        steps: steps.filter((st) => st.session_id === s.id).map(({ session_id: _s, composite_score, ...st }) => ({ ...st, composite_score: num(composite_score) })),
+      }])),
+      day14_average: day14Scores.length && day14Scores.every((v) => v !== null) ? r2(mean(day14Scores)) : null,
+      settings: {
+        in_transition_sec: setting(settings, 'ilt.timer.in_transition_sec', 20),
+        inactivity_sec: setting(settings, 'ilt.timer.inactivity_sec', 20),
+        timers_source: [sourceOf('ilt.timer.in_transition_sec'), sourceOf('ilt.timer.inactivity_sec')].find((x) => x !== 'SYSTEM' && x !== 'DEFAULT') ?? sourceOf('ilt.timer.in_transition_sec'),
+        warmup_enabled: setting(settings, 'ilt.warmup.enabled', true),
+        director_approval: setting(settings, 'governance.require_director_approval', true),
+      },
     };
   });
 

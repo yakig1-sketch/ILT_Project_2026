@@ -253,6 +253,29 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     expect(first.composite_score).toBeLessThan(100);
     expect(summary.body.boxes.find((b) => b.key === 'DAY_14')!.blocks.every((b) => b.attempt_id === null)).toBe(true);
 
+    // ---- Dispatch Console data: the Day 1 session with its steps' status and block scores.
+    type Protocol = {
+      sessions: Record<string, { id: string; can_open: boolean; steps: { step_type: string; block_number: number | null; status: string; composite_score: number | null }[] }>;
+      day14_average: number | null;
+      settings: { in_transition_sec: number; timers_source: string; warmup_enabled: boolean };
+    };
+    const protocol = await call<Protocol>(`/participants/${pid}/protocol`, { auth: token });
+    expect(protocol.status).toBe(200);
+    expect(Object.keys(protocol.body.sessions)).toEqual(['DAY_1']);
+    const day1 = protocol.body.sessions.DAY_1!;
+    expect(day1).toMatchObject({ id: sessionId, can_open: true });
+    const block1 = day1.steps.find((st) => st.step_type === 'ILT_BLOCK' && st.block_number === 1)!;
+    expect(block1.status).toBe('DONE');
+    expect(typeof block1.composite_score).toBe('number');
+    expect(protocol.body).toMatchObject({ day14_average: null, settings: { in_transition_sec: expect.any(Number), warmup_enabled: true } });
+    expect((await call(`/participants/${randomUUID()}/protocol`, { auth: token })).status).toBe(404);
+    // A later Day 1 planned while (or after) the first runs does not hide it; it is listed under `others`.
+    const dup = await call<{ id: string; session_code: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: pid, session_type: 'DAY_1', language_code: 'he' } });
+    expect(dup.status).toBe(201);
+    const withDup = await call<Protocol & { sessions: Record<string, { others: { id: string; status: string }[] }> }>(`/participants/${pid}/protocol`, { auth: token });
+    expect(withDup.body.sessions.DAY_1).toMatchObject({ id: sessionId, others: [{ id: dup.body.id, status: 'PLANNED' }] });
+    await pool.query("UPDATE sessions SET status = 'ABORTED' WHERE id = $1", [dup.body.id]);
+
     // ---- Pass threshold: admin only, approved with a Research Director's PIN.
     const put = (auth: string, extra: Record<string, unknown> = {}) =>
       call<{ error?: { code: string } }>('/settings', { method: 'PUT', auth, body: { scope: 'SYSTEM', changes: [{ key: 'scoring.pass_threshold', value: 80 }], ...extra } });

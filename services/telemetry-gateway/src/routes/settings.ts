@@ -2,7 +2,6 @@
 // System level and, where the definition allows it, per Domain or per Region. Changes to clinically
 // governed settings need a Research Director's PIN (FR-ROLE-3); every change is kept in
 // setting_value_history and the application log. Sessions copy the effective values when created.
-import { verify } from '@node-rs/argon2';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveSettings, SETTING_DEFINITIONS, type SettingDefinition, type SettingValue, type StoredSettingValue } from '@ilt/shared-types';
@@ -10,16 +9,13 @@ import { fillOrderFor, type CanvasGeometry, type FillDirection } from '@ilt/temp
 import type { UserClaims } from '../auth.js';
 import type { Queryable } from '../app-log.js';
 import { inTransaction, one, rows } from '../db.js';
+import { directorApprovalOn, GOVERNANCE_KEY, NO_GROUP, verifyDirector } from '../director.js';
 import { loadEffectiveSettings, setting } from '../settings-store.js';
 
 type Scope = 'SYSTEM' | 'DOMAIN' | 'REGION';
 type Definition = Pick<SettingDefinition, 'key' | 'category' | 'value_type' | 'default_value' | 'min_value' | 'max_value' | 'enum_values' | 'unit' | 'override_scope' | 'requires_director_approval' | 'description_he' | 'description_en'>;
 
 const WEIGHTS = ['scoring.composite.weight_speed_pct', 'scoring.composite.weight_accuracy_pct', 'scoring.composite.weight_pen_lifts_pct'];
-/** Turning director approval off is itself approved by a Research Director. */
-const GOVERNANCE_KEY = 'governance.require_director_approval';
-/** No Domain or Region has this id; resolving with it gives the System value. */
-const NO_GROUP = -1;
 
 const Target = z.object({
   scope: z.enum(['SYSTEM', 'DOMAIN', 'REGION']),
@@ -217,32 +213,14 @@ export const settingsRoutes: FastifyPluginAsync = async (app) => {
     const conflict = checkConsistency(defs, after);
     if (conflict) return reply.status(400).send(bad(conflict.code, conflict.message_key, conflict.details));
 
-    const system = await loadEffectiveSettings(app.deps.db, NO_GROUP, null);
     const governed = real.filter((c) => byKey.get(c.key)!.requires_director_approval || c.key === GOVERNANCE_KEY).map((c) => c.key);
-    const needsDirector = governed.length > 0 && (setting(system, GOVERNANCE_KEY, true) || governed.includes(GOVERNANCE_KEY));
+    const needsDirector = governed.length > 0 && (governed.includes(GOVERNANCE_KEY) || (await directorApprovalOn(app)));
     const entity = real.length === 1 ? real[0]!.key : `${real.length} settings`;
 
     let approvedBy: string | null = null;
     if (needsDirector) {
-      const { director_email, director_pin } = body.data;
-      const director = director_email
-        ? await one<{ id: string; director_pin_hash: string | null }>(
-          app.deps.db, "SELECT id, director_pin_hash FROM users WHERE email = $1 AND role = 'RESEARCHER' AND is_active", [director_email.toLowerCase()],
-        )
-        : undefined;
-      const ok = !!director?.director_pin_hash && !!director_pin && (await verify(director.director_pin_hash, director_pin));
-      if (!ok) {
-        app.appLog.write({
-          severity: 'SECURITY', event_type: 'auth.director_pin.failed', actor_user_id: user.sub, actor_role: user.role, client_ip: req.ip,
-          entity_type: 'setting', entity_id: entity, message: `Director PIN check failed for ${governed.join(', ')}`, details: { keys: governed },
-        });
-        return reply.status(403).send(bad('DIRECTOR_PIN', 'summary.director_pin_failed', { keys: governed }));
-      }
-      approvedBy = director!.id;
-      app.appLog.write({
-        severity: 'INFO', event_type: 'auth.director_pin.verified', actor_user_id: user.sub, actor_role: user.role,
-        entity_type: 'setting', entity_id: entity, message: `Director PIN verified for ${governed.join(', ')}`, details: { director_id: approvedBy, keys: governed },
-      });
+      approvedBy = await verifyDirector(app, req, body.data, { entity_type: 'setting', entity_id: entity, what: governed.join(', '), details: { keys: governed } });
+      if (!approvedBy) return reply.status(403).send(bad('DIRECTOR_PIN', 'summary.director_pin_failed', { keys: governed }));
     }
 
     await inTransaction(app.deps.db, async (q) => {

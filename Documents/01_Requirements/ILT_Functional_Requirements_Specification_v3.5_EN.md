@@ -168,6 +168,7 @@ The radius is measured from the dot's centre. The printed dots have a radius of 
 | 3 | Writes freehand | Recognisably the letter, right stroke direction, starting about where row 2 started | Evaluator |
 
 - **FR-COCK-6** The automatic similarity hint (shape comparison with the model letter) may be shown for row 3 but **never counts** toward the score. It is stored for later comparison with evaluator decisions.
+- **FR-COCK-7** **Evaluator Control & Dispatch Console** (restored from FRS v3.3, Figure 2): one participant's protocol on one page. The header names the participant code and grade. Day 1 (acquisition), Day 2 (24 h retention) and Day 14 (two-week automaticity) each show their steps as cards, consecutive blocks or pages of one kind grouped ("ILT 4 Blocks, Blocks 1–4 (Scored)"), coloured by state: **completed** (green), **active** (blue), **dispatch** (grey, still to run) and **pending day N** (grey, session not planned yet, with a button to plan it). Clicking a card opens its session in the live cockpit, where steps are dispatched to the tablet. The Day 14 panel shows the 2-block average score and opens the Comparative Summary. The intervention programme panel (target letter, 2-week retention, video + 4 training blocks, repeat letter, next letter) is shown and becomes active with the intervention phase. A status bar names the step running on the tablet, the timer policy in effect (System defaults or the Domain / Region value) and the warm-up setting, next to **Open live cockpit**.
 
 ## 9. Measures and scoring
 
@@ -222,9 +223,10 @@ For each box: start and end time; contact path; for each dot the **closest dista
 ## 10. Comparative Summary Dashboard
 
 - **FR-SUM-1** Compares anchor pairs: **Day 1 first pair** (blocks 1–2), **Day 1 last pair** (blocks 7–8), **Day 2 first pair** (blocks 1–2), **Day 2 last pair** (blocks 3–4), **Day 14** (blocks 1–2).
-- **FR-SUM-2** Each box shows: average time, pen lifts, accuracy %, **average ILT speed**, the **separate component scores** (speed, accuracy, pen lifts), the composite, and Pass/Fail.
+- **FR-SUM-2** Each box shows: average time, pen lifts, accuracy %, **average ILT speed**, the **separate component scores** (speed, accuracy, pen lifts), the composite, and Pass/Fail. Pen lifts are a count, so the pair's mean is shown as a whole number (half rounds up: 14 and 15 → 15).
 - **FR-SUM-3** Each box has a **[Replay]** button (§11).
 - **FR-SUM-4** The pass threshold and composite weights in effect are shown on the dashboard; the System Administrator can change the threshold there.
+- **FR-SUM-5** Below the boxes, a **Comparative summary diagram** (owner ECR, Phase 3) plots the four measures of each anchor (average time in seconds, pen lifts, accuracy %, average ILT speed in mm/s) as lines across the five anchors, on one shared axis, with a legend, the measure's name at each line's end and the values of an anchor on hover. A missing anchor leaves a gap in the line.
 
 ## 11. Replay
 
@@ -299,4 +301,4 @@ For each box: start and end time; contact path; for each dot the **closest dista
 - Added: languages and RTL (§4), organisation scopes and settings (§3), canvas library with scoring profiles and reference recordings (§5), application log (§13), replay from the summary (§11), raw-data rule and score versions (§9.1).
 - Changed: accuracy is now based on per-dot weights with **dot B** and the **A → B → C order** required; width moved from accuracy to **speed**; new speed and pen-lift scores; composite 50/25/25 with separate component scores; warm-up is one full extra block (replaces "3 practice items + 1 valid row"); intervention exceptions now include א; the device is named DTH-A116 only.
 - Removed: identity table and national ID; the 40/30/30 accuracy formula and 35/40/25 composite; automatic cDTW scoring of row 3 (now a hint only); the "chevron with loop" placeholder letter.
-- Kept from v3.3: analyst portal and cohort analytics, camera-agnostic optional video, unlimited templates (now the canvas library), 20 s timer defaults, three distinct clinical metrics.
+- Kept from v3.3: analyst portal and cohort analytics, camera-agnostic optional video, unlimited templates (now the canvas library), 20 s timer defaults, three distinct clinical metrics, and the Evaluator Control & Dispatch Console (FR-COCK-7, restored after it was left out of v3.4).

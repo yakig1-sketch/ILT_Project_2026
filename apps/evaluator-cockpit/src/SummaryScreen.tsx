@@ -1,10 +1,12 @@
 // Comparative Summary Dashboard (FR-SUM-1…4): anchor pairs across Day 1, Day 2 and Day 14, each with
 // time, pen lifts, accuracy, average ILT speed, the separate component scores, the composite and
 // Pass/Fail, plus [Replay]. The System Administrator sets the pass threshold in the Administrator cockpit.
+// Below the boxes, a diagram of the four measures across the anchors (SummaryChart).
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
 import { pill, ui } from './styles';
+import { SummaryChart } from './SummaryChart';
 
 interface SummaryBlock {
   block_number: number;
@@ -75,7 +77,7 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
               <>
                 {!b.complete && <p style={{ ...ui.muted, color: 'var(--ilt-warn)', margin: 0 }}>{t('summary.incomplete')}</p>}
                 <div style={s.line}><span>{t('summary.avg_time')}</span><bdi>{b.avg_time_ms === null ? '—' : `${(b.avg_time_ms / 1000).toFixed(1)} ${t('units.seconds')}`}</bdi></div>
-                <div style={s.line}><span>{t('summary.pen_lifts')}</span><bdi>{fmt(b.avg_pen_lifts)}</bdi></div>
+                <div style={s.line}><span>{t('summary.pen_lifts')}</span><bdi>{fmt(b.avg_pen_lifts, 0)}</bdi></div>
                 <div style={s.line}><span>{t('summary.accuracy_pct')}</span><bdi>{fmt(b.accuracy_pct)}</bdi></div>
                 <div style={s.line}><span>{t('summary.avg_speed')}</span><bdi>{b.avg_speed_mm_s === null ? '—' : `${b.avg_speed_mm_s.toFixed(2)} ${t('units.mm_s')}`}</bdi></div>
                 <div style={s.line}><span>{t('summary.speed_score')}</span><bdi>{b.speed_score === null ? nc : fmt(b.speed_score)}</bdi></div>
@@ -98,6 +100,7 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
           </section>
         ))}
       </div>
+      <SummaryChart boxes={data.boxes} />
     </div>
   );
 }

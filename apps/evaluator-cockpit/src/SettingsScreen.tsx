@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
+import { isolateSizes } from './bidi';
 import { pill, tone, ui } from './styles';
 
 type Scope = 'SYSTEM' | 'DOMAIN' | 'REGION';
@@ -425,11 +426,6 @@ export function SettingsScreen() {
 /** A unit in the interface language ("days" → "ימים"); units without a translation show as they are. */
 function unitName(t: TFunction, unit: string): string {
   return t(`admin.settings.unit.${unit.replace('/', '_')}`, { defaultValue: unit });
-}
-
-/** Keeps sizes such as "3×5" or "35×25" left to right inside a Hebrew name, so they don't read reversed. */
-function isolateSizes(text: string): string {
-  return text.replace(/\d[\d.,]*(?:\s*×\s*\d[\d.,]*)+/g, (m) => `⁦${m}⁩`);
 }
 
 function WeightsTotal({ total }: { total: number }) {

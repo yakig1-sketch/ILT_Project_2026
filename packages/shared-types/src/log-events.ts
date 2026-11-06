@@ -57,7 +57,13 @@ export const LOG_EVENT_TYPES = [
   'settings.value.removed',
   'settings.override.changed',
   // canvases and videos
+  'canvas.set.created',
+  'canvas.set.updated',
   'canvas.uploaded',
+  'canvas.updated',
+  'canvas.deleted',
+  'canvas.version.created',
+  'canvas.override.changed',
   'canvas.validated',
   'canvas.activated',
   'canvas.retired',

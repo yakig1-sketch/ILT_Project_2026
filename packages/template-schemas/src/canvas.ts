@@ -151,7 +151,7 @@ export function mirrorCanvas(geometry: CanvasGeometry): CanvasGeometry {
 }
 
 export interface CanvasIssue {
-  code: 'DOES_NOT_FIT' | 'DOT_OUTSIDE_BOX' | 'DUPLICATE_ID' | 'BAD_FILL_ORDER';
+  code: 'DOES_NOT_FIT' | 'DOT_OUTSIDE_BOX' | 'DUPLICATE_ID' | 'BAD_FILL_ORDER' | 'BAD_PROFILE' | 'UNKNOWN_DOT' | 'NO_PROFILE';
   message: string;
 }
 
@@ -172,11 +172,11 @@ export function validateCanvas(
   for (const b of geometry.boxes) {
     if (boxIds.has(b.id)) issues.push({ code: 'DUPLICATE_ID', message: `Box id ${b.id} appears twice` });
     boxIds.add(b.id);
-    for (const d of geometry.dots) {
-      if (d.x < 0 || d.x > b.w || d.y < 0 || d.y > b.h) {
-        issues.push({ code: 'DOT_OUTSIDE_BOX', message: `Dot ${d.id} lies outside box ${b.id}` });
-      }
-    }
+  }
+  // The dots repeat in every box: report each dot once, at the first box it does not fit.
+  for (const d of geometry.dots) {
+    const b = geometry.boxes.find((x) => d.x < 0 || d.x > x.w || d.y < 0 || d.y > x.h);
+    if (b) issues.push({ code: 'DOT_OUTSIDE_BOX', message: `Dot ${d.id} lies outside box ${b.id}` });
   }
   const dotIds = new Set<string>();
   for (const d of geometry.dots) {
@@ -199,4 +199,78 @@ export function validateCanvas(
     }
   }
   return issues;
+}
+
+/** Canvas types scored with a profile (FR-CAN-7); notebook pages are timed only. */
+export const isScoredCanvas = (geometry: CanvasGeometry): boolean => geometry.canvas_type !== 'NOTEBOOK';
+
+/**
+ * Checks a scoring profile against its canvas: the schema (weights total 100, known dots in the
+ * order), every profile dot drawn on the canvas, and a fill order that is empty (follow the
+ * language direction) or a permutation of the box ids.
+ */
+export function validateProfile(geometry: CanvasGeometry, profile: unknown): CanvasIssue[] {
+  if (!isScoredCanvas(geometry)) return [];
+  if (profile === null || profile === undefined) return [{ code: 'NO_PROFILE', message: 'This canvas needs a scoring profile' }];
+  const parsed = ScoringProfileSchema.safeParse(profile);
+  if (!parsed.success) return parsed.error.issues.map((i) => ({ code: 'BAD_PROFILE' as const, message: `${i.path.join('.') || 'profile'}: ${i.message}` }));
+  const issues: CanvasIssue[] = [];
+  if (geometry.canvas_type === 'ILT_GRID') {
+    const drawn = new Set(geometry.dots.map((d) => d.id));
+    for (const id of Object.keys(parsed.data.dots)) {
+      if (!drawn.has(id)) issues.push({ code: 'UNKNOWN_DOT', message: `The profile scores dot ${id}, which is not on the canvas` });
+    }
+  }
+  if (parsed.data.fill_order.length) {
+    const sorted = [...parsed.data.fill_order].sort((a, b) => a - b);
+    const ids = geometry.boxes.map((b) => b.id).sort((a, b) => a - b);
+    if (sorted.length !== ids.length || sorted.some((v, i) => v !== ids[i])) {
+      issues.push({ code: 'BAD_FILL_ORDER', message: 'Fill order is not a permutation of the box ids' });
+    }
+  }
+  return issues;
+}
+
+/** A starting profile for a new canvas: its dots in order, equal weights, nothing required, one pen lift per box. */
+export function starterProfile(geometry: CanvasGeometry): ScoringProfile | null {
+  if (!isScoredCanvas(geometry)) return null;
+  const ids = geometry.canvas_type === 'ILT_GRID' ? geometry.dots.map((d) => d.id) : [];
+  const share = ids.length ? Math.floor(100 / ids.length) : 0;
+  return {
+    dot_order: ids.length ? ids : ['A'],
+    dots: ids.length
+      ? Object.fromEntries(ids.map((id, i) => [id, { radius_mm: 3.5, weight_pct: share + (i === 0 ? 100 - share * ids.length : 0), required: false }]))
+      : { A: { radius_mm: 3.5, weight_pct: 100, required: false } },
+    expected_pen_lifts_per_block: geometry.boxes.length,
+    fill_order: [],
+    normal_speed_mm_s: null,
+    speed_flex_pct: 10,
+  };
+}
+
+type Patch = { [key: string]: unknown };
+const isPlain = (v: unknown): v is Patch => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** The Domain's profile (FR-CAN-8): the canvas profile deep-merged with the Domain's patch; arrays are replaced whole. */
+export function mergeProfile(base: ScoringProfile, patch: unknown): ScoringProfile {
+  const merge = (a: unknown, b: unknown): unknown => {
+    if (!isPlain(a) || !isPlain(b)) return b === undefined ? a : b;
+    const out: Patch = { ...a };
+    for (const [k, v] of Object.entries(b)) out[k] = merge(a[k], v);
+    return out;
+  };
+  return merge(base, patch ?? {}) as ScoringProfile;
+}
+
+/** The smallest patch that turns `base` into `next` (only the values that differ). */
+export function profilePatch(base: unknown, next: unknown): unknown {
+  if (isPlain(base) && isPlain(next)) {
+    const out: Patch = {};
+    for (const [k, v] of Object.entries(next)) {
+      const d = profilePatch(base[k], v);
+      if (d !== undefined) out[k] = d;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return JSON.stringify(base) === JSON.stringify(next) ? undefined : next;
 }
