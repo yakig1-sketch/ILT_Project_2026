@@ -56,6 +56,7 @@ interface SessionDetail {
   session_type: string;
   language_code: string;
   status: string;
+  purpose: 'INTERVENTION' | 'RESEARCH';
   /** A tablet holds this session's pairing, connected or not (released tablets do not count). */
   tablet_paired: boolean;
   timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
@@ -207,6 +208,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
         <strong><bdi>{session.session_code}</bdi></strong>
         <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)} · {session.language_code === 'he' ? t('common.hebrew') : t('common.english')}</span>
         <span style={pill(closed ? 'off' : 'ok')}>{t(`enum.session_status.${session.status}`)}</span>
+        <span style={pill('off')} data-testid="session-purpose">{t(`enum.purpose.${session.purpose}`)}</span>
         <span style={pill(link.tabletConnected ? 'ok' : 'off')} data-testid="tablet-status">
           {t(link.tabletConnected ? 'cockpit.pairing.tablet_connected' : 'cockpit.pairing.tablet_offline')}
         </span>

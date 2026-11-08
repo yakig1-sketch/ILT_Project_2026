@@ -46,6 +46,11 @@ export const ControlPayloads = {
     immediate: z.boolean().optional(),
     /** Canvas scoring profile (dot radii, order); the cockpit uses it for the live telemetry preview. */
     profile: z.unknown().optional(),
+    /**
+     * Reference mode (FR-TAB-8): the tablet shows the "reference recording" banner and a [Done]
+     * button that is always available; `free_order` lifts the forward-only box lock (sample block).
+     */
+    reference: z.object({ kind: z.enum(['PREVIEW', 'SAMPLE_BLOCK_FILL', 'NORMAL_SPEED']), free_order: z.boolean(), rows: z.number().int().optional() }).optional(),
   }),
   STEP_STARTED: z.object({
     step_index: z.number().int(),
@@ -99,12 +104,20 @@ export const ControlPayloads = {
   VIDEO_ENDED: z.object({ step_index: z.number().int(), reason: z.enum(['ENDED', 'STOPPED']) }),
   ABORT_SESSION: z.object({ reason: z.string().max(200), save_partial: z.boolean() }),
   SESSION_COMPLETE: z.object({ session_id: uuid, completed_steps: z.number().int() }),
+  /**
+   * Administrator → gateway in reference mode (FR-CAN-6/9/10): show a canvas at true size on the
+   * paired tablet (PREVIEW, nothing is stored) or record a sample. The gateway sends the tablet a
+   * DISPATCH_STEP carrying `reference`. `domain_id` null: the canvas's own profile.
+   */
   REFERENCE_START: z.object({
     canvas_id: uuid,
-    kind: z.enum(['SAMPLE_BLOCK_FILL', 'NORMAL_SPEED']),
-    rows: z.number().int().min(1).optional(),
+    kind: z.enum(['PREVIEW', 'SAMPLE_BLOCK_FILL', 'NORMAL_SPEED']),
+    rows: z.number().int().min(1).max(10).optional(),
+    domain_id: z.number().int().nullable().optional(),
+    writer_label: z.string().trim().max(100).optional(),
   }),
-  REFERENCE_RESULT: z.object({ recording_id: uuid, derived: z.record(z.unknown()) }),
+  /** Gateway → administrator: the stored recording and the values derived from it. */
+  REFERENCE_RESULT: z.object({ recording_id: uuid, kind: z.enum(['SAMPLE_BLOCK_FILL', 'NORMAL_SPEED']).optional(), canvas_id: uuid.optional(), derived: z.record(z.unknown()) }),
   REFERENCE_DECISION: z.object({ recording_id: uuid, decision: z.enum(['ACCEPT', 'CLEAR']) }),
   /** Gateway → tablet: a BATCH packet is stored (application ACK, DDD §5.1). */
   BATCH_ACK: z.object({

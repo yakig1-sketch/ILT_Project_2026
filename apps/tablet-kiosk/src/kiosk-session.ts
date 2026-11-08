@@ -27,6 +27,8 @@ export interface Pairing {
   session_id: string;
   session_code: string;
   language: string;
+  /** REFERENCE: paired to an administrator's reference station (FR-TAB-8). */
+  mode?: 'SESSION' | 'REFERENCE';
 }
 
 export type Dispatch = ControlPayload<'DISPATCH_STEP'> & { canvas: CanvasGeometry; fill_order: number[] };
@@ -264,6 +266,7 @@ export class KioskSession {
       pxPerMm: this.pxPerMm,
       boxEntryMarginMm: BOX_ENTRY_MARGIN_MM,
       allowMouse: this.allowMouse,
+      freeOrder: b.step.reference?.free_order ?? false,
       onSamples: (raw) => this.onSamples(raw),
       onBoxAdvanced: (box_id, fill_position, skipped_box_ids) => {
         this.activeBoxId = box_id;
@@ -369,7 +372,10 @@ export class KioskSession {
 
   /** [Next block] tapped with the pen at the end of the page: finishes the block; the gateway then dispatches the next writing block. */
   nextBlock(): void {
-    if (this.state.name === 'WRITING' && this.endReached) void this.finish('NEXT_BLOCK');
+    if (this.state.name !== 'WRITING') return;
+    // Reference mode: [Done] ends the page at any point (one row for the normal speed, a preview).
+    if (this.state.step.reference) void this.finish('MANUAL');
+    else if (this.endReached) void this.finish('NEXT_BLOCK');
   }
 
   /** Locks the canvas, sends the last batch and BLOCK_COMPLETE with the SHA-256 (null reason: abort, no completion). */

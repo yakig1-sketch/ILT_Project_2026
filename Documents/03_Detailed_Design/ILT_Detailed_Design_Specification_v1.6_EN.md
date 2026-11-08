@@ -168,9 +168,9 @@ Every event except `ACK`, `ERROR` and `HEARTBEAT` is acknowledged with `ACK { ac
 | `VIDEO_ENDED` | tablet → gateway (ENDED) · cockpit → gateway → tablet (STOPPED) | `step_index`, `reason` ENDED/STOPPED. The step becomes DONE; logged as `session.video.ended` |
 | `ABORT_SESSION` | cockpit → all | `reason`, `save_partial` |
 | `SESSION_COMPLETE` | gateway → all | `session_id`, `completed_steps` |
-| `REFERENCE_START` | admin → tablet | `canvas_id`, `kind` SAMPLE_BLOCK_FILL/NORMAL_SPEED, `rows` (for speed: 1) |
-| `REFERENCE_RESULT` | gateway → admin | `recording_id`, derived values |
-| `REFERENCE_DECISION` | admin → gateway | `recording_id`, `decision` ACCEPT/CLEAR |
+| `REFERENCE_START` | admin → gateway | `canvas_id`, `kind` PREVIEW/SAMPLE_BLOCK_FILL/NORMAL_SPEED, `rows` (speed only, default 1), `domain_id` (null: the canvas's own profile), `writer_label`. Only on a reference station's socket. The gateway answers with a `DISPATCH_STEP` to the tablet (and the admin) carrying `reference` {`kind`, `free_order`, `rows`}: step 0, `immediate`, no timers. Refused with `TABLET_OFFLINE`, `BLOCK_ACTIVE`, `NOT_DRAFT`, `NOT_SCORED`, `RETIRED` |
+| `REFERENCE_RESULT` | gateway → admin | `recording_id`, `kind`, `canvas_id`, `derived` (§7.3). A preview ends at `BLOCK_COMPLETE` and sends none; an empty recording is `ERROR EMPTY_RECORDING` |
+| `REFERENCE_DECISION` | — | Not used since Phase 3d: [Accept] and [Clear] are REST calls (§14), so a Domain profile can carry the director's PIN |
 | `BATCH_ACK` | gateway → tablet | `step_index`, `attempt_number`, `sequence`: the `BATCH` packet is stored (not itself acknowledged) |
 | `BLOCK_STORED` | gateway → cockpit | `block_attempt_id`, `step_index`, `attempt_number`, `sample_count`, `integrity_ok`: every sample of a completed block is stored and the SHA-256 checked. Phase 2 follows it with `BLOCK_SCORED` |
 | `PEER_STATUS` | gateway → tablet, cockpit | `tablet`, `cockpit` (booleans): which ends are connected; the cockpit starts the WebRTC offer when the tablet appears |
@@ -324,10 +324,16 @@ Effective profile for a domain = `canvases.default_scoring_profile` deep-merged 
 
 Both kinds run on a tablet paired in `REFERENCE` mode; the samples are stored compressed in `reference_recordings.samples` and processed with the same segmentation code as children's blocks (§8.1).
 
+**Reference station (Phase 3d).** The System Administrator opens a station in the canvas screen (`POST /reference/stations`), which shows a 6-digit PIN (10 minutes, stored as a hash). The tablet types it on its usual PIN screen; `POST /sessions/pair` matches it after the open sessions and answers `mode: REFERENCE`, with a tablet token carrying `ref: true` and the station id in `session_id`. The station's room on the hub holds one run at a time: the tablet uses the same block flow as a session (`STEP_STARTED`, `BATCH` with `BATCH_ACK`, `BLOCK_COMPLETE` with the SHA-256), but the samples stay in memory and never reach `pen_samples`. On the tablet a reference page has an amber "reference recording" title bar and a [Done] button available at any time (pen tap); the administrator can also end it with `MANUAL_FINISH`. A sample block lifts the forward-only box lock (`free_order`): the active box is the box under the pen. Closing the station clears its token and the tablet returns to the PIN screen.
+
+**Where a recording goes.** The canvas's own profile changes only in a **Draft** (an Active canvas is never edited, FR-CAN-3: create a new version, record, then activate with the director's approval). A **Domain** profile can be recorded for a Draft or Active canvas; [Accept] then needs the director's PIN, as any Domain override does, and merges the values into the Domain's patch. A recording on the canvas as stored is unmirrored; mirroring does not change box ids or the fill order.
+
 | Kind | What's drawn | Derived values | On Accept |
 |---|---|---|---|
-| `SAMPLE_BLOCK_FILL` | One complete block by the System Administrator | `fill_order` = box ids in order of their first stroke; `expected_pen_lifts_per_block` = pen-lift count (§8.2) | Written into the profile (system default, or the domain override if recorded for a domain) |
-| `NORMAL_SPEED` | `rows` rows (default 1) by a skilled writer | `normal_speed_mm_s` = Σ line length ÷ Σ line time over the letters (§8.4) | Written into the profile |
+| `SAMPLE_BLOCK_FILL` | One complete block by the System Administrator | `fill_order` = box ids in order of their first stroke (pen-down in the box, then within the entry margin); `pen_lifts` = strokes after merging gaps under `scoring.pen_lift.min_gap_ms` (§8.2); `complete` only when every box was written; `direction_order` and `direction_matches` (FR-CAN-14) | `fill_order` and `expected_pen_lifts_per_block` written into the profile (the Draft's, or the Domain's override) |
+| `NORMAL_SPEED` | `rows` rows (default 1, up to 3) by a skilled writer | The first `rows` rows of the profile's fill order are scored with `scoreBlock`; `normal_speed_mm_s` = Σ line length ÷ Σ line time over those letters (§8.4); `complete` only when every letter of the rows was written and a line was measured | `normal_speed_mm_s` written into the profile |
+
+Each `derived` also holds `previous` (the profile's values before) and `integrity_ok`. An incomplete recording can only be cleared.
 
 [Clear] marks the recording `CLEARED` (kept for audit, never used). If the recorded fill order disagrees with the language fill direction, the admin screen shows a warning before Accept.
 
@@ -602,6 +608,9 @@ CREATE TABLE reference_recordings (
   recorded_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   decided_at    TIMESTAMPTZ NULL
 );
+-- Phase 3d (migration 0003): reference_stations (id, created_by, language_code, pairing PIN hash and expiry,
+-- tablet_token_id, calibration, paired_at, closed_at); reference_recordings adds station_id, rows_recorded,
+-- sample_count, css_px_per_mm, decided_by, approved_by. ilt_app cannot DELETE reference_recordings (FR-CAN-11).
 
 -- ===== Protocol templates =====
 CREATE TABLE protocol_templates (
@@ -660,6 +669,9 @@ CREATE TABLE ethics_approvals (
   valid_to       DATE NULL,
   notes          TEXT NULL
 );
+-- Phase 3f (migration 0004): ethics_approvals adds created_by, created_at, withdrawn_at and a valid_from <= valid_to
+-- check; participants adds updated_at; consent_version may not be blank. ilt_app cannot DELETE consent_records or
+-- ethics_approvals: consent is a history (a new record supersedes the current one) and an approval is withdrawn, not deleted.
 
 -- ===== Sessions, steps, blocks =====
 CREATE TABLE sessions (
@@ -1078,17 +1090,20 @@ Day 1 template steps:
 | auth | `auth.login.succeeded`, `auth.login.failed`, `auth.logout`, `auth.account.locked`, `auth.director_pin.verified`, `auth.director_pin.failed` |
 | users | `users.user.created`, `users.user.updated`, `users.user.deactivated` (details list the changed fields with old and new values; a password or PIN change is recorded only as `reset`, `set`, `changed` or `removed`) |
 | organisation | `organisation.domain.created`, `organisation.domain.updated`, `organisation.region.created`, `organisation.region.updated` |
-| participants | `participants.participant.created`, `participants.participant.updated`, `participants.consent.recorded` |
+| participants | `participants.participant.created`, `participants.participant.updated` (changed fields with old and new values; the school only as `changed`; deactivation and reactivation), `participants.consent.recorded` (old and new version, date and permissions) |
+| ethics | `ethics.approval.created`, `ethics.approval.updated` (changed fields, withdrawn or restored) |
 | sessions | `session.created`, `session.paired`, `session.step.dispatched`, `session.step.started`, `session.box.advanced`, `session.inactivity.cue`, `session.inactivity.amber`, `session.paused`, `session.resumed`, `session.block.completed`, `session.block.manual_finish`, `session.block.interrupted`, `session.block.repeated`, `session.block.scored`, `session.paper_page.timed`, `session.completed`, `session.aborted`, `session.link.lost`, `session.link.restored`, `session.tablet.released` |
 | telemetry | `telemetry.batch.rejected` (CRC/format), `telemetry.integrity.failed`, `telemetry.box_mismatch` |
 | intervention | `intervention.mark.suggested`, `intervention.mark.changed` (old/new) |
 | settings | `settings.value.changed` (old/new/approver), `settings.value.removed`, `settings.override.changed` |
-| canvases | `canvas.set.created`, `canvas.set.updated`, `canvas.uploaded`, `canvas.updated`, `canvas.deleted`, `canvas.version.created`, `canvas.validated`, `canvas.activated` (with the retired version and the approver), `canvas.retired`, `canvas.override.changed` (old/new patch, approver), `canvas.reference.recorded`, `canvas.reference.accepted`, `canvas.reference.cleared` |
+| canvases | `canvas.set.created`, `canvas.set.updated`, `canvas.uploaded`, `canvas.updated`, `canvas.deleted`, `canvas.version.created`, `canvas.validated`, `canvas.activated` (with the retired version and the approver), `canvas.retired`, `canvas.override.changed` (old/new patch, approver), `canvas.reference.paired`, `canvas.reference.started` (preview or recording sent to the tablet), `canvas.reference.recorded` (derived summary, integrity), `canvas.reference.accepted` (values, old/new profile or patch, approver), `canvas.reference.cleared` |
 | scores | `scores.recomputed` |
 | data | `data.export.created`, `data.replay.opened`, `data.legacy.imported`, `data.paper_scores.entered` |
 | system | `system.error`, `system.service.started`, `system.service.stopped` |
 
 - **Search screen** (admin): time range, event types (multi-select by area), user, session code, domain/region, severity, free text (uses `search_text`); results paged, newest first; CSV export (logged as `data.export.created`).
+  - *Phase 3e:* the **Action log** tab of the Administrator cockpit. The time range defaults to the last 7 days (quick links: 24 hours, 7 days, 30 days, any time); no event type or severity selected means all. Free text: every word must appear, and a word may be the start of a token (the text is split by the same `simple` parser that built `search_text`, each lexeme becoming a prefix term joined with `&`), so `S2611` finds `S261105-JMZW` and `QA3F-01`, stored as `qa3f` and the signed number `-01`, finds itself. Pages of 100, newest first, with a keyset cursor `(occurred_at, id)` kept to the microsecond; the first page counts the matches up to 10,000. Each entry shows its translated label and code; a click shows the email, record, device, address and `details`.
+  - *CSV:* the current filter, newest first, at most 50,000 rows (the response says when it was cut). UTF-8 with a BOM (Excel opens the Hebrew correctly), CRLF lines, every cell quoted, and a cell starting with `= + - @` prefixed with `'` so a spreadsheet never runs it as a formula. Columns: `occurred_at` (UTC ISO), `severity`, `event_type`, `user_email`, `user_name`, `role`, `device_id`, `domain`, `region`, `session_code`, `entity_type`, `entity_id`, `client_ip`, `message`, `details` (JSON). The export is logged as `data.export.created` with the filter and row count.
 - **Retention:** `log.retention_days` (default 5 years) via a TimescaleDB retention policy.
 
 ## 13. Internationalisation
@@ -1124,11 +1139,19 @@ Day 1 template steps:
 | POST | `/canvases/:id/activate` | ADMIN (+ PIN) | Draft only, with no issues (400 `CANVAS_INVALID`). A scored canvas (ILT, intervention) puts a scoring profile into use, so a Research Director approves it when `governance.require_director_approval` is on (`director_email`, `director_pin`; 403 `DIRECTOR_PIN`). In one transaction the previous Active version of the code is retired and its Domain overrides are copied to the new version. Settings name a canvas by code, so new sessions get the new version at once |
 | POST | `/canvases/:id/retire` | ADMIN | Active only (409 `NOT_ACTIVE`). Refused while a setting at any scope, or a catalogue default, names the code (409 `CANVAS_IN_USE`, `details.uses`) |
 | PUT | `/canvases/:id/overrides/:domainId` | ADMIN (+ PIN) | Domain scoring override (FR-CAN-8): `{profile}` is the whole profile the Domain should use; only the values that differ from the canvas profile are stored as `profile_patch` (none left removes the override); `{reset: true}` removes it. The merged profile is checked (400 `CANVAS_INVALID`). A Research Director approves it when approval is on. Not for Retired canvases (409 `RETIRED`) or notebook pages (409 `NOT_SCORED`). `POST /sessions` merges the participant's Domain patch into the canvas profile and stores the result in `canvas_profile_snapshot` |
-| POST | `/canvases/:id/reference-recordings` · `/reference-recordings/:id/decision` | ADMIN | Reference mode |
+| POST | `/reference/stations` | ADMIN | Opens a reference station (`language_code` optional, default the admin's language): `{id, pin, expires_at}` (Phase 3d) |
+| GET · DELETE | `/reference/stations/:id` | ADMIN (own stations) | Station state `{paired, css_px_per_mm}` · close the station (the tablet returns to the PIN screen) |
+| POST | `/reference/stations/:id/pin` | ADMIN | A new pairing PIN for the station |
+| POST | `/reference-recordings/:id/accept` | ADMIN (+ PIN for a Domain profile) | [Accept] (FR-CAN-9/10): writes the derived values into the Draft's profile, or merges them into the Domain's override. Errors `NOT_PENDING`, `INCOMPLETE`, `NOT_DRAFT`, `RETIRED`, `DIRECTOR_PIN`, `CANVAS_INVALID` |
+| POST | `/reference-recordings/:id/clear` | ADMIN | [Clear]: the recording is kept as `CLEARED` |
+| — | `/canvases/:id/detail` · `DELETE /canvases/:id` | ADMIN | The detail lists the canvas's `recordings` (derived values, who recorded, decided and approved; no samples); a Draft with recordings cannot be deleted (`HAS_RECORDINGS`) |
 | GET/POST/PATCH | `/instruction-videos?key=&language=` | ADMIN (write), all (read) | Video library: upload, new version, retire |
 | GET/POST | `/protocol-templates` | ADMIN (write), RESEARCHER, EVALUATOR | Templates |
+| GET · PATCH | `/participants/:id` | EVALUATOR, RESEARCHER, ADMIN | Phase 3f. GET: the record (no school: only `has_school`), the current `consent`, `consent_history` (newest first, with who recorded each), the number of sessions, `research` `{allowed}` or `{allowed: false, reason}` (the codes above) and `hand_video.setting`. PATCH: Domain, Region, `school` (re-hashed; logged only as `changed`), birth month, grade, gender, `ses_group`, dominant hand, `is_active`; the study code cannot change (400). Only real changes are stored and logged |
+| POST | `/participants/:id/consent` | EVALUATOR, RESEARCHER, ADMIN | Phase 3f: `consent_version`, `signed_on` (not in the future), `allows_hand_video`, `allows_research_use`, `allows_open_science` (each default false). The current record gets `superseded_at`; 409 `PARTICIPANT_INACTIVE` for a deactivated participant |
+| GET · POST · PATCH | `/ethics-approvals` · `/ethics-approvals/:id` | staff (read), ADMIN (write) | Phase 3f. Each approval with `valid_now` and the number of sessions that use it. PATCH corrects authority, reference, dates and notes, or `withdrawn` true/false; never deleted |
 | GET/POST/PATCH | `/participants` · `POST /participants/:id/consent` | EVALUATOR, RESEARCHER | Participants and consent. POST takes `study_code` (shown as "Participant code"), Domain, Region, `school` (hashed with `SCHOOL_CODE_HMAC_KEY` after trimming, collapsing spaces and lower-casing; the name is never stored, logged or returned), `birth_year_month` (YYYY-MM, stored as the 1st of the month), grade, gender, dominant hand. Session creation stores `age_months` from the birth month. GET takes `q` (part of the study code, any case; `%` and `_` are literal) and `limit` (1–500, default 500); the cockpit's participant search asks for 20 |
-| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions. The list (newest 200) takes the filters `q` (part of the session or study code), `status`, `session_type`, and `from` / `to` (creation day, both included, in the time zone `tz`, an IANA name, default UTC); 400 on an unknown value. The detail includes each attempt's current score version, the scoring weights and threshold from the snapshot, and `available_videos` (video keys with a version in the session language) |
+| GET/POST | `/sessions` · `GET /sessions/:id` | EVALUATOR, RESEARCHER | Plan and list sessions. The list (newest 200) takes the filters `q` (part of the session or study code), `status`, `session_type`, and `from` / `to` (creation day, both included, in the time zone `tz`, an IANA name, default UTC); 400 on an unknown value. The detail includes each attempt's current score version, the scoring weights and threshold from the snapshot, and `available_videos` (video keys with a version in the session language). POST takes `purpose` INTERVENTION (default) or RESEARCH (FR-PLAN-1): RESEARCH needs `privacy.research_purpose_enabled`, a RESEARCH ethics approval valid today and not withdrawn (stored as `research_approval_id`), and current consent with research use; otherwise 409 `RESEARCH_DISABLED`, `NO_RESEARCH_APPROVAL` or `NO_RESEARCH_CONSENT`. `video_enabled` = `ilt.video.recording_enabled` AND the current consent's hand video (FR-PRIV-2) (Phase 3f) |
 | POST | `/sessions/:id/pairing` | EVALUATOR | Open room, issue PIN |
 | POST | `/sessions/pair` | tablet | Pair with PIN (body = `PAIRING_REQUEST` payload); returns `PAIRING_RESPONSE` fields, the session code and the tablet token. 5 wrong PINs from one address lock pairing for 15 min |
 | POST | `/sessions/:id/release-tablet` | EVALUATOR | Release the tablet from an unfinished session: clears `tablet_token_id`, disconnects the tablet (4401, back to the PIN screen); the session stays open and can be paired again. 409 `STEP_RUNNING` while a block or video runs |
@@ -1149,7 +1172,9 @@ Day 1 template steps:
 | POST | `/scores/recompute` | ADMIN | Recompute selected blocks with given settings; creates new score versions |
 | POST | `/paper-scores` · `POST /legacy/import` | EVALUATOR · ADMIN | Paper cohort, legacy import |
 | POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed S3 URL, 15 min) |
-| GET | `/log/events` · `POST /log/client` | ADMIN · apps | Log search · client events |
+| GET | `/log/events` | ADMIN | Log search (Phase 3e): `from`, `to` (ISO), `types`, `severity` (comma lists from the vocabulary), `user_id`, `session_code`, `domain_id`, `region_id`, `q`, `limit` (≤ 200), `before` (cursor). Returns `{events, next, total, total_capped}`; each event adds the user's name and email, the session code and the Domain/Region codes |
+| GET | `/log/events.csv` | ADMIN | The same filter as a CSV file (§12), at most 50,000 rows; headers `x-ilt-rows`, `x-ilt-truncated` |
+| POST | `/log/client` | apps | Client events (not built yet) |
 | GET | `/health` | public | Liveness |
 
 Every response error uses `{ "error": { "code": "...", "message_key": "...", "details": {} } }`; `message_key` is translated by the client.
@@ -1198,6 +1223,9 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Dev users | Hashes generated at seed time from environment variables |
 | Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
+| Participants and consent (Phase 3f) | Participant record (`GET`/`PATCH /participants/:id`), consent history, session `purpose` with the research conditions and `video_enabled`, ethics approvals routes, migration 0004 (§14, §5 schema note) |
+| Action log (Phase 3e) | `GET /log/events` and `/log/events.csv` (§14); the search screen details, free-text prefix matching, the microsecond page cursor and the CSV format (§12) |
+| Reference mode (Phase 3d) | Reference stations paired through the usual PIN route (`mode: REFERENCE`); `REFERENCE_START` now also has `PREVIEW` (true-size preview on the tablet, FR-CAN-6), a Domain target and a writer label, and becomes a `DISPATCH_STEP` with `reference`; [Accept]/[Clear] are REST calls instead of `REFERENCE_DECISION`; a canvas's own profile is recorded only on a Draft (§7.3) |
 | Dispatch Console (Phase 3) | Evaluator cockpit route `#/participant/:id`: the participant's protocol by day as step cards (FR-COCK-7, from FRS v3.3 Figure 2), opened from the participant code or **Protocol** in the sessions list and from the live session; a card opens its session; `GET /participants/:id/protocol` (§14) |
 | Administration (Phase 3) | Administrator cockpit at `<cockpit base>admin` (for example `/cockpit/admin`), with its own sign-in for ADMIN only; the evaluator cockpit refuses ADMIN and the Administrator cockpit refuses every other role (owner decision, Phase 3 QA). Tabs: users and roles with the Research Director PIN, password reset, unlock and deactivation; Domains and Regions; Canvases (the canvas library: sets, Drafts with validation and a preview, activation approved by a director, versions, retiring, Domain overrides of the scoring profile; see the canvas rows in §14); Settings (System, Domain and Region values, see §6.1 and the `/settings` rows in §14; the pass threshold moved here from the Comparative Summary); `organisation.*` log events; refresh re-reads the role (§14) |
 | Session flow (Phase 2) | Video steps through the gateway (`VIDEO_PLAY` from the cockpit with `step_index`, resolved per session language; `VIDEO_ENDED` ENDED/STOPPED); inactivity cue and alerts; scoring on storage with `BLOCK_SCORED`; `REPEAT_BLOCK` via the gateway; paper notebook timing route; Comparative Summary by participant (Phase 3 ECR: a diagram of the four measures across the anchors below the boxes, FR-SUM-5, drawn in the cockpit from the same `/participants/:id/summary` data); pass-threshold route with director PIN; replay as JSON (`/attempts/:id/replay`) instead of binary `/block-attempts/:id/samples` |

@@ -98,6 +98,37 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   return body;
 }
 
+/** A GET that returns a file (for example a CSV export): its bytes, name and headers. */
+export async function apiFile(path: string): Promise<{ blob: Blob; filename: string; headers: Headers }> {
+  const call = () => fetch(`/api/v1${path}`, { headers: auth ? { authorization: `Bearer ${auth.access_token}` } : {} });
+  let res: Response;
+  try {
+    res = await call();
+    if (res.status === 401 && auth && (await refresh())) res = await call();
+  } catch {
+    throw new ApiError(0, 'error.network');
+  }
+  if (res.status === 401) setAuth(null);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: { code?: string; message_key?: string; details?: unknown } };
+    throw new ApiError(res.status, body.error?.message_key ?? `error.${res.status}`, body.error?.code, body.error?.details);
+  }
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'export';
+  return { blob: await res.blob(), filename, headers: res.headers };
+}
+
+/** Hands a file to the browser's downloads. */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function login(email: string, password: string): Promise<void> {
   const next = await api<Auth>('/auth/login', { method: 'POST', body: { email, password } });
   if ((next.user.role === 'ADMIN') !== ADMIN_ENTRY) {

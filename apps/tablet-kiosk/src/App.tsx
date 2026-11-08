@@ -65,6 +65,7 @@ const s: Record<string, CSSProperties> = {
     background: '#0969da', color: '#fff', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: 'pointer',
   },
   nextButtonOff: { background: '#d0d7de', color: '#8c959f', cursor: 'default' },
+  referenceBar: { background: '#fff3cd', borderBlockEnd: '2px solid #bf8700', color: '#5c3d00' },
   banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem', zIndex: 2 },
   overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem', zIndex: 1 },
   countdown: { fontSize: '1.6rem', fontWeight: 600 },
@@ -151,13 +152,13 @@ function PinScreen({ onPaired }: { onPaired: (p: Pairing) => void }) {
           screen_h_mm: Math.round((screen.height / pxPerMm) * 10) / 10,
         }),
       });
-      const body = (await res.json()) as { status?: string; token?: string; session_id?: string; session_code?: string; language?: string; error?: { message_key: string } };
+      const body = (await res.json()) as { status?: string; token?: string; session_id?: string; session_code?: string; language?: string; mode?: 'SESSION' | 'REFERENCE'; error?: { message_key: string } };
       if (!res.ok || body.status !== 'ACCEPTED') {
         setError(body.error?.message_key ?? 'kiosk.pin_wrong');
         setPin('');
         return;
       }
-      onPaired({ token: body.token!, session_id: body.session_id!, session_code: body.session_code!, language: body.language! });
+      onPaired({ token: body.token!, session_id: body.session_id!, session_code: body.session_code!, language: body.language!, mode: body.mode ?? 'SESSION' });
     } catch {
       setError('error.network');
     } finally {
@@ -235,30 +236,40 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
       </div>
     );
   }
+  const reference = session.pairing.mode === 'REFERENCE';
   if (state.name === 'WAITING') {
     return (
-      <BlockFrame step={null}>
+      <BlockFrame step={null} reference={reference}>
         {banner}
-        <p style={{ fontSize: '1.6rem' }}>{t('kiosk.waiting')}</p>
+        <p style={{ fontSize: '1.6rem' }}>{t(reference ? 'kiosk.reference.waiting' : 'kiosk.waiting')}</p>
       </BlockFrame>
     );
   }
   if (state.name === 'TRANSITION') {
     return (
-      <BlockFrame step={state.step} footer={<div style={s.countdown} aria-live="polite">{t('kiosk.get_ready')} {state.secondsLeft}</div>}>
+      <BlockFrame step={state.step} reference={reference} footer={<div style={s.countdown} aria-live="polite">{t('kiosk.get_ready')} {state.secondsLeft}</div>}>
         {banner}
         <CanvasView geometry={state.step.canvas} pxPerMm={pxPerMm} />
       </BlockFrame>
     );
   }
+  const kind = state.step.reference?.kind;
   return (
     <BlockFrame
       step={state.step}
+      reference={reference}
       footer={
-        <>
-          <p style={s.note}>{t('kiosk.pen_down_note')}</p>
-          <PenButton label={t('kiosk.next_block')} disabled={state.name !== 'WRITING' || !session.endReached} onTap={() => session.nextBlock()} />
-        </>
+        kind ? (
+          <>
+            <p style={s.note}>{t(`kiosk.reference.note.${kind}`, { count: state.step.reference?.rows ?? 1 })}</p>
+            <PenButton label={t('kiosk.reference.done')} disabled={state.name !== 'WRITING'} onTap={() => session.nextBlock()} />
+          </>
+        ) : (
+          <>
+            <p style={s.note}>{t('kiosk.pen_down_note')}</p>
+            <PenButton label={t('kiosk.next_block')} disabled={state.name !== 'WRITING' || !session.endReached} onTap={() => session.nextBlock()} />
+          </>
+        )
       }
     >
       {banner}
@@ -276,15 +287,20 @@ function blockLabel(t: (key: string, o: Record<string, unknown>) => string, step
   return t(key, { n: step.block_number, total: step.block_count });
 }
 
-/** Full-screen layout: task title and block position, the canvas centred, then the footer. */
-function BlockFrame({ step, footer, children }: { step: Dispatch | null; footer?: ReactNode; children: ReactNode }) {
+/**
+ * Full-screen layout: task title and block position, the canvas centred, then the footer. In
+ * reference mode (FR-TAB-8) the title bar is an amber "reference recording" banner instead.
+ */
+function BlockFrame({ step, footer, reference = false, children }: { step: Dispatch | null; footer?: ReactNode; reference?: boolean; children: ReactNode }) {
   const { t } = useTranslation();
-  const label = step && blockLabel(t, step);
+  const label = step && !reference && blockLabel(t, step);
+  const kind = step?.reference?.kind;
   return (
     <div style={s.frame}>
-      <header style={s.header}>
-        <h1 style={s.title}>{t('kiosk.task_title')}</h1>
+      <header style={reference ? { ...s.header, ...s.referenceBar } : s.header} data-testid={reference ? 'reference-banner' : undefined}>
+        <h1 style={s.title}>{t(reference ? 'kiosk.reference.banner' : 'kiosk.task_title')}</h1>
         {label && <span style={s.blockLabel}>{label}</span>}
+        {reference && kind && <span style={s.blockLabel}>{t(`kiosk.reference.kind.${kind}`)}</span>}
       </header>
       <main style={s.main}>{children}</main>
       {footer && <footer style={s.footer}>{footer}</footer>}

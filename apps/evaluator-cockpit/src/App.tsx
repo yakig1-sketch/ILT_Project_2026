@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { AppShell, ThemeSwitcher } from '@ilt/ui';
 import { AdminScreen, ADMIN_TABS, type AdminTab } from './AdminScreen';
 import { DispatchConsole } from './DispatchConsole';
+import { ParticipantScreen } from './ParticipantScreen';
 import { ADMIN_ENTRY, ApiError, entryAddress, getAuth, login, logout, onAuthChange } from './api';
 import { ReplayScreen } from './ReplayScreen';
 import { SessionScreen } from './SessionScreen';
@@ -32,7 +33,9 @@ export function App() {
   const summaryId = /^#\/summary\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const replayId = /^#\/replay\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const consoleId = /^#\/participant\/([0-9a-f-]{36})$/.exec(hash)?.[1];
-  const adminTab: AdminTab = ADMIN_TABS.find((k) => hash === `#/${k}`) ?? 'users';
+  const recordId = /^#\/participant\/([0-9a-f-]{36})\/record$/.exec(hash)?.[1];
+  const canvasId = /^#\/canvases\/([0-9a-f-]{36})$/.exec(hash)?.[1] ?? null;
+  const adminTab: AdminTab = canvasId ? 'canvases' : ADMIN_TABS.find((k) => hash === `#/${k}`) ?? 'users';
   // A role changed since sign-in (seen at the token refresh) may no longer belong at this address.
   const wrongEntry = !!auth && (auth.user.role === 'ADMIN') !== ADMIN_ENTRY;
   useEffect(() => {
@@ -40,10 +43,10 @@ export function App() {
   }, [wrongEntry]);
   // The admin address always names its tab, so the address bar matches the open tab from sign-in on.
   useEffect(() => {
-    if (ADMIN_ENTRY && auth && !wrongEntry && !ADMIN_TABS.some((k) => hash === `#/${k}`)) {
+    if (ADMIN_ENTRY && auth && !wrongEntry && !canvasId && !ADMIN_TABS.some((k) => hash === `#/${k}`)) {
       history.replaceState(null, '', `#/${adminTab}`);
     }
-  }, [auth, wrongEntry, hash, adminTab]);
+  }, [auth, wrongEntry, hash, adminTab, canvasId]);
   useEffect(() => {
     document.title = `${t('app.name')} · ${t(ADMIN_ENTRY ? 'app.admin' : 'app.cockpit')}`;
   }, [t]);
@@ -59,9 +62,11 @@ export function App() {
             <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
           </div>
           {ADMIN_ENTRY ? (
-            <AdminScreen tab={adminTab} onTab={(k) => go(`#/${k}`)} />
+            <AdminScreen tab={adminTab} onTab={(k) => go(`#/${k}`)} canvasId={canvasId} onCanvas={(id) => go(id ? `#/canvases/${id}` : '#/canvases')} />
           ) : replayId ? (
             <ReplayScreen key={replayId} attemptId={replayId} onBack={() => history.back()} />
+          ) : recordId ? (
+            <ParticipantScreen key={recordId} participantId={recordId} onConsole={() => go(`#/participant/${recordId}`)} />
           ) : consoleId ? (
             <DispatchConsole
               key={consoleId}
@@ -69,6 +74,7 @@ export function App() {
               onBack={() => go('#/sessions')}
               onOpenSession={(id) => go(`#/sessions/${id}`)}
               onSummary={(id) => go(`#/summary/${id}`)}
+              onRecord={(id) => go(`#/participant/${id}/record`)}
             />
           ) : summaryId ? (
             <SummaryScreen key={summaryId} participantId={summaryId} onBack={() => history.back()} onReplay={(id) => go(`#/replay/${id}`)} />

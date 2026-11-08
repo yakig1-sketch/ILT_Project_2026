@@ -46,6 +46,12 @@
       "port": 5176
     },
     {
+      "name": "tablet-kiosk-check",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/tablet-kiosk", "exec", "vite", "--port", "5177", "--strictPort"],
+      "port": 5177
+    },
+    {
       "name": "analyst-portal",
       "runtimeExecutable": "pnpm.cmd",
       "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev"],

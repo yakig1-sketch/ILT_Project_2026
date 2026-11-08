@@ -14,6 +14,7 @@ interface SessionListRow {
   session_type: string;
   language_code: string;
   status: string;
+  purpose: 'INTERVENTION' | 'RESEARCH';
   created_at: string;
 }
 interface Participant {
@@ -30,6 +31,7 @@ interface Domain {
 const GRADES = ['KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'GRADE_6'] as const;
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const HANDS = ['RIGHT', 'LEFT', 'AMBIDEXTROUS'] as const;
+const SES = ['LOW', 'MID', 'HIGH'] as const;
 const TYPES = ['DAY_1', 'DAY_2', 'DAY_14'] as const;
 const STATUSES = ['PLANNED', 'PAIRED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'ABORTED'] as const;
 const NO_FILTER = { q: '', status: '', session_type: '', from: '', to: '' };
@@ -50,10 +52,12 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
   const [domains, setDomains] = useState<Domain[]>([]);
   const [regions, setRegions] = useState<Domain[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ participant_id: '', session_type: 'DAY_1', language_code: 'he' });
+  const [form, setForm] = useState({ participant_id: '', session_type: 'DAY_1', language_code: 'he', purpose: 'INTERVENTION' });
+  /** Whether the chosen participant can have a research session now (FR-PLAN-1), and why not. */
+  const [research, setResearch] = useState<{ allowed: boolean; reason?: string } | null>(null);
   /** Session languages allowed by the participant's Domain (FR-LANG-5); both until a participant is chosen. */
   const [languages, setLanguages] = useState<string[]>(['he', 'en']);
-  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; dominant_hand: string } | null>(null);
+  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; ses_group: string | null; dominant_hand: string } | null>(null);
   const thisMonth = new Date().toISOString().slice(0, 7);
 
   useEffect(() => {
@@ -78,11 +82,16 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
   const name = (d: Domain) => (i18n.language === 'he' ? d.name_he : d.name_en);
 
   useEffect(() => {
+    setForm((f) => ({ ...f, purpose: 'INTERVENTION' }));
+    setResearch(null);
     if (!form.participant_id) {
       setLanguages(['he', 'en']);
       return;
     }
     let alive = true;
+    api<{ research: { allowed: boolean; reason?: string } }>(`/participants/${form.participant_id}`)
+      .then((p) => alive && setResearch(p.research))
+      .catch(() => undefined);
     api<{ enabled: string[]; default: string }>(`/participants/${form.participant_id}/languages`)
       .then((l) => {
         if (!alive) return;
@@ -136,10 +145,15 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
               setForm((f) => ({ ...f, participant_id: p?.id ?? '' }));
             }}
           />
+          {participant && (
+            <a href={`#/participant/${participant.id}/record`} style={{ ...ui.button, textDecoration: 'none' }} data-testid="participant-record-link">
+              {t('participants.open_record')}
+            </a>
+          )}
           <button
             type="button"
             style={ui.button}
-            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, school: '', birth_year_month: '', grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' })}
+            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, school: '', birth_year_month: '', grade_level: 'GRADE_1', gender: 'FEMALE', ses_group: null, dominant_hand: 'RIGHT' })}
           >
             + {t('cockpit.new_participant')}
           </button>
@@ -155,7 +169,19 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
               {languages.map((code) => <option key={code} value={code}>{t(code === 'he' ? 'common.hebrew' : 'common.english')}</option>)}
             </select>
           </label>
+          <label style={ui.field}>
+            {t('cockpit.purpose')}
+            <select value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} data-testid="session-purpose">
+              <option value="INTERVENTION">{t('enum.purpose.INTERVENTION')}</option>
+              <option value="RESEARCH" disabled={!research?.allowed}>{t('enum.purpose.RESEARCH')}</option>
+            </select>
+          </label>
           <button type="submit" style={ui.primary}>{t('common.create')}</button>
+          {research && !research.allowed && (
+            <p style={{ ...ui.muted, flexBasis: '100%', margin: 0 }} data-testid="research-reason">
+              {t('enum.purpose.RESEARCH')}: {t(`participants.research.${research.reason}`)}
+            </p>
+          )}
         </form>
 
         {newP && (
@@ -195,6 +221,13 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
               {t('cockpit.gender')}
               <select value={newP.gender} onChange={(e) => setNewP({ ...newP, gender: e.target.value })}>
                 {GENDERS.map((v) => <option key={v} value={v}>{t(`enum.gender.${v}`)}</option>)}
+              </select>
+            </label>
+            <label style={ui.field}>
+              {t('cockpit.ses')}
+              <select value={newP.ses_group ?? ''} onChange={(e) => setNewP({ ...newP, ses_group: e.target.value || null })}>
+                <option value="">—</option>
+                {SES.map((v) => <option key={v} value={v}>{t(`enum.ses.${v}`)}</option>)}
               </select>
             </label>
             <label style={ui.field}>
@@ -261,7 +294,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
                   <td style={ui.cell}>
                     <a href={`#/participant/${s.participant_id}`} title={t('console.title')}><bdi>{s.study_code}</bdi></a>
                   </td>
-                  <td style={ui.cell}>{t(`enum.session_type.${s.session_type}`)}</td>
+                  <td style={ui.cell}>{t(`enum.session_type.${s.session_type}`)}{s.purpose === 'RESEARCH' && <> · {t('enum.purpose.RESEARCH')}</>}</td>
                   <td style={ui.cell}>{s.language_code === 'he' ? t('common.hebrew') : t('common.english')}</td>
                   <td style={ui.cell}>{t(`enum.session_status.${s.status}`)}</td>
                   <td style={ui.cell}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(s.created_at))}</td>

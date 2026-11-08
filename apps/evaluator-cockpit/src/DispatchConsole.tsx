@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { DEFAULT_PROTOCOLS } from '@ilt/template-schemas';
 import { ApiError, api } from './api';
 import { ui } from './styles';
+import { BackButton } from './BackButton';
 
 type DayType = 'DAY_1' | 'DAY_2' | 'DAY_14';
 interface Step {
@@ -92,11 +93,12 @@ function stateOf(card: Card, planned: boolean): CardState {
   return 'pending';
 }
 
-export function DispatchConsole({ participantId, onBack, onOpenSession, onSummary }: {
+export function DispatchConsole({ participantId, onBack, onOpenSession, onSummary, onRecord }: {
   participantId: string;
   onBack: () => void;
   onOpenSession: (id: string) => void;
   onSummary: (participantId: string) => void;
+  onRecord: (participantId: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [p, setP] = useState<Protocol | null>(null);
@@ -183,7 +185,10 @@ export function DispatchConsole({ participantId, onBack, onOpenSession, onSummar
 
   return (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <div><button style={ui.button} onClick={onBack}>← {t('cockpit.sessions')}</button></div>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <BackButton onClick={onBack} label={t('cockpit.sessions')} />
+        <button style={ui.button} onClick={() => onRecord(participantId)} data-testid="console-record">{t('participants.open_record')}</button>
+      </div>
       <div style={s.frame} data-testid="dispatch-console">
         <div style={s.header}>
           <h2 style={s.title}>{t('console.title')}</h2>

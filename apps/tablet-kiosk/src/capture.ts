@@ -18,6 +18,11 @@ export interface CaptureOptions {
   /** Samples without sample_seq; the caller numbers them. */
   onSamples: (samples: Omit<PenSample, 'sample_seq'>[]) => void;
   onBoxAdvanced: (boxId: number, fillPosition: number, skippedBoxIds: number[]) => void;
+  /**
+   * Reference sample block (FR-CAN-9): no forward-only lock; the active box is the box under the
+   * pen, so the administrator writes the boxes in any order and the order is recorded.
+   */
+  freeOrder?: boolean;
 }
 
 const RAW_SUPPORTED = typeof window !== 'undefined' && 'onpointerrawupdate' in window;
@@ -109,9 +114,24 @@ export class PenCapture {
     e.preventDefault();
     const x = (e.clientX - this.rect.left) / this.o.pxPerMm;
     const y = (e.clientY - this.rect.top) / this.o.pxPerMm;
-    if (isLocked(this.o.geometry, this.o.fillOrder, this.fillPos, x, y)) return;
+    if (!this.o.freeOrder && isLocked(this.o.geometry, this.o.fillOrder, this.fillPos, x, y)) return;
     this.o.surface.setPointerCapture(e.pointerId);
     const prev = this.fillPos;
+    if (this.o.freeOrder) {
+      const m = this.o.boxEntryMarginMm;
+      const hit = this.o.geometry.boxes.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h)
+        ?? this.o.geometry.boxes.find((b) => x >= b.x - m && x <= b.x + b.w + m && y >= b.y - m && y <= b.y + b.h + m);
+      const pos = hit ? this.o.fillOrder.indexOf(hit.id) : -1;
+      if (pos >= 0 && pos !== prev) {
+        this.fillPos = pos;
+        this.o.onBoxAdvanced(this.activeBoxId, pos, []);
+      }
+      this.written.add(this.activeBoxId);
+      this.inContact = true;
+      this.lastHover = null;
+      this.o.onSamples([this.sample(e, StrokeFlag.CONTACT | StrokeFlag.STROKE_START)]);
+      return;
+    }
     const next = advanceFillPosition(this.o.geometry.boxes, this.o.fillOrder, Math.max(prev, 0), x, y, this.o.boxEntryMarginMm);
     if (next !== prev) {
       const from = Math.max(prev, 0);

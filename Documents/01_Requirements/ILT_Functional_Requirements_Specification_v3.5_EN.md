@@ -91,6 +91,7 @@ A **canvas** is the page the child writes on: an ILT grid, a notebook page, or a
 - **FR-CAN-9** **Sample block filling:** the System Administrator pairs a tablet in *reference mode*, the canvas is displayed, and they draw a complete sample block. The system derives the fill order (the order in which boxes were written) and the number of pen lifts. **[Accept]** saves the values to the scoring profile; **[Clear]** discards the sample and lets them draw again.
 - **FR-CAN-10** **Normal speed sample:** a person skilled in writing draws **one row** of the canvas on a paired tablet in reference mode. The system computes the average speed with the same formula used for children (§9.4) and shows it. **[Accept]** stores it as the Normal speed; **[Clear]** discards it.
 - **FR-CAN-11** Reference recordings keep their raw pen data, who recorded them and when. They are never shown as participant data.
+  - *Phase 3d design:* the tablet pairs to a **reference station** opened in the canvas screen, with a 6-digit code on its usual PIN screen. A recording into the canvas's own profile is made on a **Draft** (an Active canvas is not edited; create a new version, record, then activate with the director's approval). A recording for a **Domain** profile can be made on an Active canvas; [Accept] then needs the Research Director's PIN, as any Domain override does. A sample block or row that is not complete can only be cleared. Cleared recordings are kept.
 
 ILT defaults (seeded from the final 35 × 25 mm sheet):
 
@@ -125,7 +126,9 @@ The radius is measured from the dot's centre. The printed dots have a radius of 
 - **FR-PART-2** Stored per participant: study code, Domain, Region, school code (keyed hash), grade, gender, SES group, dominant hand, birth month and year (to compute age), legacy dataset link if any.
 - **FR-PART-3** **Age in months** is computed and stored **for every session**.
 - **FR-PART-4** Consent is recorded per participant with version and date. Defaults are the most private: **hand video off, research use off, open-science sharing off**.
+  - *Phase 3f design:* the **participant record** (opened from the Dispatch Console) shows and edits the details (the participant code never changes; a new school name replaces the protected code), deactivates a participant (kept with their results, but no new sessions), and records consent. A new consent record replaces the current one, and every earlier record is kept in the consent history.
 - **FR-PLAN-1** A session has a **purpose**: `INTERVENTION` (default) or `RESEARCH`. `RESEARCH` can only be chosen when research ethics approval is configured and the participant consented to research use.
+  - *Phase 3f design:* "configured" means the setting **Allow research sessions** is on **and** a Research approval, recorded by the System Administrator under **Ethics approvals**, is valid today and not withdrawn. The new-session form offers Research only when all three hold, and says which one is missing.
 - **FR-PLAN-2** A session is created from a **protocol template**: an editable ordered list of steps. Step types: video, warm-up block, ILT block, notebook page (tablet), paper notebook page (timed in the cockpit), intervention sheet.
 - **FR-PLAN-3** Default templates:
 
@@ -226,7 +229,7 @@ For each box: start and end time; contact path; for each dot the **closest dista
 - **FR-SUM-2** Each box shows: average time, pen lifts, accuracy %, **average ILT speed**, the **separate component scores** (speed, accuracy, pen lifts), the composite, and Pass/Fail. Pen lifts are a count, so the pair's mean is shown as a whole number (half rounds up: 14 and 15 → 15).
 - **FR-SUM-3** Each box has a **[Replay]** button (§11).
 - **FR-SUM-4** The pass threshold and composite weights in effect are shown on the dashboard; the System Administrator can change the threshold there.
-- **FR-SUM-5** Below the boxes, a **Comparative summary diagram** (owner ECR, Phase 3) plots the four measures of each anchor (average time in seconds, pen lifts, accuracy %, average ILT speed in mm/s) as lines across the five anchors, on one shared axis, with a legend, the measure's name at each line's end and the values of an anchor on hover. A missing anchor leaves a gap in the line.
+- **FR-SUM-5** Below the boxes, a **Comparative summary diagram** (owner ECR, Phase 3) plots the measures of each anchor (average time in seconds, pen lifts, accuracy %, average ILT speed in mm/s and, by a second owner ECR, the speed score 0–100) as lines across the five anchors, on one shared axis, with a legend, the measure's name at each line's end and the values of an anchor on hover. A missing anchor leaves a gap in the line. The speed score has no value until the canvas profile has a normal speed (FR-CAN-10): its line is then absent and the hover shows "not configured".
 
 ## 11. Replay
 
@@ -246,6 +249,7 @@ For each box: start and end time; contact path; for each dot the **closest dista
 - **FR-LOG-1** Every action is written to a detailed application log (instruction 6): logins and logouts, failed logins, participant and consent changes, session creation, pairing, each step dispatched, pause/resume/abort, block completion, inactivity alerts, repeats, intervention marks (with old and new value), settings changes (with old and new value and who approved), canvas loads and activations, reference recordings, score recomputations, exports, replays, errors.
 - **FR-LOG-2** Each entry has a fixed structure: time, event type (from a fixed vocabulary, e.g. `session.block.completed`), severity, user and role, device, Domain/Region, session, the affected record, and details. No child-identifying data.
 - **FR-LOG-3** The System Administrator has a **log search screen**: filter by time range, event type, user, session, Domain/Region, severity, and free text; export results to CSV.
+  - *Phase 3e design:* the **Action log** tab of the Administrator cockpit, newest first, showing the last 7 days by default. Event types are picked by area. One CSV export holds at most 50,000 rows, and each export is itself logged.
 - **FR-LOG-4** The log is append-only. Entries can't be edited or deleted through the application.
 
 ## 14. Privacy, ethics and video

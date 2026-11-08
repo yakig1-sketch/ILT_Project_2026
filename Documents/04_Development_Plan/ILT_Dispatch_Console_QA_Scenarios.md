@@ -96,6 +96,8 @@ Mark each scenario **Pass**, **Fail** (with what you saw) or **Skip**, and repor
 | I3 | A participant with only Day 1 run | The lines stop after Day 1 (no line drawn to empty anchors); a participant with no blocks has no diagram |
 | I4 | Hebrew, then English; Dark, then Light | Texts in the chosen language; the ranges read "(1–2)" in both; lines and labels stay readable in both themes |
 | I5 | Look at **Pen lifts** in each box of `YG1102` | Whole numbers: Day 1 first pair **15** (blocks 14 and 15), then 15, 17, 16, 16; the diagram's tooltip shows the same |
+| I6 | ECR 2: look at the legend of `YG1102`'s diagram, then hover over an anchor | A fifth entry, **Speed score (0–100)** in pink. `YG1102` has no speed score (its canvas had no normal speed), so there is no pink line and the tooltip shows "not configured". In Hebrew the range reads "(0–100)" |
+| I7 | ECR 2: a participant whose sessions were created after the canvas got a normal speed (Phase 3d D5) | A pink line with the same values as each box's **Speed score** |
 
 ## 3. After testing
 

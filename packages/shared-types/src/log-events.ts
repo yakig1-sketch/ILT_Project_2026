@@ -21,6 +21,9 @@ export const LOG_EVENT_TYPES = [
   'participants.participant.created',
   'participants.participant.updated',
   'participants.consent.recorded',
+  // ethics
+  'ethics.approval.created',
+  'ethics.approval.updated',
   // sessions
   'session.created',
   'session.paired',
@@ -67,6 +70,8 @@ export const LOG_EVENT_TYPES = [
   'canvas.validated',
   'canvas.activated',
   'canvas.retired',
+  'canvas.reference.paired',
+  'canvas.reference.started',
   'canvas.reference.recorded',
   'canvas.reference.accepted',
   'canvas.reference.cleared',

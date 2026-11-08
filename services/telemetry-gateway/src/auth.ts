@@ -15,7 +15,8 @@ export interface UserClaims {
 }
 
 /** `tid` is the pairing's token id (sessions.tablet_token_id); tokens from before it existed have none. */
-export type TokenClaims = UserClaims | { typ: 'tablet'; session_id: string; tid?: string };
+/** `ref`: a tablet paired to a reference station (session_id is then the station id, FR-TAB-8). */
+export type TokenClaims = UserClaims | { typ: 'tablet'; session_id: string; tid?: string; ref?: boolean };
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {

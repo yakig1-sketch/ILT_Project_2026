@@ -1,7 +1,8 @@
 // Canvas library (FRS §5, FR-CAN-1…8), a tab of the Administrator cockpit: canvas sets per language
 // and type, loading a canvas as a Draft, the true-size preview with its problems, the scoring
 // profile, activation with a Research Director's approval, versions, retiring, and Domain
-// overrides of the profile. The gateway checks everything again.
+// overrides of the profile. Reference mode (true-size preview on a tablet, sample block and normal
+// speed recordings) is in ReferencePanel. The gateway checks everything again.
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DTH_A116 } from '@ilt/shared-types';
@@ -9,7 +10,9 @@ import { CanvasView } from '@ilt/ui';
 import { fillOrderFor, mergeProfile, type CanvasGeometry, type ScoringProfile } from '@ilt/template-schemas';
 import { ApiError, api } from './api';
 import { isolateSizes } from './bidi';
+import { ReferencePanel, type Recording } from './ReferencePanel';
 import { pill, tone, ui } from './styles';
+import { BackButton } from './BackButton';
 
 const SET_TYPES = ['ILT', 'NOTEBOOK', 'INTERVENTION_LETTERS'] as const;
 type SetType = (typeof SET_TYPES)[number];
@@ -63,6 +66,7 @@ interface Detail extends Named {
   overrides: Override[];
   used_by: { key: string; scope: string; domain_id: number | null; region_id: number | null }[];
   sessions: number;
+  recordings: Recording[];
 }
 interface Language { code: string; name_native: string; name_en: string; direction: 'rtl' | 'ltr' }
 interface Domain extends Named { id: number; code: string }
@@ -94,7 +98,8 @@ const parseJson = (text: string): { ok: true; value: unknown } | { ok: false } =
   }
 };
 
-export function CanvasesScreen() {
+/** `openId` is the canvas open in the address (#/canvases/<id>), so a refresh or Back keeps it. */
+export function CanvasesScreen({ openId, onOpenId }: { openId: string | null; onOpenId: (id: string | null) => void }) {
   const { t, i18n } = useTranslation();
   const he = i18n.language === 'he';
   const name = (x: Named) => (he ? isolateSizes(x.name_he) : x.name_en);
@@ -104,7 +109,6 @@ export function CanvasesScreen() {
   const [approvalOn, setApprovalOn] = useState(true);
   const [filter, setFilter] = useState({ language: '', type: '' });
   const [form, setForm] = useState<'set' | 'canvas' | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -118,7 +122,7 @@ export function CanvasesScreen() {
   }, []);
   useEffect(() => {
     api<CanvasSet[]>('/canvas-sets').then(setSets).catch((e) => setError(message(e)));
-  }, [reload]);
+  }, [reload, openId === null]);
 
   const langName = (code: string) => {
     const l = languages.find((x) => x.code === code);
@@ -138,8 +142,8 @@ export function CanvasesScreen() {
         domains={domains}
         approvalOn={approvalOn}
         langName={langName}
-        onOpen={(id) => { setNotice(null); setOpenId(id); }}
-        onBack={() => { setOpenId(null); setReload((n) => n + 1); }}
+        onOpen={(id) => { setNotice(null); onOpenId(id); }}
+        onBack={() => onOpenId(null)}
       />
     );
   }
@@ -173,11 +177,11 @@ export function CanvasesScreen() {
         <SetForm languages={languages} langName={langName} onCancel={() => setForm(null)} onDone={(n) => { setForm(null); done(t('admin.canvases.set_created', { name: n })); }} />
       )}
       {form === 'canvas' && sets && (
-        <LoadForm sets={sets} name={name} langName={langName} onCancel={() => setForm(null)} onDone={(id) => { setForm(null); setOpenId(id); }} />
+        <LoadForm sets={sets} name={name} langName={langName} onCancel={() => setForm(null)} onDone={(id) => { setForm(null); onOpenId(id); }} />
       )}
       {sets && shown.length === 0 && <p style={ui.muted}>{t('admin.canvases.none')}</p>}
       {shown.map((set) => (
-        <SetCard key={set.id} set={set} name={name} langName={langName} onOpen={setOpenId} onChanged={done} />
+        <SetCard key={set.id} set={set} name={name} langName={langName} onOpen={onOpenId} onChanged={done} />
       ))}
     </div>
   );
@@ -463,7 +467,7 @@ function CanvasDetail({ id, domains, approvalOn, langName, onOpen, onBack }: {
   return (
     <div style={{ display: 'grid', gap: '0.75rem' }} data-testid="canvas-detail">
       <div style={{ ...ui.row, alignItems: 'center' }}>
-        <button style={ui.button} onClick={onBack}>← {t('admin.canvases.back')}</button>
+        <BackButton onClick={onBack} label={t('admin.canvases.back')} />
         <h3 style={{ ...s.h3, fontSize: '1.05rem' }}>
           <span dir="ltr" style={s.code}>{c.code}</span> v{c.version} · {name(c)}
         </h3>
@@ -536,6 +540,11 @@ function CanvasDetail({ id, domains, approvalOn, langName, onOpen, onBack }: {
       )}
 
       <Preview geometry={shownGeometry} profile={profile} />
+
+      {c.status !== 'RETIRED' && (
+        <ReferencePanel canvas={c} recordings={c.recordings} domains={domains} approvalOn={approvalOn}
+          onChanged={(text) => { setNotice(text); setReload((n) => n + 1); }} />
+      )}
 
       {scored(c.canvas_type) && profile && (
         <section style={s.section} data-testid="canvas-profile">

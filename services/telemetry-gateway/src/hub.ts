@@ -8,7 +8,8 @@
 // messages are emr-protocol packets (BATCH for persistence, LIVE as the mirror fallback).
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
-import { decodePacket, PacketError, PacketType } from '@ilt/emr-protocol';
+import { createHash } from 'node:crypto';
+import { decodePacket, encodeSampleRecords, PacketError, PacketType } from '@ilt/emr-protocol';
 import {
   ControlEnvelope,
   ControlPayloads,
@@ -18,11 +19,13 @@ import {
   parseControlMessage,
   type ControlEventName,
   type ControlPayload,
+  type PenSample,
 } from '@ilt/shared-types';
 import { mirrorCanvas } from '@ilt/template-schemas';
 import type { TokenClaims, UserClaims } from './auth.js';
 import { one } from './db.js';
 import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
+import { deriveRecording, loadReferenceCanvas, packSamples, type RecordingKind, type ReferenceCanvas, type ReferenceKind } from './reference-store.js';
 import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
@@ -46,6 +49,23 @@ interface Room {
   activeBlock?: { dispatch: ControlEnvelope; started?: ControlEnvelope; tablet?: WebSocket };
   /** The video step playing on the tablet (VIDEO_PLAY as sent), replayed to a cockpit that connects. */
   activeVideo?: ControlEnvelope;
+  /** Set for a reference station's room (reference mode, FR-TAB-8); the room id is the station id. */
+  ref?: { attempt: number; run?: ReferenceRun };
+}
+
+/** One canvas shown or recorded on a reference-mode tablet. */
+interface ReferenceRun {
+  kind: ReferenceKind;
+  canvas: ReferenceCanvas;
+  rows: number;
+  writer_label: string | null;
+  by: UserClaims;
+  attempt: number;
+  dispatch: ControlEnvelope;
+  /** The tablet connection the run was sent on (a tablet that restarts loses it). */
+  tablet?: WebSocket;
+  batches: Map<number, PenSample[]>;
+  complete?: BlockComplete;
 }
 
 const attemptKey = (step: number, attempt: number) => `${step}:${attempt}`;
@@ -71,6 +91,8 @@ export const videoUrl = (videoId: string) => `/api/v1/media/videos/${videoId}`;
 
 export class Hub {
   private rooms = new Map<string, Room>();
+  /** Who is signed in on each cockpit socket (reference mode records who made a recording). */
+  private readonly cockpitUsers = new WeakMap<WebSocket, UserClaims>();
 
   constructor(private readonly app: FastifyInstance) {}
 
@@ -153,6 +175,17 @@ export class Hub {
 
     if (kind === 'tablet') {
       if (claims.typ !== 'tablet') return reject('wrong token');
+      if (claims.ref) {
+        const station = await one<{ tablet_token_id: string | null }>(this.db,
+          'SELECT tablet_token_id FROM reference_stations WHERE id = $1 AND closed_at IS NULL', [claims.session_id]);
+        if (!station || !claims.tid || station.tablet_token_id !== claims.tid) return reject('released');
+        const r = this.room(claims.session_id);
+        r.ref ??= { attempt: 0 };
+        if (r.tablet && r.tablet !== socket) r.tablet.close(4409, 'replaced');
+        r.tablet = socket;
+        this.notifyPeers(claims.session_id);
+        return claims.session_id;
+      }
       // Only the session's current pairing: a released tablet (or an older pairing) goes back to the PIN screen.
       const current = await one<{ status: string; tablet_token_id: string | null }>(
         this.db, 'SELECT status, tablet_token_id FROM sessions WHERE id = $1', [claims.session_id],
@@ -178,6 +211,21 @@ export class Hub {
     }
 
     if (claims.typ !== 'access' || !['EVALUATOR', 'RESEARCHER', 'ADMIN'].includes(claims.role)) return reject('wrong token');
+    this.cockpitUsers.set(socket, claims);
+    const referenceId = String((msg as { reference_id?: unknown }).reference_id ?? '');
+    if (referenceId) {
+      // The Administrator cockpit's reference station (its own stations only).
+      const station = claims.role === 'ADMIN' && /^[0-9a-f-]{36}$/i.test(referenceId)
+        ? await one(this.db, 'SELECT 1 FROM reference_stations WHERE id = $1 AND created_by = $2 AND closed_at IS NULL', [referenceId, claims.sub])
+        : undefined;
+      if (!station) return reject('no such station');
+      const r = this.room(referenceId);
+      r.ref ??= { attempt: 0 };
+      r.cockpits.add(socket);
+      this.notifyPeers(referenceId);
+      if (r.ref.run && !r.ref.run.complete) this.sendTo(socket, r.ref.run.dispatch);
+      return referenceId;
+    }
     const sessionId = String(msg.session_id ?? '');
     const s = /^[0-9a-f-]{36}$/i.test(sessionId) ? await loadSession(this.db, sessionId) : undefined;
     if (!s || (claims.role === 'EVALUATOR' && s.evaluator_id !== claims.sub)) return reject('no such session');
@@ -270,6 +318,11 @@ export class Hub {
     } catch (err) {
       const ref = (raw as { message_id?: string } | null)?.message_id;
       return this.error(socket, typeof ref === 'string' ? ref : undefined, 'BAD_MESSAGE', (err as Error).message.slice(0, 300));
+    }
+    if (this.room(sessionId).ref) {
+      if (kind === 'tablet') await this.onReferenceTablet(sessionId, socket, parsed.envelope, parsed.payload);
+      else await this.onReferenceCockpit(sessionId, socket, parsed.envelope, parsed.payload);
+      return;
     }
     if (kind === 'tablet') await this.onTabletEvent(sessionId, socket, parsed.envelope, parsed.payload);
     else await this.onCockpitEvent(sessionId, socket, parsed.envelope, parsed.payload);
@@ -604,6 +657,140 @@ export class Hub {
     return true;
   }
 
+  // ---- reference mode (FR-CAN-6/9/10, FR-TAB-8) ------------------------------------------------
+
+  /** Closes a reference station: its tablet returns to the PIN screen. */
+  closeReferenceStation(stationId: string): void {
+    const r = this.rooms.get(stationId);
+    if (!r) return;
+    const tablet = r.tablet;
+    r.tablet = undefined;
+    if (r.ref) r.ref.run = undefined;
+    tablet?.close(4401, 'released');
+    this.notifyPeers(stationId);
+  }
+
+  private async onReferenceCockpit(stationId: string, socket: WebSocket, env: ControlEnvelope, payload: unknown) {
+    const r = this.room(stationId);
+    const ref = r.ref!;
+    switch (env.event) {
+      case 'REFERENCE_START': {
+        const p = payload as ControlPayload<'REFERENCE_START'>;
+        if (!r.tablet) return this.error(socket, env.message_id, 'TABLET_OFFLINE', 'The tablet is not connected');
+        if (ref.run && !ref.run.complete) return this.error(socket, env.message_id, 'BLOCK_ACTIVE', 'Finish the canvas on the tablet first');
+        const canvas = await loadReferenceCanvas(this.db, p.canvas_id, p.kind, p.domain_id ?? null);
+        if ('message' in canvas) return this.error(socket, env.message_id, canvas.code, canvas.message);
+        ref.attempt = (ref.attempt % 255) + 1;
+        const rows = p.kind === 'NORMAL_SPEED' ? (p.rows ?? 1) : 0;
+        const payloadOut = ControlPayloads.DISPATCH_STEP.parse({
+          step_index: 0,
+          step_type: canvas.geometry.canvas_type === 'NOTEBOOK' ? 'NOTEBOOK_PAGE' : 'ILT_BLOCK',
+          attempt_number: ref.attempt,
+          canvas: canvas.geometry,
+          fill_order: canvas.fill_order,
+          immediate: true,
+          reference: { kind: p.kind, free_order: p.kind !== 'NORMAL_SPEED', ...(rows ? { rows } : {}) },
+        });
+        const dispatch = controlMessage('DISPATCH_STEP', payloadOut);
+        const by = this.cockpitUsers.get(socket)!;
+        ref.run = { kind: p.kind, canvas, rows, writer_label: p.writer_label || null, by, attempt: ref.attempt, dispatch, tablet: r.tablet, batches: new Map() };
+        const what = p.kind === 'PREVIEW' ? 'True-size preview' : p.kind === 'SAMPLE_BLOCK_FILL' ? 'Sample block' : 'Normal speed sample';
+        this.log({
+          severity: 'INFO', event_type: 'canvas.reference.started', actor_user_id: by.sub, actor_role: by.role, entity_type: 'canvas', entity_id: canvas.id,
+          message: `${what} of ${canvas.code} v${canvas.version} on the reference tablet${canvas.domain_code ? ` (${canvas.domain_code} profile)` : ''}`,
+          details: { kind: p.kind, code: canvas.code, version: canvas.version, domain_id: canvas.domain_id, rows: rows || undefined },
+        });
+        this.sendTo(r.tablet, dispatch);
+        for (const c of r.cockpits) this.sendTo(c, dispatch);
+        return this.ack(socket, env);
+      }
+      case 'MANUAL_FINISH':
+        if (!ref.run || ref.run.complete) return this.error(socket, env.message_id, 'NO_BLOCK', 'Nothing is shown on the tablet');
+        if (!r.tablet) return this.error(socket, env.message_id, 'TABLET_OFFLINE', 'The tablet is not connected');
+        this.sendTo(r.tablet, env);
+        return this.ack(socket, env);
+      case 'ACK':
+      case 'ERROR':
+        this.sendTo(r.tablet, env);
+        return;
+      default:
+        return this.error(socket, env.message_id, 'NOT_ALLOWED', `${env.event} is not a reference-mode event`);
+    }
+  }
+
+  private async onReferenceTablet(stationId: string, socket: WebSocket, env: ControlEnvelope, payload: unknown) {
+    const ref = this.room(stationId).ref!;
+    const run = ref.run;
+    switch (env.event) {
+      case 'TABLET_STATUS': {
+        // A tablet that restarted mid-run has lost it: the administrator shows it again.
+        const p = payload as ControlPayload<'TABLET_STATUS'>;
+        if (!run || run.complete || run.tablet === socket) return;
+        if (p.block?.attempt_number === run.attempt) {
+          run.tablet = socket;
+          return;
+        }
+        ref.run = undefined;
+        this.toCockpits(stationId, controlMessage('BLOCK_INTERRUPTED', { step_index: 0, attempt_number: run.attempt, reason: 'TABLET_RESTARTED' }));
+        return;
+      }
+      case 'STEP_STARTED':
+      case 'BOX_ADVANCED':
+      case 'INACTIVITY_ALERT':
+        break;
+      case 'BLOCK_COMPLETE': {
+        const p = payload as BlockComplete;
+        if (run && p.attempt_number === run.attempt) run.complete = p;
+        break;
+      }
+      case 'ACK':
+      case 'ERROR':
+        break;
+      default:
+        return this.error(socket, env.message_id, 'NOT_ALLOWED', `${env.event} is not a tablet event in reference mode`);
+    }
+    this.ack(socket, env);
+    this.toCockpits(stationId, env);
+    if (env.event === 'BLOCK_COMPLETE' && run?.complete) await this.finishReference(stationId, run);
+  }
+
+  /**
+   * Once every sample of a finished run is in: a preview ends there; a recording is checked
+   * (SHA-256), its values derived with the scoring code, stored PENDING and sent to the cockpit.
+   */
+  private async finishReference(stationId: string, run: ReferenceRun) {
+    const r = this.room(stationId);
+    const complete = run.complete!;
+    const received = [...run.batches.values()].flat();
+    if (received.length < complete.sample_count || r.ref?.run !== run) return;
+    r.ref.run = undefined;
+    if (run.kind === 'PREVIEW') return;
+    const ordered = [...new Map(received.map((x) => [x.sample_seq, x])).values()].sort((a, b) => a.sample_seq - b.sample_seq);
+    if (ordered.length === 0) {
+      this.toCockpits(stationId, controlMessage('ERROR', { code: 'EMPTY_RECORDING', message: 'Nothing was written on the tablet' }));
+      return;
+    }
+    const kind = run.kind as RecordingKind;
+    const integrityOk = createHash('sha256').update(encodeSampleRecords(ordered)).digest('hex') === complete.sha256;
+    const derived: Record<string, unknown> = { ...(await deriveRecording(this.db, { kind, canvas: run.canvas, rows: run.rows }, ordered)), integrity_ok: integrityOk };
+    const station = await one<{ css_px_per_mm: string | null }>(this.db, 'SELECT css_px_per_mm FROM reference_stations WHERE id = $1', [stationId]);
+    const rec = await one<{ id: string }>(this.db,
+      `INSERT INTO reference_recordings (canvas_id, kind, domain_id, recorded_by, writer_label, samples, derived, station_id, rows_recorded, sample_count, css_px_per_mm)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+      [run.canvas.id, kind, run.canvas.domain_id, run.by.sub, run.writer_label, packSamples(ordered), JSON.stringify(derived), stationId,
+        kind === 'NORMAL_SPEED' ? run.rows : null, ordered.length, station?.css_px_per_mm ?? null]);
+    const summary = kind === 'SAMPLE_BLOCK_FILL'
+      ? `${String(derived.pen_lifts)} pen lifts, ${String(derived.boxes_written)} of ${String(derived.boxes_total)} boxes`
+      : `${String(derived.normal_speed_mm_s ?? 'no speed')} mm/s`;
+    this.log({
+      severity: integrityOk ? 'INFO' : 'ERROR', event_type: 'canvas.reference.recorded', actor_user_id: run.by.sub, actor_role: run.by.role,
+      entity_type: 'reference_recording', entity_id: rec!.id,
+      message: `${kind === 'SAMPLE_BLOCK_FILL' ? 'Sample block' : 'Normal speed sample'} recorded on ${run.canvas.code} v${run.canvas.version}: ${summary}`,
+      details: { canvas_id: run.canvas.id, kind, domain_id: run.canvas.domain_id, sample_count: ordered.length, integrity_ok: integrityOk },
+    });
+    this.toCockpits(stationId, controlMessage('REFERENCE_RESULT', { recording_id: rec!.id, kind, canvas_id: run.canvas.id, derived }));
+  }
+
   // ---- binary packets --------------------------------------------------------------------------
 
   private async onTabletPacket(sessionId: string, socket: WebSocket, bytes: Uint8Array) {
@@ -623,6 +810,14 @@ export class Hub {
     if (packet.packet_type === PacketType.LIVE) {
       // Fallback mirror path when the direct WebRTC channel is not open.
       for (const c of r.cockpits) if (c.readyState === c.OPEN) c.send(bytes);
+      return;
+    }
+    if (r.ref) {
+      // Reference mode: the run's samples are held until the recording is complete; nothing goes to pen_samples.
+      const run = r.ref.run;
+      if (run && packet.attempt_number === run.attempt) run.batches.set(packet.sequence, packet.samples);
+      this.sendTo(socket, controlMessage('BATCH_ACK', { step_index: packet.step_index, attempt_number: packet.attempt_number, sequence: packet.sequence }));
+      if (run?.complete) await this.finishReference(sessionId, run);
       return;
     }
 

@@ -1,6 +1,8 @@
-// Comparative summary diagram (ECR, Phase 3): the four measures of each anchor pair (average time,
-// pen lifts, accuracy %, average ILT speed) as lines across Day 1, Day 2 and Day 14. One shared y-axis:
-// the measures fall in the same 0–100 range, so a second scale is not needed. Identity is never colour
+// Comparative summary diagram (ECR, Phase 3): the measures of each anchor pair (average time, pen lifts,
+// accuracy %, average ILT speed and, since a second ECR, the speed score) as lines across Day 1, Day 2
+// and Day 14. One shared y-axis: the measures fall in the same 0–100 range, so a second scale is not needed.
+// The speed score has no value until the canvas profile has a normal speed: its line is then absent and
+// the tooltip says "not configured". Identity is never colour
 // alone: a legend, a name at each line's end and a hover tooltip; the anchor boxes above are the table.
 import { useMemo, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,12 +15,13 @@ export interface ChartBox {
   avg_pen_lifts: number | null;
   accuracy_pct: number | null;
   avg_speed_mm_s: number | null;
+  speed_score: number | null;
 }
 
-/** Categorical slots 1–4 of the validated palette, stepped separately for light and dark. */
+/** Categorical slots 1–5 of the validated palette, stepped separately for light and dark. */
 const CSS = `
-.ilt-chart { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; }
-:root[data-theme="dark"] .ilt-chart { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; }
+.ilt-chart { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; }
+:root[data-theme="dark"] .ilt-chart { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; }
 `;
 
 const W = 760;
@@ -37,6 +40,7 @@ export function SummaryChart({ boxes }: { boxes: ChartBox[] }) {
     { key: 'pen_lifts', colour: 'var(--s2)', digits: 0, value: (b: ChartBox) => b.avg_pen_lifts },
     { key: 'accuracy', colour: 'var(--s3)', digits: 1, value: (b: ChartBox) => b.accuracy_pct },
     { key: 'speed', colour: 'var(--s4)', digits: 2, value: (b: ChartBox) => b.avg_speed_mm_s },
+    { key: 'speed_score', colour: 'var(--s5)', digits: 1, value: (b: ChartBox) => b.speed_score, missing: 'summary.not_configured' },
   ].map((s) => ({ ...s, label: t(`summary.chart.${s.key}`), short: t(`summary.chart.short.${s.key}`), values: boxes.map(s.value) })), [boxes, t]);
 
   const all = series.flatMap((s) => s.values).filter((v): v is number => v !== null);
@@ -130,7 +134,7 @@ export function SummaryChart({ boxes }: { boxes: ChartBox[] }) {
               <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span aria-hidden style={{ inlineSize: 8, blockSize: 8, borderRadius: 4, background: s.colour }} />
                 <span style={{ color: 'var(--ilt-muted)' }}>{s.label}</span>
-                <bdi style={{ marginInlineStart: 'auto', fontWeight: 600 }}>{s.values[hover] === null ? '—' : s.values[hover]!.toFixed(s.digits)}</bdi>
+                <bdi style={{ marginInlineStart: 'auto', fontWeight: 600 }}>{s.values[hover] === null ? ('missing' in s && s.missing ? t(s.missing) : '—') : s.values[hover]!.toFixed(s.digits)}</bdi>
               </span>
             ))}
           </div>

@@ -14,6 +14,8 @@ import {
 } from '@ilt/template-schemas';
 import type { Queryable } from '../app-log.js';
 import type { UserClaims } from '../auth.js';
+import { currentConsent, researchCheck } from './participants.js';
+import { pairReferenceStation } from './reference.js';
 import { inTransaction, likeAny, one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
 import { loadEffectiveSettings, setting, type SettingsSnapshot } from '../settings-store.js';
@@ -28,6 +30,8 @@ const CreateSession = z.object({
   session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14']),
   language_code: z.enum(['he', 'en']),
   region_id: z.number().int().positive().nullable().optional(),
+  /** FR-PLAN-1: RESEARCH needs the research setting, a valid research approval and research consent. */
+  purpose: z.enum(['INTERVENTION', 'RESEARCH']).default('INTERVENTION'),
 });
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -79,6 +83,8 @@ export interface SessionRow {
   /** A tablet holds a valid pairing for this session (connected or not); released tablets do not count. */
   tablet_paired: boolean;
   settings_snapshot: SettingsSnapshot;
+  purpose: 'INTERVENTION' | 'RESEARCH';
+  video_enabled: boolean;
   created_at: string;
 }
 
@@ -107,7 +113,7 @@ export async function loadSession(db: Queryable, id: string): Promise<SessionRow
     db,
     `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.evaluator_id, s.domain_id, s.region_id,
             s.language_code, s.session_type, s.status, s.css_px_per_mm, s.tablet_token_id IS NOT NULL AS tablet_paired,
-            s.settings_snapshot, s.created_at
+            s.settings_snapshot, s.purpose, s.video_enabled, s.created_at
        FROM sessions s JOIN participants p ON p.id = s.participant_id WHERE s.id = $1`,
     [id],
   );
@@ -162,7 +168,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const { q, status, session_type, from, to, tz } = f.data;
     return rows(
       app.deps.db,
-      `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.session_type, s.language_code, s.status, s.created_at
+      `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.session_type, s.language_code, s.status, s.purpose, s.created_at
          FROM sessions s JOIN participants p ON p.id = s.participant_id
         WHERE ($1::uuid IS NULL OR s.evaluator_id = $1)
           AND ($2::text IS NULL OR s.session_code ILIKE $2 OR p.study_code ILIKE $2)
@@ -211,7 +217,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details: body.error.flatten() } });
     }
     const user = req.user as UserClaims;
-    const { participant_id, session_type, language_code } = body.data;
+    const { participant_id, session_type, language_code, purpose } = body.data;
     const participant = await one<{ domain_id: number; region_id: number | null; study_code: string; birth_year_month: string | null }>(
       app.deps.db,
       "SELECT domain_id, region_id, study_code, to_char(birth_year_month, 'YYYY-MM') AS birth_year_month FROM participants WHERE id = $1 AND is_active",
@@ -223,6 +229,15 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     if (!setting<string[]>(settings, 'language.enabled', ['he', 'en']).includes(language_code)) {
       return reply.status(409).send({ error: { code: 'LANGUAGE_DISABLED', message_key: 'sessions.language_disabled', details: { language_code } } });
     }
+
+    let researchApprovalId: number | null = null;
+    if (purpose === 'RESEARCH') {
+      const research = await researchCheck(app.deps.db, participant_id);
+      if (!research.allowed) return reply.status(409).send({ error: { code: research.reason, message_key: `sessions.${research.reason.toLowerCase()}`, details: {} } });
+      researchApprovalId = research.approval_id;
+    }
+    // Hand video only when the setting allows it and the participant's consent does (FR-PRIV-2).
+    const videoEnabled = setting(settings, 'ilt.video.recording_enabled', false) && !!(await currentConsent(app.deps.db, participant_id))?.allows_hand_video;
 
     const templateCode = setting(settings, TEMPLATE_SETTING[session_type], session_type);
     const template = await one<{ id: string; steps: ProtocolStep[] }>(
@@ -265,10 +280,10 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       const session = await one<{ id: string; session_code: string }>(
         q,
         `INSERT INTO sessions (session_code, participant_id, evaluator_id, domain_id, region_id, language_code, session_type,
-           protocol_template_id, settings_snapshot, age_months)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, session_code`,
+           protocol_template_id, settings_snapshot, age_months, purpose, research_approval_id, video_enabled)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, session_code`,
         [newSessionCode(), participant_id, user.sub, participant.domain_id, regionId, language_code, session_type,
-          template.id, JSON.stringify(settings), ageInMonths(participant.birth_year_month, new Date())],
+          template.id, JSON.stringify(settings), ageInMonths(participant.birth_year_month, new Date()), purpose, researchApprovalId, videoEnabled],
       );
       for (const [index, st] of steps.entries()) {
         const canvas = st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK' ? canvases[st.canvas_role]! : undefined;
@@ -289,8 +304,8 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     app.appLog.write({
       severity: 'INFO', event_type: 'session.created', actor_user_id: user.sub, actor_role: user.role,
       domain_id: participant.domain_id, region_id: regionId, session_id: created.id, entity_type: 'session', entity_id: created.id,
-      message: `Session ${created.session_code} (${session_type}, ${language_code}) created for ${participant.study_code}`,
-      details: { session_type, language_code, template: templateCode, steps: steps.length },
+      message: `Session ${created.session_code} (${session_type}, ${language_code}${purpose === 'RESEARCH' ? ', research' : ''}) created for ${participant.study_code}`,
+      details: { session_type, language_code, purpose, research_approval_id: researchApprovalId, video_enabled: videoEnabled, template: templateCode, steps: steps.length },
     });
     return reply.status(201).send(created);
   });
@@ -331,6 +346,12 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
     if (!sessionId) {
+      // A reference station's PIN (Administrator cockpit, reference mode).
+      const ref = await pairReferenceStation(app, body.data.pin, body.data, ip);
+      if (ref) {
+        pairFailures.delete(ip);
+        return ref;
+      }
       const count = (lock && lock.until <= Date.now() ? 0 : (lock?.count ?? 0)) + 1;
       pairFailures.set(ip, { count: count >= PAIR_MAX_FAILURES ? 0 : count, until: count >= PAIR_MAX_FAILURES ? Date.now() + PAIR_LOCK_MS : 0 });
       app.appLog.write({ severity: 'SECURITY', event_type: 'auth.login.failed', client_ip: ip, entity_type: 'tablet', message: 'Tablet pairing failed: wrong or expired PIN', details: { reason: 'PAIRING_PIN', failures: count } });

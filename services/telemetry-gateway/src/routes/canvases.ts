@@ -161,6 +161,13 @@ export const canvasRoutes: FastifyPluginAsync = async (app) => {
           WHERE o.canvas_id = $1 ORDER BY d.code`, [c.id]),
       used_by: await settingUses(c.code),
       sessions: (await one<{ n: number }>(db(), 'SELECT count(*)::int AS n FROM session_steps WHERE canvas_id = $1', [c.id]))!.n,
+      // Reference recordings (FR-CAN-9/10/11): derived values and who recorded and decided; never the raw samples.
+      recordings: await rows(db(),
+        `SELECT r.id, r.kind, r.domain_id, d.code AS domain_code, r.status, r.derived, r.writer_label, r.rows_recorded, r.sample_count,
+                r.recorded_at, r.decided_at, ru.full_name AS recorded_by, du.full_name AS decided_by, au.full_name AS approved_by
+           FROM reference_recordings r JOIN users ru ON ru.id = r.recorded_by LEFT JOIN users du ON du.id = r.decided_by
+           LEFT JOIN users au ON au.id = r.approved_by LEFT JOIN domains d ON d.id = r.domain_id
+          WHERE r.canvas_id = $1 ORDER BY r.recorded_at DESC LIMIT 50`, [c.id]),
     };
   });
 
@@ -242,6 +249,10 @@ export const canvasRoutes: FastifyPluginAsync = async (app) => {
     if (c.status !== 'DRAFT') return reply.status(409).send(bad('NOT_DRAFT', 'admin.canvases.not_draft'));
     if (await one(db(), 'SELECT 1 FROM session_steps WHERE canvas_id = $1 LIMIT 1', [c.id])) {
       return reply.status(409).send(bad('CANVAS_USED', 'admin.canvases.used_by_sessions'));
+    }
+    // Reference recordings keep their raw data and the canvas they were drawn on (FR-CAN-11).
+    if (await one(db(), 'SELECT 1 FROM reference_recordings WHERE canvas_id = $1 LIMIT 1', [c.id])) {
+      return reply.status(409).send(bad('HAS_RECORDINGS', 'admin.reference.has_recordings'));
     }
     await inTransaction(db(), async (q) => {
       await q.query('DELETE FROM canvas_scoring_overrides WHERE canvas_id = $1', [c.id]);
