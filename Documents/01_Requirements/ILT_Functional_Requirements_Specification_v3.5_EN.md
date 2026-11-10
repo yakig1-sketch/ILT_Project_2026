@@ -243,6 +243,7 @@ For each box: start and end time; contact path; for each dot the **closest dista
 - **FR-AN-1** De-identified access for analysts: session replay, kinematic views (velocity, jerk, pressure), and cohort slicing by Domain, Region, school code, grade, gender, SES, dominant hand, language, session stage, canvas, and timer settings.
 - **FR-AN-2** Exports to Parquet and CSV for open-source tools (DuckDB, Jupyter, Apache Superset/Metabase), including raw samples, per-letter measures, per-block measures and score versions.
 - **FR-AN-3** **Only sessions tagged `RESEARCH`, from participants with research consent, are visible to analysts or exportable.** Until research approval exists, the portal is empty by design.
+  - *Phase 4a design:* the **analyst portal** has its own address and sign-in, for analysts and researchers. It shows completed Research sessions of participants whose *current* consent allows research use (a later consent without research use hides their sessions again), with filters for every FR-AN-1 dimension, a cohort table grouped by any one of them, each session's blocks and attempts, and replay. Participants appear only by study code and the school only as a short code. The database itself enforces this: the portal's queries run under the analyst role, which can read only the research views. Kinematic views (FR-AN-1) and exports (FR-AN-2) follow in Phases 4b and 4c.
 
 ## 13. Application log
 

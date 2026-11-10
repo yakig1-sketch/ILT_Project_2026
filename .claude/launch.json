@@ -52,6 +52,19 @@
       "port": 5177
     },
     {
+      "name": "analyst-portal-check",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/analyst-portal", "exec", "vite", "--port", "5178", "--strictPort"],
+      "port": 5178
+    },
+    {
+      "name": "analyst-portal-lan",
+      "runtimeExecutable": "pnpm.cmd",
+      "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev:lan"],
+      "port": 5175,
+      "url": "https://localhost:5175"
+    },
+    {
       "name": "analyst-portal",
       "runtimeExecutable": "pnpm.cmd",
       "runtimeArgs": ["--filter", "@ilt/analyst-portal", "dev"],

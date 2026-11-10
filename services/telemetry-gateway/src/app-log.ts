@@ -15,6 +15,7 @@ const COLUMNS = [
 export class AppLog {
   private queue: AppEvent[] = [];
   private timer: NodeJS.Timeout | null = null;
+  private recent = new Map<string, number>();
 
   constructor(
     private readonly db: Queryable,
@@ -27,6 +28,15 @@ export class AppLog {
     this.logger[level]({ app_event: event }, event.message);
     this.queue.push(event);
     this.timer ??= setTimeout(() => void this.flush(), this.flushMs);
+  }
+
+  /** Writes the event unless the same key was written within windowMs (a page that loads the same data twice). */
+  writeOnce(key: string, event: AppEvent, windowMs = 10_000): void {
+    const now = Date.now();
+    for (const [k, at] of this.recent) if (now - at >= windowMs) this.recent.delete(k);
+    if (this.recent.has(key)) return;
+    this.recent.set(key, now);
+    this.write(event);
   }
 
   async flush(): Promise<void> {

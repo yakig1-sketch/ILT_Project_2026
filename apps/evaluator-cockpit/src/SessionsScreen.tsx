@@ -166,7 +166,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
           <label style={ui.field}>
             {t('cockpit.session_language')}
             <select value={form.language_code} onChange={(e) => setForm({ ...form, language_code: e.target.value })}>
-              {languages.map((code) => <option key={code} value={code}>{t(code === 'he' ? 'common.hebrew' : 'common.english')}</option>)}
+              {languages.map((code) => <option key={code} value={code}>{t(`enum.language.${code}`)}</option>)}
             </select>
           </label>
           <label style={ui.field}>
@@ -295,7 +295,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
                     <a href={`#/participant/${s.participant_id}`} title={t('console.title')}><bdi>{s.study_code}</bdi></a>
                   </td>
                   <td style={ui.cell}>{t(`enum.session_type.${s.session_type}`)}{s.purpose === 'RESEARCH' && <> · {t('enum.purpose.RESEARCH')}</>}</td>
-                  <td style={ui.cell}>{s.language_code === 'he' ? t('common.hebrew') : t('common.english')}</td>
+                  <td style={ui.cell}>{t(`enum.language.${s.language_code}`)}</td>
                   <td style={ui.cell}>{t(`enum.session_status.${s.status}`)}</td>
                   <td style={ui.cell}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(s.created_at))}</td>
                   <td style={{ ...ui.cell, whiteSpace: 'nowrap' }}>

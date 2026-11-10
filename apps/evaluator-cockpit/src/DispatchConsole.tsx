@@ -148,7 +148,7 @@ export function DispatchConsole({ participantId, onBack, onOpenSession, onSummar
           <h3 style={{ ...s.panelTitle, color: type === 'DAY_1' ? 'var(--ilt-fg)' : C.blueLine }}>{t(`console.day.${type}`)}</h3>
           {session && (
             <span style={ui.muted}>
-              <bdi>{session.session_code}</bdi> · {t(`enum.session_status.${session.status}`)} · {session.language_code === 'he' ? t('common.hebrew') : t('common.english')}
+              <bdi>{session.session_code}</bdi> · {t(`enum.session_status.${session.status}`)} · {t(`enum.language.${session.language_code}`)}
             </span>
           )}
         </div>

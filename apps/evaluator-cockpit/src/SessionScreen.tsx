@@ -206,7 +206,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
       <div style={{ ...ui.row, alignItems: 'center' }}>
         <button style={ui.button} onClick={back} data-testid="back">{t('common.back')}</button>
         <strong><bdi>{session.session_code}</bdi></strong>
-        <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)} · {session.language_code === 'he' ? t('common.hebrew') : t('common.english')}</span>
+        <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)} · {t(`enum.language.${session.language_code}`)}</span>
         <span style={pill(closed ? 'off' : 'ok')}>{t(`enum.session_status.${session.status}`)}</span>
         <span style={pill('off')} data-testid="session-purpose">{t(`enum.purpose.${session.purpose}`)}</span>
         <span style={pill(link.tabletConnected ? 'ok' : 'off')} data-testid="tablet-status">

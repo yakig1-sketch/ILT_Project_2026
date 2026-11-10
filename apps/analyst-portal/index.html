@@ -4,8 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ILT</title>
+    <script>
+      // Apply the saved theme before the first paint (no light flash in dark mode).
+      try {
+        var c = localStorage.getItem('ilt.theme');
+        var dark = c === 'dark' || (c !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      } catch (e) {}
+    </script>
     <style>
-      body { margin: 0; font-family: "Noto Sans Hebrew", "Noto Sans", "Segoe UI", Arial, sans-serif; background: #fff; color: #1f2328; }
+      :root {
+        color-scheme: light;
+        --ilt-bg: #f6f8fa; --ilt-fg: #1f2328; --ilt-surface: #fff; --ilt-surface-2: #f6f8fa;
+        --ilt-header: #fff; --ilt-border: #d0d7de; --ilt-border-soft: #eaeef2; --ilt-muted: #57606a;
+        --ilt-accent: #1f6feb; --ilt-link: #0969da; --ilt-stage: #e9ecef; --ilt-select: #ddf4ff;
+        --ilt-ok: #1a7f37; --ilt-ok-bg: #dafbe1; --ilt-warn: #9a6700; --ilt-warn-bg: #fff8c5;
+        --ilt-bad: #cf222e; --ilt-bad-bg: #ffebe9; --ilt-off-bg: #eaeef2;
+        --ilt-panel: #24292f; --ilt-panel-fg: #f6f8fa; --ilt-panel-line: #444c56;
+        --ilt-shadow: 0 1px 3px rgba(31, 35, 40, 0.08), 0 8px 24px rgba(66, 74, 83, 0.12);
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ilt-bg: #0d1117; --ilt-fg: #e6edf3; --ilt-surface: #161b22; --ilt-surface-2: #1c2128;
+        --ilt-header: #161b22; --ilt-border: #30363d; --ilt-border-soft: #21262d; --ilt-muted: #8d96a0;
+        --ilt-accent: #1f6feb; --ilt-link: #4493f8; --ilt-stage: #010409; --ilt-select: rgba(56, 139, 253, 0.3);
+        --ilt-ok: #3fb950; --ilt-ok-bg: rgba(46, 160, 67, 0.18); --ilt-warn: #d29922; --ilt-warn-bg: rgba(187, 128, 9, 0.2);
+        --ilt-bad: #f85149; --ilt-bad-bg: rgba(248, 81, 73, 0.15); --ilt-off-bg: #21262d;
+        --ilt-panel: #1c2128; --ilt-panel-fg: #e6edf3; --ilt-panel-line: #30363d;
+        --ilt-shadow: 0 1px 3px rgba(1, 4, 9, 0.6), 0 8px 24px rgba(1, 4, 9, 0.5);
+      }
+      body { margin: 0; font-family: "Noto Sans Hebrew", "Noto Sans", "Segoe UI", Arial, sans-serif; background: var(--ilt-bg); color: var(--ilt-fg); }
+      input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), select, textarea {
+        font: inherit; color: inherit; background: var(--ilt-surface); border: 1px solid var(--ilt-border);
+        border-radius: 6px; padding-block: 0.35rem; padding-inline: 0.5rem;
+      }
+      button { font: inherit; color: inherit; }
+      :focus-visible { outline: 2px solid var(--ilt-accent); outline-offset: 1px; }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
     </style>
   </head>
   <body>

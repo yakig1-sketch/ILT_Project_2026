@@ -981,6 +981,10 @@ WHERE ps.block_attempt_id IN (SELECT block_attempt_id FROM v_research_blocks);
 -- ilt_app (gateway, analytics): read/write on application tables; INSERT + SELECT only on app_events,
 --   pen_samples and setting_value_history (no UPDATE/DELETE).
 -- ilt_analyst (analyst portal, direct BI access): SELECT on v_research_* only.
+-- Phase 4a (migration 0005): v_research_sessions adds session_code; v_research_blocks adds step_index, is_scored,
+-- label_key, fill_order, canvas_id and sample_count; new v_research_canvases (canvas id, code, version, geometry: no
+-- personal data). ilt_analyst may also read domains and regions (names for the filters). ilt_app is a member of
+-- ilt_analyst: the gateway answers every /research route in a transaction after SET LOCAL ROLE ilt_analyst.
 REVOKE UPDATE, DELETE, TRUNCATE ON app_events, setting_value_history FROM PUBLIC;
 ```
 
@@ -1171,6 +1175,9 @@ Day 1 template steps:
 | GET | `/attempts/:id/replay` | EVALUATOR (own), RESEARCHER, ADMIN | Replay data (FR-REP-1/2): the canvas as written (mirroring applied), every sample as columnar arrays, per-house speed and accuracy from the current score version; logs `data.replay.opened` |
 | POST | `/scores/recompute` | ADMIN | Recompute selected blocks with given settings; creates new score versions |
 | POST | `/paper-scores` · `POST /legacy/import` | EVALUATOR · ADMIN | Paper cohort, legacy import |
+| GET | `/research/options` | ANALYST, RESEARCHER | Phase 4a. Domains and Regions, the counts of research sessions and participants, and the school codes, canvases and inactivity timers found in the research data |
+| GET | `/research/sessions` · `/research/cohort` | ANALYST, RESEARCHER | Phase 4a (FR-AN-1). Filters, each a comma list: `domain_id`, `region_id` (`NONE` = no Region), `school` (first 8 hex characters of the school HMAC), `grade`, `gender`, `ses` (`NONE` = not recorded), `hand`, `language`, `session_type`, `canvas`, `inactivity_sec`; `from` / `to` (completion day in `tz`). Sessions: newest 500 with `total` and `limited`, each with the means of its counted blocks (the latest finished attempt of each scored step). Cohort: `group_by` none, domain, region, school, grade, gender, ses, hand, language, stage, canvas or inactivity; per group the participants, sessions, blocks and mean composite, accuracy, speed score, ILT speed, pen lifts and time |
+| GET | `/research/sessions/:id` · `/research/attempts/:id/replay` | ANALYST, RESEARCHER | Phase 4a. One research session (no settings snapshot: the timers, threshold and weights it used) with every block attempt and `counts`; replay in the same shape as `/attempts/:id/replay` (FR-REP-4), logged as `data.replay.opened` with `portal: analyst` (once per user and attempt within 10 s, as is the cockpit replay: a page that asks twice in a row is logged once). Anything outside the research views is 404 |
 | POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed S3 URL, 15 min) |
 | GET | `/log/events` | ADMIN | Log search (Phase 3e): `from`, `to` (ISO), `types`, `severity` (comma lists from the vocabulary), `user_id`, `session_code`, `domain_id`, `region_id`, `q`, `limit` (≤ 200), `before` (cursor). Returns `{events, next, total, total_capped}`; each event adds the user's name and email, the session code and the Domain/Region codes |
 | GET | `/log/events.csv` | ADMIN | The same filter as a CSV file (§12), at most 50,000 rows; headers `x-ilt-rows`, `x-ilt-truncated` |
@@ -1223,6 +1230,7 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Dev users | Hashes generated at seed time from environment variables |
 | Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
+| Analyst portal (Phase 4a) | `apps/analyst-portal` with its own sign-in (ANALYST and RESEARCHER only): research sessions with cohort filters and grouping, one session's blocks, replay (the replay player moved to `@ilt/ui`); `/research/*` routes run as `ilt_analyst`; migration 0005 (§9 note, §14) |
 | Participants and consent (Phase 3f) | Participant record (`GET`/`PATCH /participants/:id`), consent history, session `purpose` with the research conditions and `video_enabled`, ethics approvals routes, migration 0004 (§14, §5 schema note) |
 | Action log (Phase 3e) | `GET /log/events` and `/log/events.csv` (§14); the search screen details, free-text prefix matching, the microsecond page cursor and the CSV format (§12) |
 | Reference mode (Phase 3d) | Reference stations paired through the usual PIN route (`mode: REFERENCE`); `REFERENCE_START` now also has `PREVIEW` (true-size preview on the tablet, FR-CAN-6), a Domain target and a writer label, and becomes a `DISPATCH_STEP` with `reference`; [Accept]/[Clear] are REST calls instead of `REFERENCE_DECISION`; a canvas's own profile is recorded only on a Draft (§7.3) |

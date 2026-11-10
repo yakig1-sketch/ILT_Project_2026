@@ -7,6 +7,7 @@ import { Hub } from './hub.js';
 import { mediaRoutes, type MediaStore } from './media.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { ethicsRoutes } from './routes/ethics.js';
+import { researchRoutes } from './routes/research.js';
 import { healthRoutes } from './routes/health.js';
 import { logRoutes } from './routes/log.js';
 import { organisationRoutes } from './routes/organisation.js';
@@ -73,6 +74,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(referenceRoutes, { prefix: '/api/v1' });
   await app.register(logRoutes, { prefix: '/api/v1' });
   await app.register(ethicsRoutes, { prefix: '/api/v1' });
+  await app.register(researchRoutes, { prefix: '/api/v1' });
   await app.register(mediaRoutes, { prefix: '/api/v1' });
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.
