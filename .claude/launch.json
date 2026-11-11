@@ -10,7 +10,7 @@
     {
       "name": "analytics",
       "runtimeExecutable": "services/analytics/.venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "ilt_analytics.main:app", "--app-dir", "services/analytics", "--host", "127.0.0.1", "--port", "8090", "--reload", "--reload-dir", "services/analytics/ilt_analytics"],
+      "runtimeArgs": ["-m", "uvicorn", "ilt_analytics.main:app", "--app-dir", "services/analytics", "--host", "127.0.0.1", "--port", "8090", "--reload", "--reload-dir", "services/analytics/ilt_analytics", "--timeout-graceful-shutdown", "3"],
       "port": 8090
     },
     {

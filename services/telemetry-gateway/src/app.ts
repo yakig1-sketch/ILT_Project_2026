@@ -18,6 +18,7 @@ import { canvasRoutes } from './routes/canvases.js';
 import { referenceRoutes } from './routes/reference.js';
 import { settingsRoutes } from './routes/settings.js';
 import { userRoutes } from './routes/users.js';
+import { researchExportRoutes, type ExportFiles } from './routes/research-exports.js';
 
 export interface AppDeps {
   db: Queryable;
@@ -28,8 +29,13 @@ export interface AppDeps {
   schoolHmacKey: string;
   /** Object storage for instruction videos; absent in unit tests. */
   media?: MediaStore;
-  /** The analytics service (kinematics, Phase 4b): GET of a path under its /api/v1; absent when not configured. */
-  analytics?: (path: string) => Promise<{ status: number; body: unknown }>;
+  /**
+   * The analytics service (kinematics Phase 4b, exports Phase 4c): a path under its /api/v1, GET, or POST
+   * when a body is given; absent when not configured.
+   */
+  analytics?: (path: string, body?: unknown, timeoutMs?: number) => Promise<{ status: number; body: unknown }>;
+  /** The private exports bucket (Phase 4c); absent in unit tests. */
+  exportFiles?: ExportFiles;
   logLevel?: string;
 }
 
@@ -62,6 +68,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     }
     void reply.status(status).send({ error: { code: err.code ?? 'INTERNAL', message_key: `error.${status}`, details: {} } });
   });
+  // An unknown address: the usual error shape, without repeating the address (it may hold ids or a signed link).
+  app.setNotFoundHandler((_req, reply) => {
+    void reply.status(404).send({ error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } });
+  });
 
   await app.register(healthRoutes, { prefix: '/api/v1' });
   await app.register(catalogRoutes, { prefix: '/api/v1' });
@@ -77,6 +87,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(logRoutes, { prefix: '/api/v1' });
   await app.register(ethicsRoutes, { prefix: '/api/v1' });
   await app.register(researchRoutes, { prefix: '/api/v1' });
+  await app.register(researchExportRoutes, { prefix: '/api/v1' });
   await app.register(mediaRoutes, { prefix: '/api/v1' });
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.

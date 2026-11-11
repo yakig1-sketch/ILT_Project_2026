@@ -80,6 +80,7 @@ export const LOG_EVENT_TYPES = [
   // scores and data
   'scores.recomputed',
   'data.export.created',
+  'data.export.downloaded',
   'data.replay.opened',
   'data.kinematics.opened',
   'data.legacy.imported',

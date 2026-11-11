@@ -38,3 +38,20 @@ def analyst_database_url() -> str:
     host = "127.0.0.1" if u.hostname in (None, "localhost") else u.hostname
     netloc = f"ilt_analyst:{quote(password, safe='')}@{host}" + (f":{u.port}" if u.port else "")
     return urlunsplit((u.scheme, netloc, u.path, u.query, u.fragment))
+
+
+def _local(url: str) -> str:
+    """The URL with "localhost" as 127.0.0.1 (see analyst_database_url)."""
+    u = urlsplit(url)
+    if u.hostname != "localhost":
+        return url
+    return urlunsplit((u.scheme, u.netloc.replace("localhost", "127.0.0.1", 1), u.path, u.query, u.fragment))
+
+
+def s3_settings() -> dict[str, str]:
+    """Endpoint and credentials of the S3 storage (S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)."""
+    load_env()
+    missing = [k for k in ("S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY") if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(f"Set {', '.join(missing)} (see .env.example)")
+    return {"endpoint": _local(os.environ["S3_ENDPOINT"]), "access_key": os.environ["S3_ACCESS_KEY"], "secret_key": os.environ["S3_SECRET_KEY"]}

@@ -4,6 +4,7 @@
 // the research views. Runs only when TEST_DATABASE_URL (the ilt_app role) is set.
 import { createHash, randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
+import { Readable } from 'node:stream';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
@@ -27,7 +28,8 @@ describe.skipIf(!DB_URL)('Phase 4a analyst portal against the database', () => {
   const ids = { visible: '', female: '', noConsent: '', intervention: '', running: '', attempt: '', hiddenAttempt: '', ppt: '' };
 
   // Stand-in for the analytics service (Phase 4b): its own tests cover the computation.
-  let analytics: (path: string) => Promise<{ status: number; body: unknown }> = async () => ({ status: 404, body: null });
+  let analytics: (path: string, body?: unknown) => Promise<{ status: number; body: unknown }> = async () => ({ status: 404, body: null });
+  let exportKey = '';
   const get = async (path: string, token: string) => {
     const res = await fetch(`${base}/api/v1${path}`, { headers: { authorization: `Bearer ${token}` } });
     return { status: res.status, body: (await res.json()) as any };
@@ -36,7 +38,8 @@ describe.skipIf(!DB_URL)('Phase 4a analyst portal against the database', () => {
   beforeAll(async () => {
     app = await buildApp({
       db: pool, checkS3: async () => true, jwtSecret: 'phase4a-test', schoolHmacKey: 'phase4a-school', logLevel: 'silent',
-      analytics: (path) => analytics(path),
+      analytics: (path, body) => analytics(path, body),
+      exportFiles: { open: async (key) => (key === exportKey ? { stream: Readable.from([Buffer.from('PK-test-zip')]), size: 11 } : null) },
     });
     await app.listen({ port: 0, host: '127.0.0.1' });
     base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
@@ -217,6 +220,75 @@ describe.skipIf(!DB_URL)('Phase 4a analyst portal against the database', () => {
     };
     const down = await get(`/research/attempts/${ids.attempt}/kinematics`, tokens.analyst);
     expect(down).toMatchObject({ status: 503, body: { error: { message_key: 'analyst.analytics_down' } } });
+  });
+
+  it('exports the filtered research sessions and serves the file through a signed link (Phase 4c)', async () => {
+    const post = async (path: string, token: string, body?: unknown) => {
+      const res = await fetch(`${base}/api/v1${path}`, {
+        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}),
+      });
+      return { status: res.status, body: (await res.json()) as any };
+    };
+    let asked: any = null;
+    analytics = async (path, body) => {
+      asked = { path, body };
+      exportKey = `exports/${(body as { export_id: string }).export_id}.zip`;
+      return { status: 200, body: { object_key: exportKey, size_bytes: 11, row_counts: { sessions: 2, blocks: 5 } } };
+    };
+    expect((await post('/research/exports', tokens.evaluator, { format: 'CSV' })).status).toBe(403);
+    expect((await post('/research/exports', tokens.analyst, { format: 'XLSX' })).status).toBe(400);
+    expect((await post('/research/exports', tokens.analyst, { format: 'CSV', filters: { school: 'ffffffff' } })).body.error.message_key).toBe('analyst.export.no_sessions');
+
+    const created = await post('/research/exports', tokens.analyst, { format: 'CSV', filters: { school: schoolKey, gender: '' }, include_samples: true });
+    expect(created.status).toBe(202);
+    expect(created.body).toMatchObject({ status: 'RUNNING', format: 'CSV', session_count: 2, filters: { school: schoolKey }, include_samples: true });
+    expect(created.body.object_key).toBeUndefined();
+    await new Promise((r) => setTimeout(r, 1500));
+    // Only the matching research sessions are sent to the analytics service.
+    expect(asked.path).toBe('/exports');
+    expect([...asked.body.session_ids].sort()).toEqual([ids.visible, ids.female].sort());
+    expect(asked.body).toMatchObject({ export_id: created.body.id, format: 'CSV', include_samples: true, include_kinematics: false });
+
+    const mine = (await get('/research/exports', tokens.analyst)).body.exports;
+    expect(mine[0]).toMatchObject({ id: created.body.id, status: 'READY', size_bytes: 11, row_counts: { sessions: 2, blocks: 5 } });
+    expect((await get('/research/exports', tokens.researcher)).body.exports.find((e: { id: string }) => e.id === created.body.id)).toBeUndefined();
+    expect((await post(`/research/exports/${created.body.id}/link`, tokens.researcher)).status).toBe(404);
+
+    const link = await post(`/research/exports/${created.body.id}/link`, tokens.analyst);
+    expect(link.status).toBe(200);
+    const file = await fetch(`${base}${link.body.url}`);
+    expect(file.status).toBe(200);
+    expect(file.headers.get('content-type')).toBe('application/zip');
+    expect(file.headers.get('content-disposition')).toMatch(/^attachment; filename="ilt-research-export-\d{8}-\d{4}-csv\.zip"$/);
+    expect(await file.text()).toBe('PK-test-zip');
+    // A HEAD request sends no file and is not logged as a download.
+    const head = await fetch(`${base}${link.body.url}`, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    // A bad link is refused with a short page in Hebrew and English (a browser opens it), not JSON.
+    const tampered = await fetch(`${base}${link.body.url.replace(/sig=[^&]+/, 'sig=AAAA')}`);
+    expect(tampered.status).toBe(403);
+    expect(tampered.headers.get('content-type')).toMatch(/^text\/html/);
+    expect(await tampered.text()).toContain('This download link has expired or is not valid.');
+    // An unknown address does not repeat itself (it may hold ids).
+    const unknown = await fetch(`${base}/api/v1/research/exports/${created.body.id}/nothing?user=${users.analyst}`);
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toEqual({ error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } });
+    const expired = link.body.url.replace(/expires=\d+/, 'expires=1000');
+    expect((await fetch(`${base}${expired}`)).status).toBe(403);
+
+    // A build that fails is recorded as FAILED.
+    analytics = async () => ({ status: 500, body: null });
+    const failing = await post('/research/exports', tokens.analyst, { format: 'PARQUET', filters: { school: schoolKey } });
+    await new Promise((r) => setTimeout(r, 1500));
+    expect((await get('/research/exports', tokens.analyst)).body.exports.find((e: { id: string }) => e.id === failing.body.id).status).toBe('FAILED');
+
+    const logged = await pool.query(
+      `SELECT event_type, severity FROM app_events WHERE entity_id IN ($1, $2) ORDER BY occurred_at`, [created.body.id, failing.body.id]);
+    expect(logged.rows).toEqual([
+      { event_type: 'data.export.created', severity: 'INFO' },
+      { event_type: 'data.export.downloaded', severity: 'INFO' },
+      { event_type: 'data.export.created', severity: 'WARN' },
+    ]);
   });
 
   it('hides a session once the current consent no longer allows research use', async () => {

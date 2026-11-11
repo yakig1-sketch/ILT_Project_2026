@@ -1,11 +1,13 @@
 import pg from 'pg';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
-import { s3MediaStore } from './media.js';
+import { s3ExportFiles, s3MediaStore } from './media.js';
 import { VERSION } from './routes/health.js';
 
 const config = loadConfig();
 const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
+// An export still running when the gateway stopped will never finish (Phase 4c).
+await pool.query("UPDATE research_exports SET status = 'FAILED', error = 'Interrupted: the gateway restarted', finished_at = now() WHERE status = 'RUNNING'");
 
 const app = await buildApp({
   db: pool,
@@ -13,9 +15,13 @@ const app = await buildApp({
   jwtSecret: config.jwtSecret,
   schoolHmacKey: config.schoolHmacKey,
   media: s3MediaStore(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
+  exportFiles: s3ExportFiles(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
   logLevel: config.logLevel,
-  analytics: async (path) => {
-    const res = await fetch(`${config.analyticsUrl}/api/v1${path}`, { signal: AbortSignal.timeout(20_000) });
+  analytics: async (path, body, timeoutMs = 20_000) => {
+    const res = await fetch(`${config.analyticsUrl}/api/v1${path}`, {
+      signal: AbortSignal.timeout(timeoutMs),
+      ...(body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    });
     return { status: res.status, body: res.status === 200 ? await res.json() : null };
   },
 });

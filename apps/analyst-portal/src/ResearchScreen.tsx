@@ -37,9 +37,9 @@ interface Group {
   total_time_ms: number | null;
 }
 
-const FILTERS = ['domain_id', 'region_id', 'school', 'grade', 'gender', 'ses', 'hand', 'language', 'session_type', 'canvas', 'inactivity_sec', 'from', 'to'] as const;
-type FilterKey = (typeof FILTERS)[number];
-type Filters = Record<FilterKey, string>;
+export const FILTERS = ['domain_id', 'region_id', 'school', 'grade', 'gender', 'ses', 'hand', 'language', 'session_type', 'canvas', 'inactivity_sec', 'from', 'to'] as const;
+export type FilterKey = (typeof FILTERS)[number];
+export type Filters = Record<FilterKey, string>;
 const EMPTY = Object.fromEntries(FILTERS.map((k) => [k, ''])) as Filters;
 const GROUPS = ['none', 'domain', 'region', 'school', 'grade', 'gender', 'ses', 'hand', 'language', 'stage', 'canvas', 'inactivity'] as const;
 const STORE = 'ilt.analyst.filters';
@@ -62,7 +62,7 @@ const s = {
   link: { background: 'none', border: 0, padding: 0, color: 'var(--ilt-link)', cursor: 'pointer', font: 'inherit' },
 } satisfies Record<string, CSSProperties>;
 
-const loadFilters = (): { filters: Filters; group: string } => {
+export const loadFilters = (): { filters: Filters; group: string } => {
   try {
     const saved = JSON.parse(sessionStorage.getItem(STORE) ?? 'null') as { filters: Partial<Filters>; group: string } | null;
     if (saved) return { filters: { ...EMPTY, ...saved.filters }, group: GROUPS.includes(saved.group as never) ? saved.group : 'none' };

@@ -96,7 +96,7 @@ The System Administrator selects blocks and a set of settings; the gateway re-ru
 
 ### 4.4 Research export
 
-Analysts request an export; the analytics service reads **only** `v_research_*` views with the `ilt_analyst` database role, writes Parquet/CSV to a private S3 storage bucket, and returns a 15-minute signed URL. Logged as `data.export.created`.
+Analysts request an export; the analytics service reads **only** `v_research_*` views with the `ilt_analyst` database role, writes Parquet/CSV to a private S3 storage bucket, and returns a 15-minute signed URL. Logged as `data.export.created`. *Phase 4c:* the signed link points at the gateway, which streams the file from the bucket after checking the signature. The storage stays reachable only from the server, and creating and downloading an export are both logged (DDD §14).
 
 ### 4.5 Reference recordings
 
