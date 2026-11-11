@@ -1,10 +1,11 @@
 // Analyst portal (Phase 4a; FRS FR-AN-1, FR-AN-3, FR-REP-4): de-identified research data for analysts
 // and researchers. Research sessions with cohort filters and grouping, one session's blocks, and replay.
-// Routes: #/ (research sessions), #/session/<id>, #/replay/<attempt id>.
+// Routes: #/ (research sessions), #/session/<id>, #/replay/<attempt id>, #/kinematics/<attempt id> (Phase 4b).
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell, ReplayPlayer, ThemeSwitcher, ui, type ReplayData } from '@ilt/ui';
 import { ApiError, PORTAL_ROLES, api, getAuth, logout, onAuthChange } from './api';
+import { KinematicsScreen } from './KinematicsScreen';
 import { LoginForm } from './LoginForm';
 import { ResearchScreen } from './ResearchScreen';
 import { SessionDetail } from './SessionDetail';
@@ -25,6 +26,7 @@ export function App() {
   const [hash, go] = useHashRoute();
   const sessionId = /^#\/session\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   const replayId = /^#\/replay\/([0-9a-f-]{36})$/.exec(hash)?.[1];
+  const kinematicsId = /^#\/kinematics\/([0-9a-f-]{36})$/.exec(hash)?.[1];
   // A role changed since sign-in (seen at the token refresh) may no longer belong here.
   const wrongRole = !!auth && !PORTAL_ROLES.includes(auth.user.role);
   useEffect(() => {
@@ -44,10 +46,12 @@ export function App() {
             <span style={{ color: 'var(--ilt-muted)' }}>{auth.user.full_name} · {t(`enum.role.${auth.user.role}`)}</span>
             <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
           </div>
-          {replayId ? (
+          {kinematicsId ? (
+            <KinematicsScreen key={kinematicsId} attemptId={kinematicsId} onBack={() => history.back()} />
+          ) : replayId ? (
             <Replay key={replayId} attemptId={replayId} onBack={() => history.back()} />
           ) : sessionId ? (
-            <SessionDetail key={sessionId} sessionId={sessionId} onBack={() => go('#/')} onReplay={(id) => go(`#/replay/${id}`)} />
+            <SessionDetail key={sessionId} sessionId={sessionId} onBack={() => go('#/')} onReplay={(id) => go(`#/replay/${id}`)} onKinematics={(id) => go(`#/kinematics/${id}`)} />
           ) : (
             <ResearchScreen onOpen={(id) => go(`#/session/${id}`)} />
           )}

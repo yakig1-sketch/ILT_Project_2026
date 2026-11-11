@@ -26,13 +26,18 @@ describe.skipIf(!DB_URL)('Phase 4a analyst portal against the database', () => {
   const tokens = { analyst: '', researcher: '', evaluator: '', admin: '' };
   const ids = { visible: '', female: '', noConsent: '', intervention: '', running: '', attempt: '', hiddenAttempt: '', ppt: '' };
 
+  // Stand-in for the analytics service (Phase 4b): its own tests cover the computation.
+  let analytics: (path: string) => Promise<{ status: number; body: unknown }> = async () => ({ status: 404, body: null });
   const get = async (path: string, token: string) => {
     const res = await fetch(`${base}/api/v1${path}`, { headers: { authorization: `Bearer ${token}` } });
     return { status: res.status, body: (await res.json()) as any };
   };
 
   beforeAll(async () => {
-    app = await buildApp({ db: pool, checkS3: async () => true, jwtSecret: 'phase4a-test', schoolHmacKey: 'phase4a-school', logLevel: 'silent' });
+    app = await buildApp({
+      db: pool, checkS3: async () => true, jwtSecret: 'phase4a-test', schoolHmacKey: 'phase4a-school', logLevel: 'silent',
+      analytics: (path) => analytics(path),
+    });
     await app.listen({ port: 0, host: '127.0.0.1' });
     base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
     for (const role of ['analyst', 'researcher', 'evaluator', 'admin'] as const) {
@@ -179,6 +184,39 @@ describe.skipIf(!DB_URL)('Phase 4a analyst portal against the database', () => {
     const noConsentAttempt = (await pool.query(
       `SELECT ba.id FROM block_attempts ba JOIN session_steps st ON st.id = ba.session_step_id WHERE st.session_id = $1`, [ids.noConsent])).rows[0].id;
     expect((await get(`/research/attempts/${noConsentAttempt}/replay`, tokens.analyst)).status).toBe(404);
+  });
+
+  it('passes kinematics requests to the analytics service and logs an opening once (Phase 4b)', async () => {
+    const asked: string[] = [];
+    analytics = async (path) => {
+      asked.push(path);
+      if (path.includes(ids.attempt)) {
+        return { status: 200, body: { attempt: { id: ids.attempt, session_id: ids.visible, session_code: 'S4B', step_index: 1, attempt_number: 2 }, summary: { strokes: 1 } } };
+      }
+      if (path.includes(ids.visible)) return { status: 200, body: { attempts: [] } };
+      return { status: 404, body: null };
+    };
+    expect((await get(`/research/attempts/${ids.attempt}/kinematics`, tokens.evaluator)).status).toBe(403);
+    const k = await get(`/research/attempts/${ids.attempt}/kinematics`, tokens.analyst);
+    expect(k.status).toBe(200);
+    expect(k.body.summary).toEqual({ strokes: 1 });
+    expect((await get(`/research/attempts/${ids.attempt}/kinematics`, tokens.analyst)).status).toBe(200);
+    expect((await get(`/research/sessions/${ids.visible}/kinematics`, tokens.researcher)).body).toEqual({ attempts: [] });
+    expect((await get(`/research/sessions/${ids.noConsent}/kinematics`, tokens.analyst)).status).toBe(404);
+    expect((await get('/research/attempts/not-a-uuid/kinematics', tokens.analyst)).status).toBe(404);
+    expect(asked).toEqual([
+      `/kinematics/attempts/${ids.attempt}`, `/kinematics/attempts/${ids.attempt}`,
+      `/kinematics/sessions/${ids.visible}`, `/kinematics/sessions/${ids.noConsent}`,
+    ]);
+    await new Promise((r) => setTimeout(r, 1500));
+    const logged = await pool.query(
+      `SELECT message FROM app_events WHERE event_type = 'data.kinematics.opened' AND entity_id = $1 AND actor_user_id = $2`, [ids.attempt, users.analyst]);
+    expect(logged.rows.map((r) => r.message)).toEqual(['Kinematics opened: S4B step 1, attempt 2']);
+    analytics = async () => {
+      throw new Error('connection refused');
+    };
+    const down = await get(`/research/attempts/${ids.attempt}/kinematics`, tokens.analyst);
+    expect(down).toMatchObject({ status: 503, body: { error: { message_key: 'analyst.analytics_down' } } });
   });
 
   it('hides a session once the current consent no longer allows research use', async () => {

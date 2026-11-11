@@ -28,6 +28,8 @@ export interface AppDeps {
   schoolHmacKey: string;
   /** Object storage for instruction videos; absent in unit tests. */
   media?: MediaStore;
+  /** The analytics service (kinematics, Phase 4b): GET of a path under its /api/v1; absent when not configured. */
+  analytics?: (path: string) => Promise<{ status: number; body: unknown }>;
   logLevel?: string;
 }
 

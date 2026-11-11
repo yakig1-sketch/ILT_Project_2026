@@ -2,7 +2,7 @@
 // Every route runs in a transaction as the ilt_analyst database role, which can read only the
 // v_research_* views and the Domain and Region names: the database itself keeps analysts to
 // RESEARCH sessions of participants whose current consent allows research use (FR-AN-3).
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
 import type { Queryable } from '../app-log.js';
@@ -106,6 +106,7 @@ const MEASURES = `
 export const researchRoutes: FastifyPluginAsync = async (app) => {
   const analyst = app.requireRole('ANALYST', 'RESEARCHER');
   const notFound = { error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } };
+  const unavailable = { error: { code: 'UNAVAILABLE', message_key: 'analyst.analytics_down', details: {} } };
   const badRequest = (details: unknown) => ({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details } });
 
   /** Runs fn as the ilt_analyst role, which reads only the research views (and Domain/Region names). */
@@ -205,6 +206,42 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
         blocks,
       };
     });
+  });
+
+  /**
+   * Kinematics (Phase 4b, FR-AN-1; DDD §8.9), computed by the analytics service, which reads the research
+   * views as ilt_analyst: one block attempt (summary, letters, strokes and the speed, jerk and pressure
+   * series), or the summary of every block of one session. Not in the research views: 404.
+   */
+  const kinematics = async (path: string, reply: FastifyReply) => {
+    if (!app.deps.analytics) return reply.status(503).send(unavailable);
+    try {
+      const res = await app.deps.analytics(path);
+      if (res.status === 404) return reply.status(404).send(notFound);
+      if (res.status !== 200) throw new Error(`analytics answered ${res.status}`);
+      return res.body;
+    } catch (err) {
+      app.log.error({ err }, 'Analytics service unavailable');
+      return reply.status(503).send(unavailable);
+    }
+  };
+  app.get<{ Params: { id: string } }>('/research/sessions/:id/kinematics', { preHandler: analyst }, async (req, reply) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
+    return kinematics(`/kinematics/sessions/${req.params.id}`, reply);
+  });
+  app.get<{ Params: { id: string } }>('/research/attempts/:id/kinematics', { preHandler: analyst }, async (req, reply) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
+    const body = await kinematics(`/kinematics/attempts/${req.params.id}`, reply);
+    const attempt = (body as { attempt?: { id: string; session_id: string; session_code: string; step_index: number; attempt_number: number } } | undefined)?.attempt;
+    if (attempt && reply.statusCode === 200) {
+      const user = req.user as UserClaims;
+      app.appLog.writeOnce(`kinematics:${user.sub}:${attempt.id}`, {
+        severity: 'INFO', event_type: 'data.kinematics.opened', actor_user_id: user.sub, actor_role: user.role, session_id: attempt.session_id,
+        entity_type: 'block_attempt', entity_id: attempt.id,
+        message: `Kinematics opened: ${attempt.session_code} step ${attempt.step_index}, attempt ${attempt.attempt_number}`, details: { portal: 'analyst' },
+      });
+    }
+    return body;
   });
 
   /** Replay data for one research block attempt (FR-REP-4), in the same shape as the cockpit's replay. */

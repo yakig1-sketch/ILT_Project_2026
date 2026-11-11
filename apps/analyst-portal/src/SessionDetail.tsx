@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackButton, pill, ui } from '@ilt/ui';
 import { ApiError, api } from './api';
+import { KIN_COLUMNS, KinCells, type KinSummary } from './KinematicsScreen';
 import { ageLabel, num, valueLabel, type Options } from './labels';
 
 interface Detail {
@@ -64,17 +65,23 @@ const s = {
   h: { margin: 0, fontSize: '1.1rem' },
 } satisfies Record<string, CSSProperties>;
 
-export function SessionDetail({ sessionId, onBack, onReplay }: { sessionId: string; onBack: () => void; onReplay: (attemptId: string) => void }) {
+export function SessionDetail({ sessionId, onBack, onReplay, onKinematics }: {
+  sessionId: string; onBack: () => void; onReplay: (attemptId: string) => void; onKinematics: (attemptId: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const [data, setData] = useState<Detail | null>(null);
   const [options, setOptions] = useState<Options | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [kin, setKin] = useState<(KinSummary & { block_attempt_id: string })[] | null>(null);
+  const [kinError, setKinError] = useState<string | null>(null);
   const when = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }), [lang]);
 
   useEffect(() => {
     api<Detail>(`/research/sessions/${sessionId}`).then(setData).catch((e: ApiError) => setError(e.messageKey));
     api<Options>('/research/options').then(setOptions).catch(() => undefined);
+    api<{ attempts: (KinSummary & { block_attempt_id: string })[] }>(`/research/sessions/${sessionId}/kinematics`)
+      .then((r) => setKin(r.attempts)).catch((e: ApiError) => setKinError(e.messageKey));
   }, [sessionId]);
 
   const back = <BackButton onClick={onBack} label={t('analyst.back_list')} />;
@@ -158,7 +165,10 @@ export function SessionDetail({ sessionId, onBack, onReplay }: { sessionId: stri
                   <td style={ui.cell}>{b.pass == null ? '—' : t(b.pass ? 'summary.pass' : 'summary.fail')}</td>
                   <td style={{ ...ui.cell, textAlign: 'end', whiteSpace: 'nowrap' }}>
                     {(b.sample_count ?? 0) > 0 && b.canvas_code && (
-                      <button style={ui.button} onClick={() => onReplay(b.block_attempt_id)}>{t('analyst.replay')}</button>
+                      <span style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                        <button style={ui.button} onClick={() => onReplay(b.block_attempt_id)}>{t('analyst.replay')}</button>
+                        <button style={ui.button} onClick={() => onKinematics(b.block_attempt_id)}>{t('analyst.kin.open')}</button>
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -166,6 +176,45 @@ export function SessionDetail({ sessionId, onBack, onReplay }: { sessionId: stri
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section style={s.section} aria-labelledby="kin-h">
+        <h3 id="kin-h" style={s.h}>{t('analyst.kin.session_title')}</h3>
+        <p style={{ ...ui.muted, margin: 0 }}>{t('analyst.kin.session_note')}</p>
+        {kinError && <p role="alert" style={ui.error}>{t(kinError)}</p>}
+        {!kin && !kinError && <p style={ui.muted}>{t('common.checking')}</p>}
+        {kin && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={ui.table} data-testid="session-kinematics">
+              <thead>
+                <tr>
+                  <th style={ui.cell}>{t('analyst.step')}</th>
+                  <th style={{ ...ui.cell, ...s.num }}>{t('analyst.attempt')}</th>
+                  <th style={ui.cell}>{t('analyst.counts')}</th>
+                  {KIN_COLUMNS.map((k) => <th key={k} style={{ ...ui.cell, ...s.num }}>{t(`analyst.kin.${k}`)}</th>)}
+                  <th style={ui.cell} />
+                </tr>
+              </thead>
+              <tbody>
+                {kin.map((k) => {
+                  const b = blocks.find((x) => x.block_attempt_id === k.block_attempt_id);
+                  if (!b) return null;
+                  return (
+                    <tr key={k.block_attempt_id} style={b.counts ? undefined : { color: 'var(--ilt-muted)' }}>
+                      <td style={ui.cell}>{t(b.label_key, { n: b.block_number ?? '' })}</td>
+                      <td style={{ ...ui.cell, ...s.num }}>{b.attempt_number}</td>
+                      <td style={ui.cell}>{b.counts && <span style={pill('ok')}>{t('analyst.counted')}</span>}</td>
+                      <KinCells k={k} style={{ ...ui.cell, ...s.num }} />
+                      <td style={{ ...ui.cell, textAlign: 'end' }}>
+                        <button style={ui.button} onClick={() => onKinematics(k.block_attempt_id)}>{t('analyst.kin.open')}</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

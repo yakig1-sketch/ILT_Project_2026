@@ -14,6 +14,10 @@ const app = await buildApp({
   schoolHmacKey: config.schoolHmacKey,
   media: s3MediaStore(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
   logLevel: config.logLevel,
+  analytics: async (path) => {
+    const res = await fetch(`${config.analyticsUrl}/api/v1${path}`, { signal: AbortSignal.timeout(20_000) });
+    return { status: res.status, body: res.status === 200 ? await res.json() : null };
+  },
 });
 
 await app.listen({ port: config.port, host: '0.0.0.0' });

@@ -8,6 +8,12 @@
       "port": 8765
     },
     {
+      "name": "analytics",
+      "runtimeExecutable": "services/analytics/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "ilt_analytics.main:app", "--app-dir", "services/analytics", "--host", "127.0.0.1", "--port", "8090", "--reload", "--reload-dir", "services/analytics/ilt_analytics"],
+      "port": 8090
+    },
+    {
       "name": "gateway",
       "runtimeExecutable": "pnpm.cmd",
       "runtimeArgs": ["--filter", "@ilt/telemetry-gateway", "dev"],

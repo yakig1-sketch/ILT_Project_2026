@@ -434,6 +434,26 @@ Warm-up blocks and notebook pages are measured (raw data stored) but not scored:
 
 For velocity, acceleration and jerk, each stroke is resampled to a uniform 4 ms grid (linear interpolation of x, y, pressure), then smoothed (Savitzky–Golay, window 7, order 3) before differentiation. Raw samples are never modified.
 
+*Phase 4b (`services/analytics/ilt_analytics/kinematics.py`):*
+- **Strokes:** a stroke is one raw contact stroke, pen-down to pen-up (§8.1). Short lifts are **not** merged as they are for pen lifts (§8.2), so no line is drawn through the air. A stroke takes the box of its first sample in a box.
+- **Derivatives:** they come from the Savitzky–Golay filter itself (`deriv` 1 and 3, with `delta` 4 ms).
+  - **Speed** is the tangential speed |v| in mm/s.
+  - **Jerk** is the magnitude of the third derivative of position, in mm/s³.
+- **Per-stroke measures:**
+  - path length, ∫|v|dt;
+  - mean speed, path length divided by duration;
+  - peak speed;
+  - **velocity peaks**: maxima of the speed whose prominence is at least 10 % of the stroke's peak speed;
+  - mean jerk;
+  - **normalised jerk**, √(½·∫|j|²dt·T⁵/L²), dimensionless (Teulings et al. 1997); a minimum-jerk stroke gives √360 ≈ 19;
+  - mean pressure.
+- **Short strokes:** strokes with fewer than 7 grid points (about 24 ms) are counted but not measured.
+- **Summaries:**
+  - **Per letter and per block:** strokes, writing time, path length, mean speed (total path divided by total measured time), peak speed, mean velocity peaks per stroke, mean of the strokes' mean and normalised jerk, and time-weighted mean pressure.
+  - **Letter order:** letters are listed in writing order; strokes outside every box come last.
+- **Database access:** the service reads `v_research_*` as `ilt_analyst`, using `ANALYST_DATABASE_URL`, or the host of `APP_DATABASE_URL` with `ILT_ANALYST_DB_PASSWORD`.
+- **Network:** it listens on 127.0.0.1:8090 and is reached only through the gateway (§14). Nothing is stored; results are computed on each request.
+
 ## 9. Database (PostgreSQL 16 + TimescaleDB 2)
 
 Migrations live in `infra/db/migrations` and are the executable form of this section.
@@ -1102,7 +1122,7 @@ Day 1 template steps:
 | settings | `settings.value.changed` (old/new/approver), `settings.value.removed`, `settings.override.changed` |
 | canvases | `canvas.set.created`, `canvas.set.updated`, `canvas.uploaded`, `canvas.updated`, `canvas.deleted`, `canvas.version.created`, `canvas.validated`, `canvas.activated` (with the retired version and the approver), `canvas.retired`, `canvas.override.changed` (old/new patch, approver), `canvas.reference.paired`, `canvas.reference.started` (preview or recording sent to the tablet), `canvas.reference.recorded` (derived summary, integrity), `canvas.reference.accepted` (values, old/new profile or patch, approver), `canvas.reference.cleared` |
 | scores | `scores.recomputed` |
-| data | `data.export.created`, `data.replay.opened`, `data.legacy.imported`, `data.paper_scores.entered` |
+| data | `data.export.created`, `data.replay.opened`, `data.kinematics.opened`, `data.legacy.imported`, `data.paper_scores.entered` |
 | system | `system.error`, `system.service.started`, `system.service.stopped` |
 
 - **Search screen** (admin): time range, event types (multi-select by area), user, session code, domain/region, severity, free text (uses `search_text`); results paged, newest first; CSV export (logged as `data.export.created`).
@@ -1178,6 +1198,7 @@ Day 1 template steps:
 | GET | `/research/options` | ANALYST, RESEARCHER | Phase 4a. Domains and Regions, the counts of research sessions and participants, and the school codes, canvases and inactivity timers found in the research data |
 | GET | `/research/sessions` · `/research/cohort` | ANALYST, RESEARCHER | Phase 4a (FR-AN-1). Filters, each a comma list: `domain_id`, `region_id` (`NONE` = no Region), `school` (first 8 hex characters of the school HMAC), `grade`, `gender`, `ses` (`NONE` = not recorded), `hand`, `language`, `session_type`, `canvas`, `inactivity_sec`; `from` / `to` (completion day in `tz`). Sessions: newest 500 with `total` and `limited`, each with the means of its counted blocks (the latest finished attempt of each scored step). Cohort: `group_by` none, domain, region, school, grade, gender, ses, hand, language, stage, canvas or inactivity; per group the participants, sessions, blocks and mean composite, accuracy, speed score, ILT speed, pen lifts and time |
 | GET | `/research/sessions/:id` · `/research/attempts/:id/replay` | ANALYST, RESEARCHER | Phase 4a. One research session (no settings snapshot: the timers, threshold and weights it used) with every block attempt and `counts`; replay in the same shape as `/attempts/:id/replay` (FR-REP-4), logged as `data.replay.opened` with `portal: analyst` (once per user and attempt within 10 s, as is the cockpit replay: a page that asks twice in a row is logged once). Anything outside the research views is 404 |
+| GET | `/research/attempts/:id/kinematics` · `/research/sessions/:id/kinematics` | ANALYST, RESEARCHER | Phase 4b (FR-AN-1; §8.9). Forwarded to the analytics service (`ANALYTICS_URL`, default `http://127.0.0.1:8090`, paths `/api/v1/kinematics/attempts/:id` and `/sessions/:id`). One attempt: `summary`, `letters`, `strokes` and `series` (per measured stroke: `t_ms` from the block's first contact, `speed`, `jerk`, `pressure`). A session: the summary of each block attempt with samples. Outside the research views: 404. Analytics not answering: 503 `analyst.analytics_down`. Opening an attempt is logged as `data.kinematics.opened` (once per user and attempt within 10 s) |
 | POST | `/exports` · `GET /exports/:id` | ANALYST, RESEARCHER | Parquet/CSV export of research views (signed S3 URL, 15 min) |
 | GET | `/log/events` | ADMIN | Log search (Phase 3e): `from`, `to` (ISO), `types`, `severity` (comma lists from the vocabulary), `user_id`, `session_code`, `domain_id`, `region_id`, `q`, `limit` (≤ 200), `before` (cursor). Returns `{events, next, total, total_capped}`; each event adds the user's name and email, the session code and the Domain/Region codes |
 | GET | `/log/events.csv` | ADMIN | The same filter as a CSV file (§12), at most 50,000 rows; headers `x-ilt-rows`, `x-ilt-truncated` |
@@ -1230,6 +1251,7 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Dev users | Hashes generated at seed time from environment variables |
 | Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
+| Kinematics (Phase 4b) | Analytics service: speed, jerk and pressure per stroke, letter and block (§8.9), reading the research views as `ilt_analyst`; gateway routes `/research/*/kinematics` (§14). Portal: a Kinematics table on the session page, and per block attempt the speed, jerk and pressure charts over time (letter highlight, crosshair readout), letters and strokes |
 | Analyst portal (Phase 4a) | `apps/analyst-portal` with its own sign-in (ANALYST and RESEARCHER only): research sessions with cohort filters and grouping, one session's blocks, replay (the replay player moved to `@ilt/ui`); `/research/*` routes run as `ilt_analyst`; migration 0005 (§9 note, §14) |
 | Participants and consent (Phase 3f) | Participant record (`GET`/`PATCH /participants/:id`), consent history, session `purpose` with the research conditions and `video_enabled`, ethics approvals routes, migration 0004 (§14, §5 schema note) |
 | Action log (Phase 3e) | `GET /log/events` and `/log/events.csv` (§14); the search screen details, free-text prefix matching, the microsecond page cursor and the CSV format (§12) |

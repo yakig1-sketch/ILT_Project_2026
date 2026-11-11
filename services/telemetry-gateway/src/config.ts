@@ -19,6 +19,8 @@ export interface Config {
   jwtSecret: string;
   schoolHmacKey: string;
   logLevel: string;
+  /** The analytics service, on the local interface (DDD §8.9). */
+  analyticsUrl: string;
 }
 
 export const loadConfig = (): Config => ({
@@ -30,4 +32,5 @@ export const loadConfig = (): Config => ({
   jwtSecret: required('JWT_SECRET'),
   schoolHmacKey: required('SCHOOL_CODE_HMAC_KEY'),
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  analyticsUrl: process.env.ANALYTICS_URL ?? 'http://127.0.0.1:8090',
 });
