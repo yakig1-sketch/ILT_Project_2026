@@ -32,6 +32,7 @@ const GRADES = ['KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRA
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const HANDS = ['RIGHT', 'LEFT', 'AMBIDEXTROUS'] as const;
 const SES = ['LOW', 'MID', 'HIGH'] as const;
+/** Day sessions are planned here; intervention sessions from the Dispatch Console (one target letter each). */
 const TYPES = ['DAY_1', 'DAY_2', 'DAY_14'] as const;
 const STATUSES = ['PLANNED', 'PAIRED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'ABORTED'] as const;
 const NO_FILTER = { q: '', status: '', session_type: '', from: '', to: '' };
@@ -269,7 +270,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
             {t('cockpit.session_type')}
             <select value={filter.session_type} onChange={(e) => setFilter({ ...filter, session_type: e.target.value })}>
               <option value="">{t('cockpit.filter.all')}</option>
-              {TYPES.map((v) => <option key={v} value={v}>{t(`enum.session_type.${v}`)}</option>)}
+              {[...TYPES, 'INTERVENTION' as const].map((v) => <option key={v} value={v}>{t(`enum.session_type.${v}`)}</option>)}
             </select>
           </label>
           <label style={ui.field}>

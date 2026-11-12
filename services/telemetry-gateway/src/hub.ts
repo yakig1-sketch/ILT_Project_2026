@@ -30,7 +30,9 @@ import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
 
-const WRITING_STEPS = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE']);
+const WRITING_STEPS = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
+/** Steps measured for time and pen lifts only: notebook pages (FR-PLAN-5) and, until sheet scoring (Phase 5d), intervention sheets. */
+const TIMED_ONLY = new Set(['NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
 const AUTH_TIMEOUT_MS = 5000;
 
 type BlockComplete = ControlPayload<'BLOCK_COMPLETE'>;
@@ -82,7 +84,8 @@ function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: Setting
     timers: timersFrom(snapshot),
     block_number: sameType.findIndex((s) => s.step_index === step.step_index) + 1,
     block_count: sameType.length,
-    ...(step.profile && { profile: step.profile }),
+    // A sheet's profile describes its letters, not ILT dots: the live ILT preview does not apply to it.
+    ...(step.profile && step.step_type !== 'INTERVENTION_SHEET' && { profile: step.profile }),
   });
 }
 
@@ -880,7 +883,7 @@ export class Hub {
       const { score_version, summary } = await scoreAttempt(this.db, {
         attemptId,
         canvas: step.mirrored ? mirrorCanvas(step.geometry) : step.geometry,
-        profile: step.step_type === 'NOTEBOOK_PAGE' ? null : step.profile,
+        profile: TIMED_ONLY.has(step.step_type) ? null : step.profile,
         isScored: step.is_scored,
         snapshot: session.settings_snapshot,
       });

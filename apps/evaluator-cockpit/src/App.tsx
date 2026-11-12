@@ -59,7 +59,7 @@ export function App() {
         <>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: 'flex-end', marginBlockEnd: '0.75rem' }}>
             <span style={{ color: 'var(--ilt-muted)' }}>{auth.user.full_name}</span>
-            <button style={ui.button} onClick={() => void logout()}>{t('common.sign_out')}</button>
+            <button style={ui.button} onClick={() => { if (!ADMIN_ENTRY) go('#/'); void logout(); }}>{t('common.sign_out')}</button>
           </div>
           {ADMIN_ENTRY ? (
             <AdminScreen tab={adminTab} onTab={(k) => go(`#/${k}`)} canvasId={canvasId} onCanvas={(id) => go(id ? `#/canvases/${id}` : '#/canvases')} />

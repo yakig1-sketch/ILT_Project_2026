@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
 import { pill, ui } from './styles';
 import { SummaryChart } from './SummaryChart';
+import { LoadError } from './BackButton';
 
 interface SummaryBlock {
   block_number: number;
@@ -52,7 +53,7 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
   }, [participantId]);
   useEffect(load, [load]);
 
-  if (!data) return error ? <p role="alert" style={ui.error}>{t(error)}</p> : <p style={ui.muted}>{t('common.checking')}</p>;
+  if (!data) return error ? <LoadError message={t(error)} onBack={onBack} backLabel={t('common.back')} /> : <p style={ui.muted}>{t('common.checking')}</p>;
   const nc = t('summary.not_configured');
   const fmt = (v: number | null, digits = 1) => (v === null ? '—' : v.toFixed(digits));
   const w = data.scoring;

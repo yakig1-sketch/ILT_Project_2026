@@ -6,7 +6,7 @@ import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
 import type { UserClaims } from '../auth.js';
 import { one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
-import { loadEffectiveSettings, setting } from '../settings-store.js';
+import { loadEffectiveSettings, setting, type SettingsSnapshot } from '../settings-store.js';
 
 /** Anchor pairs compared on the dashboard (FR-SUM-1). */
 export const ANCHORS = [
@@ -140,7 +140,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       created_at: string; evaluator_id: string }>(
       app.deps.db,
       `SELECT id, session_code, session_type, status, language_code, created_at, evaluator_id FROM sessions
-        WHERE participant_id = $1 AND status <> 'ABORTED'
+        WHERE participant_id = $1 AND status <> 'ABORTED' AND session_type <> 'INTERVENTION'
         ORDER BY session_type,
                  CASE WHEN status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED') THEN 0 WHEN status = 'COMPLETED' THEN 1 ELSE 2 END,
                  created_at DESC`,
@@ -162,6 +162,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
     const sourceOf = (key: string) => settings[key]?.source ?? 'DEFAULT';
     const day14 = sessions.find((s) => s.session_type === 'DAY_14');
     const day14Scores = steps.filter((st) => st.session_id === day14?.id && st.step_type === 'ILT_BLOCK').map((st) => num(st.composite_score));
+    const intervention = await interventionProgram(p.id, settings, canOpen);
     return {
       participant: {
         id: p.id, study_code: p.study_code, grade_level: p.grade_level,
@@ -176,6 +177,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
         steps: steps.filter((st) => st.session_id === s.id).map(({ session_id: _s, composite_score, ...st }) => ({ ...st, composite_score: num(composite_score) })),
       }])),
       day14_average: day14Scores.length && day14Scores.every((v) => v !== null) ? r2(mean(day14Scores)) : null,
+      intervention,
       settings: {
         in_transition_sec: setting(settings, 'ilt.timer.in_transition_sec', 20),
         inactivity_sec: setting(settings, 'ilt.timer.inactivity_sec', 20),
@@ -185,6 +187,63 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       },
     };
   });
+
+  /**
+   * The intervention programme (Phase 5b, FR-COCK-7): the letters of the default language's letter set
+   * (its configured set, else every active one), each with where the participant stands, and the
+   * participant's intervention sessions. A letter is trained by a completed TRAINING session; its
+   * retention check is due the set number of days after its last training.
+   */
+  async function interventionProgram(participantId: string, settings: SettingsSnapshot, canOpen: (s: { evaluator_id: string }) => boolean) {
+    const enabled = setting<string[]>(settings, 'language.enabled', ['he', 'en']);
+    const preferred = setting(settings, 'language.default', 'he');
+    const language = enabled.includes(preferred) ? preferred : (enabled[0] ?? 'he');
+    const retentionDays = Number(setting(settings, 'ilt.intervention.retention_days', 14));
+    const letters = await rows<{ canvas_id: string; code: string; letter: string | null; name_he: string; name_en: string }>(
+      app.deps.db,
+      `SELECT c.id AS canvas_id, c.code, c.geometry->'letters'->0->>'letter' AS letter, c.name_he, c.name_en
+         FROM canvases c JOIN canvas_sets cs ON cs.id = c.canvas_set_id
+        WHERE c.status = 'ACTIVE' AND c.canvas_type = 'INTERVENTION_SHEET' AND cs.is_active AND cs.language_code = $1
+          AND ($2::uuid IS NULL OR cs.id = $2::uuid)
+        ORDER BY cs.sort_order, c.sort_order, c.code`,
+      [language, setting<string | null>(settings, `language.${language}.letter_set`, null)],
+    );
+    const sessions = await rows<{ id: string; session_code: string; status: string; language_code: string; created_at: string;
+      completed_at: string | null; evaluator_id: string; kind: 'TRAINING' | 'RETENTION'; code: string; letter: string | null;
+      sheets_total: number; sheets_done: number }>(
+      app.deps.db,
+      `SELECT s.id, s.session_code, s.status, s.language_code, s.created_at, s.completed_at, s.evaluator_id, s.intervention_kind AS kind,
+              c.code, c.geometry->'letters'->0->>'letter' AS letter,
+              count(st.id) FILTER (WHERE st.step_type = 'INTERVENTION_SHEET')::int AS sheets_total,
+              count(st.id) FILTER (WHERE st.step_type = 'INTERVENTION_SHEET' AND st.status IN ('DONE', 'SKIPPED'))::int AS sheets_done
+         FROM sessions s JOIN canvases c ON c.id = s.intervention_canvas_id
+         LEFT JOIN session_steps st ON st.session_id = s.id
+        WHERE s.participant_id = $1 AND s.session_type = 'INTERVENTION' AND s.status <> 'ABORTED'
+        GROUP BY s.id, c.id ORDER BY s.created_at DESC`,
+      [participantId],
+    );
+    const day = (d: Date) => d.toISOString().slice(0, 10);
+    return {
+      language_code: language,
+      training_sheets: Number(setting(settings, 'ilt.intervention.training_sheets', 4)),
+      retention_days: retentionDays,
+      letters: letters.map((l) => {
+        const done = sessions.filter((s) => s.code === l.code && s.status === 'COMPLETED' && s.completed_at);
+        const trainings = done.filter((s) => s.kind === 'TRAINING');
+        const last = trainings.map((s) => new Date(s.completed_at!)).sort((a, b) => b.getTime() - a.getTime())[0];
+        const due = last ? new Date(last.getTime() + retentionDays * 86_400_000) : null;
+        return {
+          ...l,
+          trainings: trainings.length,
+          last_trained_on: last ? day(last) : null,
+          retention_due_on: due ? day(due) : null,
+          retention_due: !!due && due.getTime() <= Date.now(),
+          retention_done: !!last && done.some((s) => s.kind === 'RETENTION' && new Date(s.completed_at!) > last),
+        };
+      }),
+      sessions: sessions.map(({ evaluator_id, completed_at: _c, ...s }) => ({ ...s, can_open: canOpen({ evaluator_id }) })),
+    };
+  }
 
   /** Replay data for one block attempt (FR-REP-1/2): the canvas as written, every sample, and per-house speed. */
   app.get<{ Params: { id: string } }>('/attempts/:id/replay', { preHandler: staff }, async (req, reply) => {

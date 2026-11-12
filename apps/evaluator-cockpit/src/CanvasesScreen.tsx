@@ -12,7 +12,7 @@ import { ApiError, api } from './api';
 import { isolateSizes } from './bidi';
 import { ReferencePanel, type Recording } from './ReferencePanel';
 import { pill, tone, ui } from './styles';
-import { BackButton } from './BackButton';
+import { BackButton, LoadError } from './BackButton';
 
 const SET_TYPES = ['ILT', 'NOTEBOOK', 'INTERVENTION_LETTERS'] as const;
 type SetType = (typeof SET_TYPES)[number];
@@ -413,7 +413,7 @@ function CanvasDetail({ id, domains, approvalOn, langName, onOpen, onBack }: {
       .catch((e) => setError(message(e)));
   }, [id, reload]);
 
-  if (!c) return error ? <p role="alert" style={ui.error}>{t(error)}</p> : null;
+  if (!c) return error ? <LoadError message={t(error)} onBack={onBack} backLabel={t('admin.canvases.back')} /> : null;
   const draft = c.status === 'DRAFT';
   const profileChanged = JSON.stringify(profile) !== JSON.stringify(c.default_scoring_profile);
   const geometryChanged = geometryText !== JSON.stringify(c.geometry, null, 2);

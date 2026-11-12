@@ -9,8 +9,14 @@ import { CanvasView, InkRenderer, PressureLegend } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
 import { pill, tone, ui } from './styles';
+import { LoadError } from './BackButton';
 
-const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE']);
+const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
+/** The note under a block that is measured but not scored. */
+const unscoredNote = (stepType: string) =>
+  stepType === 'NOTEBOOK_PAGE' ? 'cockpit.notebook_timed_only' : stepType === 'INTERVENTION_SHEET' ? 'cockpit.sheet_timed_only' : 'cockpit.warmup_not_scored';
+/** A video's name: the library's keys, and any letter video (letter_<canvas code>). */
+const videoName = (t: (k: string) => string, key = '') => t(key.startsWith('letter_') ? 'video.letter' : `video.${key}`);
 const PAUSE_REASONS = ['STUDENT_FATIGUE', 'HARDWARE', 'EVALUATOR_INTERVENTION', 'OTHER'] as const;
 const REPEAT_REASONS = ['DISRUPTION', 'HARDWARE', 'EVALUATOR_ERROR', 'OTHER'] as const;
 // Manual finish blinks once it is available; reduced-motion users get the colour without the blink.
@@ -57,6 +63,9 @@ interface SessionDetail {
   language_code: string;
   status: string;
   purpose: 'INTERVENTION' | 'RESEARCH';
+  /** Intervention sessions (Phase 5b): what the session does with its target letter. */
+  intervention_kind: 'TRAINING' | 'RETENTION' | null;
+  letter: { canvas_id: string; code: string; letter: string | null } | null;
   /** A tablet holds this session's pairing, connected or not (released tablets do not count). */
   tablet_paired: boolean;
   timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
@@ -105,7 +114,7 @@ export function SessionScreen({ sessionId, onBack, onSummary, onReplay, onConsol
 
   const { t } = useTranslation();
   if (!link || !session) {
-    return error ? <p role="alert" style={ui.error}>{t(error)}</p> : <p style={ui.muted}>{t('common.checking')}</p>;
+    return error ? <LoadError message={t(error)} onBack={onBack} backLabel={t('cockpit.sessions')} /> : <p style={ui.muted}>{t('common.checking')}</p>;
   }
   return <LiveSession link={link} session={session} reload={reload} onBack={onBack} onSummary={onSummary} onReplay={onReplay} onConsole={onConsole} />;
 }
@@ -206,7 +215,9 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
       <div style={{ ...ui.row, alignItems: 'center' }}>
         <button style={ui.button} onClick={back} data-testid="back">{t('common.back')}</button>
         <strong><bdi>{session.session_code}</bdi></strong>
-        <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)} · {t(`enum.language.${session.language_code}`)}</span>
+        <span><bdi>{session.study_code}</bdi> · {t(`enum.session_type.${session.session_type}`)}
+          {session.letter && <> · {t(`enum.intervention_kind.${session.intervention_kind}`)} · <bdi data-testid="session-letter" style={{ fontWeight: 700 }}>{session.letter.letter ?? session.letter.code}</bdi></>}
+          {' '}· {t(`enum.language.${session.language_code}`)}</span>
         <span style={pill(closed ? 'off' : 'ok')}>{t(`enum.session_status.${session.status}`)}</span>
         <span style={pill('off')} data-testid="session-purpose">{t(`enum.purpose.${session.purpose}`)}</span>
         <span style={pill(link.tabletConnected ? 'ok' : 'off')} data-testid="tablet-status">
@@ -252,13 +263,13 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
             </>
           ) : link.video ? (
             <p style={{ ...ui.muted, textAlign: 'center', marginBlockStart: '8rem', fontSize: '1rem' }} data-testid="video-playing">
-              {t('cockpit.video_playing', { name: t(`video.${link.video.video_key}`) })}
+              {t('cockpit.video_playing', { name: videoName(t, link.video.video_key) })}
             </p>
           ) : (
             <p style={{ ...ui.muted, textAlign: 'center', marginBlockStart: '8rem' }}>{t('kiosk.waiting')}</p>
           )}
         </section>
-        <Telemetry block={block} timers={session.timers} amber={link.amber} scoring={session.scoring} />
+        <Telemetry block={block} sheets={session.session_type === 'INTERVENTION'} timers={session.timers} amber={link.amber} scoring={session.scoring} />
       </div>
 
       {!closed && (
@@ -378,9 +389,6 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
                     {open && s.step_type === 'PAPER_NOTEBOOK_PAGE' && (
                       <PaperTimer onSave={(ms, notes) => call(() => api(`/sessions/${sessionId}/steps/${s.step_index}/paper`, { method: 'POST', body: { duration_ms: ms, notes } }))} />
                     )}
-                    {open && s.step_type === 'INTERVENTION_SHEET' && (
-                      <button style={ui.button} onClick={() => void skip(s.step_index)}>{t('cockpit.skip')}</button>
-                    )}
                     {!closed && writing && s.status === 'DONE' && (
                       <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
                         <select aria-label={t('cockpit.repeat_reason')} value={repeatReason} onChange={(e) => setRepeatReason(e.target.value as typeof repeatReason)}>
@@ -417,6 +425,7 @@ function AttemptFigures({ a, stepType, onReplay }: { a: Attempt; stepType: strin
   if (a.sample_count !== null) parts.push(t('cockpit.block_stored', { n: a.sample_count }));
   if (a.integrity_ok === false) parts.push(t('cockpit.integrity_failed'));
   if (sec) parts.push(`${t('summary.time')} ${sec} ${t('units.seconds')}`);
+  if (a.pen_lifts !== null) parts.push(`${t('summary.pen_lifts')} ${a.pen_lifts}`);
   if (stepType === 'ILT_BLOCK' && a.score_version !== null) {
     parts.push(`${t('summary.composite')} ${n(a.composite_score) ?? t('summary.not_configured')}`);
   }
@@ -441,7 +450,7 @@ function BlockResult({ title, stepType, scores, stored, threshold, onReplay }: {
   const nc = t('summary.not_configured');
   const f = (v: string | number | null, digits = 1) => (n(v) === null ? nc : n(v)!.toFixed(digits));
   const scored = stepType === 'ILT_BLOCK';
-  const measured = stepType !== 'NOTEBOOK_PAGE';
+  const measured = stepType !== 'NOTEBOOK_PAGE' && stepType !== 'INTERVENTION_SHEET';
   return (
     <section style={layout.result} data-testid="block-result" aria-live="polite">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
@@ -469,7 +478,7 @@ function BlockResult({ title, stepType, scores, stored, threshold, onReplay }: {
           {threshold === null && <span style={ui.muted}>{t('summary.threshold_not_set')}</span>}
         </div>
       ) : (
-        <div style={ui.muted}>{t(stepType === 'NOTEBOOK_PAGE' ? 'cockpit.notebook_timed_only' : 'cockpit.warmup_not_scored')}</div>
+        <div style={ui.muted}>{t(unscoredNote(stepType))}</div>
       )}
     </section>
   );
@@ -566,7 +575,14 @@ function useLivePreview(block: LiveBlock | null, scoring: SessionDetail['scoring
   return result;
 }
 
-function Telemetry({ block, timers, amber, scoring }: { block: LiveBlock | null; timers: SessionDetail['timers']; amber: boolean; scoring: SessionDetail['scoring'] }) {
+function Telemetry({ block, sheets, timers, amber, scoring }: {
+  block: LiveBlock | null;
+  /** An intervention session: its steps are letter sheets, also between blocks. */
+  sheets: boolean;
+  timers: SessionDetail['timers'];
+  amber: boolean;
+  scoring: SessionDetail['scoring'];
+}) {
   const { t, i18n } = useTranslation();
   const num = (v: number, digits = 1) => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(v);
   const s = t('units.seconds');
@@ -585,7 +601,10 @@ function Telemetry({ block, timers, amber, scoring }: { block: LiveBlock | null;
   const internal = written.filter((l) => l.internal_pen_lifts > 0);
   const none = '—';
 
-  const rows: [string, React.ReactNode][] = [
+  // ILT-only lines (width, dot B, ILT speed) do not apply to a letter sheet.
+  const sheet = block ? block.step_type === 'INTERVENTION_SHEET' : sheets;
+  const iltOnly = new Set(sheet ? ['width_outside', 'dot_b', 'avg_speed'] : []);
+  const rows: [string, React.ReactNode][] = ([
     ['active_box', block ? <bdi>{t('cockpit.house_of', { n: position, total })}</bdi> : none],
     ['block_time', blockTime !== null ? <bdi>{num(blockTime)} {s}</bdi> : none],
     ['inactivity', idle !== null && block?.started ? <bdi>{num(idle, 0)} / {threshold} {s}</bdi> : none],
@@ -596,7 +615,7 @@ function Telemetry({ block, timers, amber, scoring }: { block: LiveBlock | null;
     // Notebook letters are written freely along the lines, so passed cells are not skipped houses.
     ['skipped', block && !notebook ? <bdi>{block.skipped.length}</bdi> : none],
     ['avg_speed', preview?.avg_speed_mm_s != null ? <bdi>{num(preview.avg_speed_mm_s, 2)} {t('units.mm_s')}</bdi> : none],
-  ];
+  ] as [string, React.ReactNode][]).filter(([k]) => !iltOnly.has(k));
   return (
     <aside style={isAmber ? layout.panelAmber : layout.panel} data-testid="telemetry" data-amber={isAmber}>
       <h2 style={{ marginBlockStart: 0, fontSize: '1rem' }}>{t('cockpit.telemetry.title')}</h2>
@@ -607,7 +626,7 @@ function Telemetry({ block, timers, amber, scoring }: { block: LiveBlock | null;
           <span>{v}</span>
         </div>
       ))}
-      {block && block.step_type !== 'ILT_BLOCK' && <p style={{ fontSize: '0.8rem', opacity: 0.8, marginBlockEnd: 0 }}>{t(notebook ? 'cockpit.notebook_timed_only' : 'cockpit.warmup_not_scored')}</p>}
+      {block && block.step_type !== 'ILT_BLOCK' && <p style={{ fontSize: '0.8rem', opacity: 0.8, marginBlockEnd: 0 }}>{t(unscoredNote(block.step_type))}</p>}
     </aside>
   );
 }

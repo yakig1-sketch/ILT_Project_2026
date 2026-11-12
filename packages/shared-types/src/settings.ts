@@ -86,6 +86,8 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   process({ key: 'ilt.video.recording_enabled', value_type: 'boolean', default_value: false, description_he: 'הקלטת וידאו של הידיים (בכפוף להסכמה)', description_en: 'Hand video recording (subject to consent)' }),
   process({ key: 'ilt.protocol.day1_template', value_type: 'string', default_value: 'DAY_1', description_he: 'תבנית יום 1', description_en: 'Day 1 template' }),
   process({ key: 'ilt.protocol.day2_template', value_type: 'string', default_value: 'DAY_2', description_he: 'תבנית יום 2', description_en: 'Day 2 template' }),
+  process({ key: 'ilt.intervention.training_sheets', value_type: 'integer', default_value: 4, min_value: 1, max_value: 8, description_he: 'מספר דפי האימון במפגש התערבות', description_en: 'Training sheets in an intervention session' }),
+  process({ key: 'ilt.intervention.retention_days', value_type: 'integer', default_value: 14, min_value: 0, max_value: 60, unit: 'days', description_he: 'ימים מהאימון עד בדיקת השימור', description_en: 'Days from training to the retention check' }),
   process({ key: 'ilt.protocol.day14_template', value_type: 'string', default_value: 'DAY_14', description_he: 'תבנית יום 14', description_en: 'Day 14 template' }),
 
   // Language configuration (override per Domain)

@@ -27,19 +27,28 @@ const TABLET_TOKEN_TTL = '12h';
 
 const CreateSession = z.object({
   participant_id: z.string().uuid(),
-  session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14']),
+  session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14', 'INTERVENTION']),
   language_code: z.enum(['he', 'en']),
   region_id: z.number().int().positive().nullable().optional(),
   /** FR-PLAN-1: RESEARCH needs the research setting, a valid research approval and research consent. */
   purpose: z.enum(['INTERVENTION', 'RESEARCH']).default('INTERVENTION'),
+  /** Intervention sessions (Phase 5b): the target letter's canvas and what the session does with it. */
+  letter_canvas_id: z.string().uuid().optional(),
+  intervention_kind: z.enum(['TRAINING', 'RETENTION']).optional(),
+}).refine((b) => (b.session_type === 'INTERVENTION') === (!!b.letter_canvas_id && !!b.intervention_kind), {
+  message: 'An intervention session needs letter_canvas_id and intervention_kind (and only it does)',
 });
+
+/** The letter video played before the training sheets: `letter_` + the canvas code without its LETTER_ prefix (LETTER_HE_HE → letter_he_he). */
+export const letterVideoKey = (canvasCode: string) => `letter_${canvasCode.toLowerCase().replace(/^letter_/, '')}`.slice(0, 50);
+const OPEN_STATUSES = ['PLANNED', 'PAIRED', 'IN_PROGRESS', 'PAUSED'];
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 /** Session list filters (cockpit). Dates are the creation day, both ends included. */
 const SessionFilter = z.object({
   q: z.string().trim().max(40).optional(),
   status: z.enum(['PLANNED', 'PAIRED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'ABORTED']).optional(),
-  session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14']).optional(),
+  session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14', 'INTERVENTION']).optional(),
   from: isoDate.optional(),
   to: isoDate.optional(),
   /** The evaluator's time zone (IANA name), so a day is the evaluator's day. */
@@ -55,7 +64,7 @@ function validTimeZone(tz: string): boolean {
   }
 }
 
-const TEMPLATE_SETTING: Record<z.infer<typeof CreateSession>['session_type'], string> = {
+const TEMPLATE_SETTING: Record<Exclude<z.infer<typeof CreateSession>['session_type'], 'INTERVENTION'>, string> = {
   DAY_1: 'ilt.protocol.day1_template',
   DAY_2: 'ilt.protocol.day2_template',
   DAY_14: 'ilt.protocol.day14_template',
@@ -86,6 +95,9 @@ export interface SessionRow {
   purpose: 'INTERVENTION' | 'RESEARCH';
   video_enabled: boolean;
   created_at: string;
+  /** Intervention sessions only: TRAINING or RETENTION, and the target letter. */
+  intervention_kind: 'TRAINING' | 'RETENTION' | null;
+  letter: { canvas_id: string; code: string; letter: string | null } | null;
 }
 
 export interface StepRow {
@@ -113,8 +125,12 @@ export async function loadSession(db: Queryable, id: string): Promise<SessionRow
     db,
     `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.evaluator_id, s.domain_id, s.region_id,
             s.language_code, s.session_type, s.status, s.css_px_per_mm, s.tablet_token_id IS NOT NULL AS tablet_paired,
-            s.settings_snapshot, s.purpose, s.video_enabled, s.created_at
-       FROM sessions s JOIN participants p ON p.id = s.participant_id WHERE s.id = $1`,
+            s.settings_snapshot, s.purpose, s.video_enabled, s.created_at, s.intervention_kind,
+            CASE WHEN lc.id IS NULL THEN NULL
+                 ELSE json_build_object('canvas_id', lc.id, 'code', lc.code, 'letter', lc.geometry->'letters'->0->>'letter') END AS letter
+       FROM sessions s JOIN participants p ON p.id = s.participant_id
+       LEFT JOIN canvases lc ON lc.id = s.intervention_canvas_id
+      WHERE s.id = $1`,
     [id],
   );
 }
@@ -188,7 +204,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const attempts = await rows(
       app.deps.db,
       `SELECT ba.id, st.step_index, ba.attempt_number, ba.status, ba.sample_count, ba.integrity_ok, ba.started_at, ba.ended_at,
-              ba.total_time_ms, ba.repeat_reason, sv.version AS score_version, sv.pen_lifts, sv.accurate_letters, sv.accuracy_score,
+              ba.total_time_ms, ba.repeat_reason, sv.version AS score_version, coalesce(sv.pen_lifts, ba.pen_lifts) AS pen_lifts, sv.accurate_letters, sv.accuracy_score,
               sv.avg_speed_mm_s, sv.speed_score, sv.pen_lift_score, sv.composite_score, sv.pass
          FROM block_attempts ba JOIN session_steps st ON st.id = ba.session_step_id
          LEFT JOIN score_versions sv ON sv.block_attempt_id = ba.id AND sv.is_current
@@ -239,7 +255,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     // Hand video only when the setting allows it and the participant's consent does (FR-PRIV-2).
     const videoEnabled = setting(settings, 'ilt.video.recording_enabled', false) && !!(await currentConsent(app.deps.db, participant_id))?.allows_hand_video;
 
-    const templateCode = setting(settings, TEMPLATE_SETTING[session_type], session_type);
+    const templateCode = session_type === 'INTERVENTION' ? 'INTERVENTION' : setting(settings, TEMPLATE_SETTING[session_type], session_type);
     const template = await one<{ id: string; steps: ProtocolStep[] }>(
       app.deps.db,
       'SELECT id, steps FROM protocol_templates WHERE code = $1 AND is_active ORDER BY version DESC LIMIT 1',
@@ -247,65 +263,110 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     );
     if (!template) return reply.status(409).send({ error: { code: 'NO_TEMPLATE', message_key: 'sessions.no_template', details: { templateCode } } });
 
-    /** The language's Active canvas for the role, with the participant's Domain override merged into its profile (FR-CAN-8). */
-    const canvasFor = async (role: 'ILT' | 'NOTEBOOK'): Promise<CanvasRow | undefined> => {
-      const code = setting(settings, `language.${language_code}.${role === 'ILT' ? 'ilt_canvas' : 'notebook_canvas'}`, '');
+    /** An Active canvas with the participant's Domain override merged into its profile (FR-CAN-8). */
+    const loadCanvas = async (where: string, param: string): Promise<CanvasRow | undefined> => {
       const c = await one<CanvasRow & { profile_patch: unknown }>(
         app.deps.db,
         `SELECT c.id, c.code, c.geometry, c.default_scoring_profile, o.profile_patch
-           FROM canvases c LEFT JOIN canvas_scoring_overrides o ON o.canvas_id = c.id AND o.domain_id = $2
-          WHERE c.code = $1 AND c.status = 'ACTIVE'`,
-        [code, participant.domain_id],
+           FROM canvases c JOIN canvas_sets cs ON cs.id = c.canvas_set_id
+           LEFT JOIN canvas_scoring_overrides o ON o.canvas_id = c.id AND o.domain_id = $2
+          WHERE ${where} AND c.status = 'ACTIVE'`,
+        [param, participant.domain_id, language_code],
       );
       if (!c) return undefined;
       const { profile_patch, ...canvas } = c;
       return { ...canvas, default_scoring_profile: canvas.default_scoring_profile && mergeProfile(canvas.default_scoring_profile, profile_patch) };
     };
-    const canvases = { ILT: await canvasFor('ILT'), NOTEBOOK: await canvasFor('NOTEBOOK') };
+    /** The language's Active canvas for the role (FR-CAN-12). */
+    const canvasFor = (role: 'ILT' | 'NOTEBOOK') =>
+      loadCanvas('c.code = $1 AND $3::text IS NOT NULL', setting(settings, `language.${language_code}.${role === 'ILT' ? 'ilt_canvas' : 'notebook_canvas'}`, ''));
     const mirrored = setting(settings, `language.${language_code}.mirrored`, false);
     const fillDirection = setting<FillDirection>(settings, `language.${language_code}.fill_direction`, LANGUAGE_DIRECTION[language_code] === 'rtl' ? 'RTL_ROWS' : 'LTR_ROWS');
-    const warmup = setting(settings, 'ilt.warmup.enabled', true);
 
-    const steps = template.steps.filter((st) => warmup || st.step_type !== 'WARMUP_BLOCK');
-    for (const st of steps) {
-      if ((st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK') && !canvases[st.canvas_role]) {
-        return reply.status(409).send({ error: { code: 'NO_CANVAS', message_key: 'sessions.no_canvas', details: { role: st.canvas_role } } });
+    // Each step to create with its canvas (none for videos and paper pages).
+    let planned: { st: ProtocolStep; canvas?: CanvasRow }[];
+    let letter: CanvasRow | undefined;
+    const kind = body.data.intervention_kind ?? null;
+    if (session_type === 'INTERVENTION') {
+      // Phase 5b: one target letter, an Active letter sheet of the session language (FR-PLAN-3, FR-PLAN-4).
+      letter = await loadCanvas(
+        "c.id = $1::uuid AND c.canvas_type = 'INTERVENTION_SHEET' AND cs.set_type = 'INTERVENTION_LETTERS' AND cs.is_active AND cs.language_code = $3",
+        body.data.letter_canvas_id!,
+      );
+      if (!letter) return reply.status(409).send({ error: { code: 'NO_LETTER', message_key: 'sessions.no_letter', details: {} } });
+      const open = await one(app.deps.db,
+        `SELECT 1 FROM sessions WHERE participant_id = $1 AND session_type = 'INTERVENTION' AND status = ANY($2)`, [participant_id, OPEN_STATUSES]);
+      if (open) return reply.status(409).send({ error: { code: 'INTERVENTION_OPEN', message_key: 'sessions.intervention_open', details: {} } });
+      if (kind === 'RETENTION') {
+        // The retention check comes the set number of days after the letter's last completed training.
+        const days = Number(setting(settings, 'ilt.intervention.retention_days', 14));
+        const last = await one<{ due_on: string; due: boolean }>(app.deps.db,
+          `SELECT to_char(max(s.completed_at) + make_interval(days => $3::int), 'YYYY-MM-DD') AS due_on,
+                  max(s.completed_at) + make_interval(days => $3::int) <= now() AS due
+             FROM sessions s JOIN canvases c ON c.id = s.intervention_canvas_id
+            WHERE s.participant_id = $1 AND s.session_type = 'INTERVENTION' AND s.intervention_kind = 'TRAINING'
+              AND s.status = 'COMPLETED' AND c.code = $2`,
+          [participant_id, letter.code, days]);
+        if (!last?.due_on) return reply.status(409).send({ error: { code: 'NOT_TRAINED', message_key: 'sessions.not_trained', details: {} } });
+        if (!last.due) return reply.status(409).send({ error: { code: 'RETENTION_NOT_DUE', message_key: 'sessions.retention_not_due', details: { due_on: last.due_on } } });
       }
-      if (st.canvas_role === 'LETTER') {
-        return reply.status(409).send({ error: { code: 'NO_LETTER_SET', message_key: 'sessions.no_letter_set', details: {} } });
+      const sheet = template.steps.find((st) => st.step_type === 'INTERVENTION_SHEET') ?? { step_type: 'INTERVENTION_SHEET', label_key: 'step.intervention_sheet', is_scored: true };
+      const count = kind === 'TRAINING' ? Number(setting(settings, 'ilt.intervention.training_sheets', 4)) : 1;
+      planned = [
+        // Training starts with the letter's video; the cockpit offers to skip it when the library has none (FR-PLAN-8).
+        ...(kind === 'TRAINING' ? [{ st: { step_type: 'VIDEO' as const, video_key: letterVideoKey(letter.code), label_key: 'step.video_letter', is_scored: false } }] : []),
+        ...Array.from({ length: count }, (_, i) => ({ st: { ...sheet, canvas_role: 'LETTER' as const, block_number: i + 1 }, canvas: letter })),
+      ];
+    } else {
+      const canvases = { ILT: await canvasFor('ILT'), NOTEBOOK: await canvasFor('NOTEBOOK') };
+      const warmup = setting(settings, 'ilt.warmup.enabled', true);
+      const steps = template.steps.filter((st) => warmup || st.step_type !== 'WARMUP_BLOCK');
+      for (const st of steps) {
+        if ((st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK') && !canvases[st.canvas_role]) {
+          return reply.status(409).send({ error: { code: 'NO_CANVAS', message_key: 'sessions.no_canvas', details: { role: st.canvas_role } } });
+        }
+        if (st.canvas_role === 'LETTER') {
+          return reply.status(409).send({ error: { code: 'NO_LETTER_SET', message_key: 'sessions.no_letter_set', details: {} } });
+        }
       }
+      planned = steps.map((st) => ({ st, canvas: st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK' ? canvases[st.canvas_role] : undefined }));
     }
 
     const created = await inTransaction(app.deps.db, async (q) => {
       const session = await one<{ id: string; session_code: string }>(
         q,
         `INSERT INTO sessions (session_code, participant_id, evaluator_id, domain_id, region_id, language_code, session_type,
-           protocol_template_id, settings_snapshot, age_months, purpose, research_approval_id, video_enabled)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, session_code`,
+           protocol_template_id, settings_snapshot, age_months, purpose, research_approval_id, video_enabled, intervention_kind, intervention_canvas_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id, session_code`,
         [newSessionCode(), participant_id, user.sub, participant.domain_id, regionId, language_code, session_type,
-          template.id, JSON.stringify(settings), ageInMonths(participant.birth_year_month, new Date()), purpose, researchApprovalId, videoEnabled],
+          template.id, JSON.stringify(settings), ageInMonths(participant.birth_year_month, new Date()), purpose, researchApprovalId, videoEnabled,
+          kind, letter?.id ?? null],
       );
-      for (const [index, st] of steps.entries()) {
-        const canvas = st.canvas_role === 'ILT' || st.canvas_role === 'NOTEBOOK' ? canvases[st.canvas_role]! : undefined;
+      for (const [index, { st, canvas }] of planned.entries()) {
         const profile = canvas?.default_scoring_profile ?? null;
         const fillOrder = canvas ? (profile?.fill_order.length ? profile.fill_order : fillOrderFor(canvas.geometry.boxes, fillDirection)) : null;
         await q.query(
           `INSERT INTO session_steps (session_id, step_index, step_type, label_key, block_number, is_scored, canvas_id,
              mirrored, fill_order, canvas_profile_snapshot, video_key)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          // Real letters are never mirrored (FR-CAN-13 is about the invented ILT letter).
           [session!.id, index, st.step_type, st.label_key, st.block_number ?? null, st.is_scored, canvas?.id ?? null,
-            canvas ? mirrored : false, fillOrder ? JSON.stringify(fillOrder) : null, profile ? JSON.stringify(profile) : null,
+            canvas && st.canvas_role !== 'LETTER' ? mirrored : false, fillOrder ? JSON.stringify(fillOrder) : null, profile ? JSON.stringify(profile) : null,
             st.video_key ?? null],
         );
       }
       return session!;
     });
 
+    const what = letter ? `, ${kind === 'TRAINING' ? 'training' : 'retention'} of ${letter.code}` : '';
     app.appLog.write({
       severity: 'INFO', event_type: 'session.created', actor_user_id: user.sub, actor_role: user.role,
       domain_id: participant.domain_id, region_id: regionId, session_id: created.id, entity_type: 'session', entity_id: created.id,
-      message: `Session ${created.session_code} (${session_type}, ${language_code}${purpose === 'RESEARCH' ? ', research' : ''}) created for ${participant.study_code}`,
-      details: { session_type, language_code, purpose, research_approval_id: researchApprovalId, video_enabled: videoEnabled, template: templateCode, steps: steps.length },
+      message: `Session ${created.session_code} (${session_type}, ${language_code}${purpose === 'RESEARCH' ? ', research' : ''}${what}) created for ${participant.study_code}`,
+      details: {
+        session_type, language_code, purpose, research_approval_id: researchApprovalId, video_enabled: videoEnabled, template: templateCode, steps: planned.length,
+        ...(letter && { intervention_kind: kind, letter: letter.code }),
+      },
     });
     return reply.status(201).send(created);
   });

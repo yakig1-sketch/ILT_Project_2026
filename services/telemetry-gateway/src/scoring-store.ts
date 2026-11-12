@@ -76,8 +76,8 @@ export async function scoreAttempt(db: Queryable, input: ScoreInput): Promise<{ 
     const total = raw.length ? (raw[raw.length - 1]!.end_us - raw[0]!.start_us) / 1000 : null;
     const active = raw.reduce((s, x) => s + (x.end_us - x.start_us), 0) / 1000;
     await db.query(
-      `UPDATE block_attempts SET raw_stroke_count = $2, total_time_ms = $3, active_writing_time_ms = $4, air_time_ms = $5 WHERE id = $1`,
-      [input.attemptId, raw.length, total === null ? null : Math.round(total), Math.round(active), total === null ? null : Math.round(Math.max(0, total - active))],
+      `UPDATE block_attempts SET raw_stroke_count = $2, total_time_ms = $3, active_writing_time_ms = $4, air_time_ms = $5, pen_lifts = $6 WHERE id = $1`,
+      [input.attemptId, raw.length, total === null ? null : Math.round(total), Math.round(active), total === null ? null : Math.round(Math.max(0, total - active)), strokes.length],
     );
     return {
       score_version: null,
@@ -93,9 +93,9 @@ export async function scoreAttempt(db: Queryable, input: ScoreInput): Promise<{ 
   const version = await inTransaction(db, async (q) => {
     await q.query(
       `UPDATE block_attempts SET raw_stroke_count = $2, total_time_ms = $3, active_writing_time_ms = $4, air_time_ms = $5,
-              last_box_completed = $6, skipped_boxes = $7 WHERE id = $1`,
+              last_box_completed = $6, skipped_boxes = $7, pen_lifts = $8 WHERE id = $1`,
       [input.attemptId, r.raw_stroke_count, r.total_time_ms === null ? null : Math.round(r.total_time_ms), Math.round(r.active_writing_time_ms),
-        r.air_time_ms === null ? null : Math.round(r.air_time_ms), r.last_box_completed, r.skipped_boxes],
+        r.air_time_ms === null ? null : Math.round(r.air_time_ms), r.last_box_completed, r.skipped_boxes, r.pen_lifts],
     );
     for (const l of r.letters) {
       await q.query(

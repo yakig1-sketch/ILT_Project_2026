@@ -66,6 +66,7 @@ const s: Record<string, CSSProperties> = {
   },
   nextButtonOff: { background: '#d0d7de', color: '#8c959f', cursor: 'default' },
   referenceBar: { background: '#fff3cd', borderBlockEnd: '2px solid #bf8700', color: '#5c3d00' },
+  fullscreen: { position: 'fixed', insetBlockEnd: '0.75rem', insetInlineStart: '0.75rem', zIndex: 2, fontSize: '1.1rem', fontWeight: 600, paddingBlock: '0.6rem', paddingInline: '1.1rem', borderRadius: '0.6rem', border: '2px solid #0969da', background: '#fff', color: '#0969da' },
   banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem', zIndex: 2 },
   overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem', zIndex: 1 },
   countdown: { fontSize: '1.6rem', fontWeight: 600 },
@@ -81,6 +82,27 @@ function enterFullscreen() {
   const el = document.documentElement;
   if (document.fullscreenElement || !el.requestFullscreen) return;
   el.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+}
+
+/**
+ * The browser leaves full screen when the tablet sleeps or the page reloads, and only a tap can bring
+ * it back. While it is out, a button outside the canvas says so (a stroke on the canvas never counts).
+ */
+function FullscreenButton({ label }: { label: string }) {
+  const [full, setFull] = useState(() => !!document.fullscreenElement);
+  useEffect(() => {
+    const update = () => setFull(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      document.removeEventListener('fullscreenchange', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
+  if (full || !document.documentElement.requestFullscreen) return null;
+  return (
+    <button type="button" style={s.fullscreen} onClick={enterFullscreen} data-testid="kiosk-fullscreen">⛶ {label}</button>
+  );
 }
 
 export function App() {
@@ -219,7 +241,12 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
     return () => document.removeEventListener('pointerup', onUp);
   }, [writing]);
 
-  const banner = !session.gatewayConnected && <div style={s.banner} role="status">{t('kiosk.connection_lost')}</div>;
+  const banner = (
+    <>
+      {!session.gatewayConnected && <div style={s.banner} role="status">{t('kiosk.connection_lost')}</div>}
+      <FullscreenButton label={t('kiosk.full_screen')} />
+    </>
+  );
 
   if (ended || state.name === 'DONE') {
     return <div style={s.screen}>{t('kiosk.session_done')}</div>;
@@ -283,7 +310,8 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
 
 function blockLabel(t: (key: string, o: Record<string, unknown>) => string, step: Dispatch): string | null {
   if (!step.block_number || !step.block_count) return null;
-  const key = step.step_type === 'WARMUP_BLOCK' ? 'kiosk.warmup_of' : step.step_type === 'NOTEBOOK_PAGE' ? 'kiosk.page_of' : 'kiosk.block_of';
+  const key = step.step_type === 'WARMUP_BLOCK' ? 'kiosk.warmup_of' : step.step_type === 'NOTEBOOK_PAGE' ? 'kiosk.page_of'
+    : step.step_type === 'INTERVENTION_SHEET' ? 'kiosk.sheet_of' : 'kiosk.block_of';
   return t(key, { n: step.block_number, total: step.block_count });
 }
 

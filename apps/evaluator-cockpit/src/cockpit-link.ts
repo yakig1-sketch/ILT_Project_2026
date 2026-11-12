@@ -91,6 +91,9 @@ export class CockpitLink {
       },
       onStatus: (connected) => {
         this.gatewayConnected = connected;
+        // Without the server the tablet's state is unknown: show it as not connected until the
+        // next PEER_STATUS after reconnecting (the direct mirror link may outlive the server).
+        if (!connected) this.tabletConnected = false;
         this.emit();
       },
     });
