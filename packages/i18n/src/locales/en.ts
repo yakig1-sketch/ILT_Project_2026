@@ -815,6 +815,7 @@ export const en: LocaleShape = {
         canvas_reference_recorded: 'Reference recorded',
         canvas_reference_accepted: 'Reference accepted',
         canvas_reference_cleared: 'Reference cleared',
+        canvas_reference_ended: 'Reference run ended without a recording',
         video_uploaded: 'Video uploaded',
         video_retired: 'Video retired',
         scores_recomputed: 'Scores recomputed',

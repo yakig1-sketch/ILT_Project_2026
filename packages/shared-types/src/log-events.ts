@@ -75,6 +75,7 @@ export const LOG_EVENT_TYPES = [
   'canvas.reference.recorded',
   'canvas.reference.accepted',
   'canvas.reference.cleared',
+  'canvas.reference.ended',
   'video.uploaded',
   'video.retired',
   // scores and data

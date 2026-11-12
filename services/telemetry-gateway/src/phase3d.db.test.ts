@@ -185,6 +185,12 @@ describe.skipIf(!DB_URL)('Phase 3d reference mode against the database', () => {
     const v2 = await as<{ id: string }>(`/canvases/${draft.body.id}/versions`, 'POST');
     expect((await as(`/canvases/${v2.body.id}`, 'DELETE')).body).toEqual({ deleted: true });
 
+    // ---- A sample block finished with nothing written: no recording, an error to the cockpit, a WARN in the log.
+    start({ canvas_id: draft.body.id, kind: 'SAMPLE_BLOCK_FILL', domain_id: domainId });
+    const emptyRun = await dispatched();
+    await write(tablet, station.body.id, emptyRun, []);
+    expect(((await cockpit.next(isEvent('ERROR'))) as { payload: { code: string } }).payload.code).toBe('EMPTY_RECORDING');
+
     // ---- Closing the station turns the tablet away.
     const closed = new Promise<number>((resolve) => tablet.ws.once('close', (c) => resolve(c)));
     expect((await as(`/reference/stations/${station.body.id}`, 'DELETE')).body).toEqual({ closed: true });
@@ -195,6 +201,6 @@ describe.skipIf(!DB_URL)('Phase 3d reference mode against the database', () => {
     const logged = (await pool.query(
       `SELECT DISTINCT event_type FROM app_events WHERE event_type LIKE 'canvas.reference.%' AND actor_user_id = (SELECT id FROM users WHERE email = $1)`, [admin.email],
     )).rows.map((r) => r.event_type);
-    expect(logged.sort()).toEqual(['canvas.reference.accepted', 'canvas.reference.cleared', 'canvas.reference.paired', 'canvas.reference.recorded', 'canvas.reference.started']);
+    expect(logged.sort()).toEqual(['canvas.reference.accepted', 'canvas.reference.cleared', 'canvas.reference.ended', 'canvas.reference.paired', 'canvas.reference.recorded', 'canvas.reference.started']);
   });
 });

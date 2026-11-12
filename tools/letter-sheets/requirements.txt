@@ -1,0 +1,4 @@
+pymupdf==2.1.*
+scikit-image==0.26.*
+pillow==13.*
+numpy==2.*

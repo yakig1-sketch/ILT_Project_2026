@@ -235,6 +235,11 @@ export function ReferencePanel({ canvas, recordings, domains, approvalOn, onChan
                 </select>
               </label>
               <button style={ui.button} disabled={!canRecord} onClick={() => start('SAMPLE_BLOCK_FILL')} data-testid="reference-sample">{t('admin.reference.record_sample')}</button>
+            </div>
+          )}
+          {/* Rows and writer belong to the normal-speed recording only; a sample block is always the whole canvas. */}
+          {scoredCanvas && canvas.status !== 'RETIRED' && (
+            <div style={{ ...ui.row, alignItems: 'end' }}>
               <label style={ui.field}>
                 {t('admin.reference.rows')}
                 <input type="number" min={1} max={3} value={rows} style={{ inlineSize: '4rem' }} onChange={(e) => setRows(Math.min(3, Math.max(1, Number(e.target.value) || 1)))} />

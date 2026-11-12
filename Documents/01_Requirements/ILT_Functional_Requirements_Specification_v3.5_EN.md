@@ -78,6 +78,17 @@ A **canvas** is the page the child writes on: an ILT grid, a notebook page, or a
   - **Notebook lines**, in different styles (solid, dashed, dotted; weight; colour; spacing), including the authentic school-notebook ruling.
   - Optionally a **background image** (for example a scanned letter sheet), placed at true size.
 - **FR-CAN-5** Intervention canvases also hold, per box: the letter, the row type (row 1 trace over model with dots; row 2 start dot only; row 3 freehand), the model path used for the similarity hint, and whether **pen lifts are allowed inside the letter** (multi-stroke letters; seeded for ה ק ח ת א).
+  - *Phase 5a design:*
+    - The Hebrew intervention set holds Draft canvases for ה ח ק ת, measured from the clinical team's letter sheets.
+    - The tablet shows each sheet like the paper (owner decisions 2026-11-12):
+      - **Row 1:** the first box shows the model letter in light blue with its dots, and the child traces over it. The other four boxes show only the dots where each pen stroke starts, turns and ends.
+      - **Row 2:** the start dot only.
+      - **Row 3:** empty.
+    - The model letter and its pen strokes are taken from the sheet.
+    - The canvases stay Draft until the team checks them on a tablet:
+      - dot positions and stroke order (for example ח, whose sheet has one start dot for both strokes);
+      - then a normal speed is recorded per letter.
+    - א has no sheet yet.
 - **FR-CAN-6** The system validates a loaded canvas (it must fit the tablet screen at true size, dots must lie inside their boxes, ids must be unique) and shows a **true-size preview** on a paired tablet before activation.
 
 ### 5.3 Scoring profile and reference recordings

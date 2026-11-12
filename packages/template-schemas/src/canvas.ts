@@ -42,8 +42,16 @@ export const LetterCellSchema = z.object({
   box_id: z.number().int(),
   row_type: z.enum(ROW_TYPES),
   letter: z.string().min(1).max(8),
+  /** Dots in writing order (stroke starts, ends and corners); relative to the box, and may lie below it for a descender. */
   dots: z.array(DotSchema),
+  /** The model's centre line as one polyline (all strokes joined), for the similarity hint. */
   model_path: z.array(point).default([]),
+  /** The model's centre line per pen stroke, in writing order (Phase 5a). */
+  model_strokes: z.array(z.array(point)).default([]),
+  /** The model letter's filled outline (one polygon per stroke), drawn where `show_model` is set. */
+  model_outline: z.array(z.array(point)).default([]),
+  /** Show the model letter in this box for the child to trace over (row 1's first box on the sheets). */
+  show_model: z.boolean().default(false),
   allow_internal_lifts: z.boolean().default(false),
 });
 export type LetterCell = z.infer<typeof LetterCellSchema>;
@@ -141,13 +149,30 @@ export function mirrorCanvas(geometry: CanvasGeometry): CanvasGeometry {
     dots: geometry.dots.map((d) => ({ ...d, x: boxW - d.x })),
     letters: geometry.letters.map((l) => {
       const w = boxById.get(l.box_id)?.w ?? boxW;
+      const flip = (pts: [number, number][]) => pts.map(([x, y]) => [w - x, y] as [number, number]);
       return {
         ...l,
         dots: l.dots.map((d) => ({ ...d, x: w - d.x })),
-        model_path: l.model_path.map(([x, y]) => [w - x, y] as [number, number]),
+        model_path: flip(l.model_path),
+        model_strokes: l.model_strokes.map(flip),
+        model_outline: l.model_outline.map(flip),
       };
     }),
   };
+}
+
+/**
+ * An intervention letter's dot fits when it is inside its box, or (the end of a descender, as on ק)
+ * below the box within its width, on the canvas and not inside another box.
+ */
+function letterDotFits(geometry: CanvasGeometry, box: Box, d: Dot): boolean {
+  if (d.x < 0 || d.x > box.w) return false;
+  if (d.y >= 0 && d.y <= box.h) return true;
+  if (d.y < box.h) return false;
+  const ax = box.x + d.x;
+  const ay = box.y + d.y;
+  if (ay > geometry.size.height) return false;
+  return !geometry.boxes.some((b) => b.id !== box.id && ax >= b.x && ax <= b.x + b.w && ay >= b.y && ay <= b.y + b.h);
 }
 
 export interface CanvasIssue {
@@ -186,7 +211,7 @@ export function validateCanvas(
   for (const l of geometry.letters) {
     const box = geometry.boxes.find((b) => b.id === l.box_id);
     for (const d of l.dots) {
-      if (!box || d.x < 0 || d.x > box.w || d.y < 0 || d.y > box.h) {
+      if (!box || !letterDotFits(geometry, box, d)) {
         issues.push({ code: 'DOT_OUTSIDE_BOX', message: `Dot ${d.id} of letter in box ${l.box_id} lies outside its box` });
       }
     }

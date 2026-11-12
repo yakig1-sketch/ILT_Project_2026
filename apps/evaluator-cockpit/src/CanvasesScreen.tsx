@@ -607,7 +607,15 @@ function Preview({ geometry, profile }: { geometry: CanvasGeometry; profile: Sco
   const [zoom, setZoom] = useState<'fit' | 'true' | 'big'>('fit');
   const [showOrder, setShowOrder] = useState(true);
   const [boxW, setBoxW] = useState(800);
-  const pxPerMm = zoom === 'true' ? SCREEN_PX_PER_MM : zoom === 'big' ? SCREEN_PX_PER_MM * 2 : Math.max(1, (boxW - 24) / geometry.size.width);
+  const [viewH, setViewH] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setViewH(window.innerHeight);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // Fit both ways: the preview box is at most 70% of the window high (s.preview).
+  const fitPx = Math.min((boxW - 24) / geometry.size.width, (viewH * 0.7 - 24) / geometry.size.height);
+  const pxPerMm = zoom === 'true' ? SCREEN_PX_PER_MM : zoom === 'big' ? SCREEN_PX_PER_MM * 2 : Math.max(1, fitPx);
   const order = profile?.fill_order.length ? profile.fill_order : null;
   const position = new Map((order ?? []).map((boxId, i) => [boxId, i + 1]));
   const fits = geometry.size.width <= DTH_A116.SCREEN_W_MM && geometry.size.height <= DTH_A116.SCREEN_H_MM;
@@ -638,10 +646,14 @@ function Preview({ geometry, profile }: { geometry: CanvasGeometry; profile: Sco
               if (!b) return null;
               return (
                 <g key={l.box_id} transform={`translate(${b.x} ${b.y})`}>
-                  {l.model_path.length > 1 && (
-                    <polyline points={l.model_path.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="#8c959f" strokeWidth={0.4} strokeDasharray="1 0.8" />
-                  )}
-                  {l.dots.map((d) => <circle key={d.id} cx={d.x} cy={d.y} r={(d.diameter_mm ?? 2.6) / 2} fill="#000" />)}
+                  {/* The model's centre line, one line per pen stroke (the letter and its dots are drawn by the canvas). */}
+                  {(l.model_strokes.length ? l.model_strokes : [l.model_path]).filter((s) => s.length > 1).map((s, i) => (
+                    <polyline key={i} points={s.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="#8c959f" strokeWidth={0.4} strokeDasharray="1 0.8" />
+                  ))}
+                  {showOrder && l.dots.map((d) => (
+                    // A dot on the canvas's top edge gets its number beside it, so the number stays on the canvas.
+                    <text key={d.id} x={d.x + 1.3} y={b.y + d.y < 2.5 ? d.y + 0.8 : d.y - 0.8} fontSize={2.2} fill="#cf222e">{d.id}</text>
+                  ))}
                   <text x={1} y={b.h - 1} fontSize={3} fill="#57606a">{l.letter}</text>
                 </g>
               );
@@ -673,7 +685,8 @@ function ProfileForm({ geometry, profile, base, editable, onChange }: {
 }) {
   const { t } = useTranslation();
   const ids = Object.keys(profile.dots);
-  const printed = (id: string) => geometry.dots.find((d) => d.id === id)?.diameter_mm;
+  // ILT dots repeat in every box; a letter sheet's dots belong to its letters.
+  const printed = (id: string) => (geometry.dots.find((d) => d.id === id) ?? geometry.letters.flatMap((l) => l.dots).find((d) => d.id === id))?.diameter_mm;
   const total = ids.reduce((n, id) => n + Number(profile.dots[id]!.weight_pct || 0), 0);
   const diff = (a: unknown, b: unknown) => !!base && JSON.stringify(a) !== JSON.stringify(b);
   const mark = (changed: boolean): CSSProperties => (changed ? s.changed : {});

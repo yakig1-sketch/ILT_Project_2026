@@ -680,6 +680,12 @@ export class Hub {
         if (ref.run && !ref.run.complete) return this.error(socket, env.message_id, 'BLOCK_ACTIVE', 'Finish the canvas on the tablet first');
         const canvas = await loadReferenceCanvas(this.db, p.canvas_id, p.kind, p.domain_id ?? null);
         if ('message' in canvas) return this.error(socket, env.message_id, canvas.code, canvas.message);
+        // A finished recording whose samples never all arrived is dropped by the new run: say so in the log.
+        if (ref.run?.complete && ref.run.kind !== 'PREVIEW') {
+          const old = ref.run;
+          this.logReferenceEnd(old, 'SAMPLES_MISSING',
+            `${[...old.batches.values()].flat().length} of ${old.complete!.sample_count} samples arrived before the next run started`);
+        }
         ref.attempt = (ref.attempt % 255) + 1;
         const rows = p.kind === 'NORMAL_SPEED' ? (p.rows ?? 1) : 0;
         const payloadOut = ControlPayloads.DISPATCH_STEP.parse({
@@ -731,6 +737,7 @@ export class Hub {
           return;
         }
         ref.run = undefined;
+        if (run.kind !== 'PREVIEW') this.logReferenceEnd(run, 'TABLET_RESTARTED', 'the tablet restarted and lost the canvas');
         this.toCockpits(stationId, controlMessage('BLOCK_INTERRUPTED', { step_index: 0, attempt_number: run.attempt, reason: 'TABLET_RESTARTED' }));
         return;
       }
@@ -754,6 +761,17 @@ export class Hub {
     if (env.event === 'BLOCK_COMPLETE' && run?.complete) await this.finishReference(stationId, run);
   }
 
+  /** A recording run that ended without a recording, so the log shows why nothing came back. */
+  private logReferenceEnd(run: ReferenceRun, reason: 'EMPTY_RECORDING' | 'TABLET_RESTARTED' | 'SAMPLES_MISSING', why: string) {
+    const what = run.kind === 'SAMPLE_BLOCK_FILL' ? 'Sample block' : 'Normal speed sample';
+    this.log({
+      severity: 'WARN', event_type: 'canvas.reference.ended', actor_user_id: run.by.sub, actor_role: run.by.role,
+      entity_type: 'canvas', entity_id: run.canvas.id,
+      message: `${what} on ${run.canvas.code} v${run.canvas.version} ended without a recording: ${why}`,
+      details: { kind: run.kind, code: run.canvas.code, version: run.canvas.version, reason },
+    });
+  }
+
   /**
    * Once every sample of a finished run is in: a preview ends there; a recording is checked
    * (SHA-256), its values derived with the scoring code, stored PENDING and sent to the cockpit.
@@ -767,6 +785,7 @@ export class Hub {
     if (run.kind === 'PREVIEW') return;
     const ordered = [...new Map(received.map((x) => [x.sample_seq, x])).values()].sort((a, b) => a.sample_seq - b.sample_seq);
     if (ordered.length === 0) {
+      this.logReferenceEnd(run, 'EMPTY_RECORDING', 'nothing was written on the tablet');
       this.toCockpits(stationId, controlMessage('ERROR', { code: 'EMPTY_RECORDING', message: 'Nothing was written on the tablet' }));
       return;
     }

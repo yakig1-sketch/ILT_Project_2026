@@ -295,6 +295,13 @@ Per-canvas factors (dot order, per-dot radius and weight, expected pen lifts, fi
 - `dots` at the top level are **relative to each box** and repeat in every box (ILT). Intervention sheets instead list dots per box inside `letters`.
 - `lines`: `{ "y": mm, "x1": mm, "x2": mm, "style": "SOLID|DASHED|DOTTED", "weight_mm": 0.3, "color": "#1565c0", "role": "BASE|MID|TOP|MARGIN" }`.
 - `letters` (intervention): `{ "box_id": 0, "row_type": "TRACE_MODEL|START_DOT|FREEHAND", "letter": "ט", "dots": [{ "id": "1", "x":, "y":, "role": "START" }], "model_path": [[x,y],…], "allow_internal_lifts": false }`.
+  - *Phase 5a* adds three fields:
+    - `model_strokes`: the centre line per pen stroke, in writing order.
+    - `model_outline`: the model letter's filled outline, one polygon per stroke.
+    - `show_model`: draw the outline in this box for the child to trace over, as in row 1's first box on the paper sheets.
+  - `dots` are in writing order: each stroke's start, any corner, then its end.
+  - A letter's dot may lie **below** its box (the end of a descender, as on ק), within the box's width, on the canvas and not inside another box.
+  - The tablet, the cockpit mirror and the canvas preview draw the letters' dots as rings with a centre point, as on the paper, and the shown model in light blue (`CanvasView`).
 - `background`: `{ "asset_key": "canvases/<id>/bg.png", "x": 0, "y": 0, "width": mm, "height": mm }`.
 - **Mirroring** (language setting) is applied by the gateway when dispatching: for every dot, `x' = box.w − x`; `model_path` mirrored the same way. The stored canvas never changes.
 - **Validation:** size fits the tablet's screen at true size (DTH-A116: 211 × 132 mm, `DTH_A116.SCREEN_W_MM/SCREEN_H_MM`); every dot inside its box; unique ids; at least one box; fill order is a permutation of the box ids; for scored canvases a valid profile whose dots are on the canvas (`validateProfile`).
@@ -1030,7 +1037,11 @@ The seed is a TypeScript script, not literal SQL hashes:
 | Device | `TAB-01`, DTH-A116, 5.195 px/mm, DPR 1.75 |
 | Setting definitions | The full §6.2 catalogue with defaults; no setting values (everything inherits defaults) |
 | Ethics | `INTERVENTION_PROGRAM` (Chief Scientist, reference to be entered); `PREVIOUS_IRB` 287/8918/2015. No `RESEARCH` row until approval |
-| Canvas sets and canvases | he: ILT set → `ILT_3X5_HE` (ACTIVE, geometry from `ILT_Day1_Grid_Geometry.json` v3, profile §7.2 with RTL fill order); NOTEBOOK set → `NOTEBOOK_HE` (ACTIVE, 3 writing rows × 5 letters on school-notebook ruling); INTERVENTION_LETTERS set → letter sheets as DRAFT until the dot positions are measured and checked. en: `ILT_3X5_EN` (same geometry, LTR fill order `[0..14]`), `NOTEBOOK_EN` |
+| Canvas sets and canvases | he: ILT set → `ILT_3X5_HE` (ACTIVE, geometry from `ILT_Day1_Grid_Geometry.json` v3, profile §7.2 with RTL fill order); NOTEBOOK set → `NOTEBOOK_HE` (ACTIVE, 3 writing rows × 5 letters on school-notebook ruling); INTERVENTION_LETTERS set → *Phase 5a:* `LETTER_HE_HE`, `LETTER_HE_QOF`, `LETTER_HE_HET`, `LETTER_HE_TAV` as **DRAFT**.
+  - They are measured from the clinical team's sheets by `tools/letter-sheets` into `Documents/05_Measures/Intervention_Letters/*.json`, each with a check image.
+  - The seed checks each file against the schemas and loads it.
+  - They are activated after the team checks them on a tablet.
+  - א has no sheet yet. en: `ILT_3X5_EN` (same geometry, LTR fill order `[0..14]`), `NOTEBOOK_EN` |
 | Protocol templates | `DAY_1`, `DAY_2`, `DAY_14`, `INTERVENTION` as in FRS §6 |
 | Instruction videos | `intro` / `he` v1 ACTIVE: uploaded to S3 storage from `Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4` (1:19, Hebrew female voice-over), SHA-256 computed at seed time. `notebook_demo` / `he` v1 ACTIVE: from `Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4` (0:31). No English videos yet (FRS FR-PLAN-8 applies) |
 
@@ -1129,7 +1140,7 @@ Day 1 template steps:
 | telemetry | `telemetry.batch.rejected` (CRC/format), `telemetry.integrity.failed`, `telemetry.box_mismatch` |
 | intervention | `intervention.mark.suggested`, `intervention.mark.changed` (old/new) |
 | settings | `settings.value.changed` (old/new/approver), `settings.value.removed`, `settings.override.changed` |
-| canvases | `canvas.set.created`, `canvas.set.updated`, `canvas.uploaded`, `canvas.updated`, `canvas.deleted`, `canvas.version.created`, `canvas.validated`, `canvas.activated` (with the retired version and the approver), `canvas.retired`, `canvas.override.changed` (old/new patch, approver), `canvas.reference.paired`, `canvas.reference.started` (preview or recording sent to the tablet), `canvas.reference.recorded` (derived summary, integrity), `canvas.reference.accepted` (values, old/new profile or patch, approver), `canvas.reference.cleared` |
+| canvases | `canvas.set.created`, `canvas.set.updated`, `canvas.uploaded`, `canvas.updated`, `canvas.deleted`, `canvas.version.created`, `canvas.validated`, `canvas.activated` (with the retired version and the approver), `canvas.retired`, `canvas.override.changed` (old/new patch, approver), `canvas.reference.paired`, `canvas.reference.started` (preview or recording sent to the tablet), `canvas.reference.recorded` (derived summary, integrity), `canvas.reference.accepted` (values, old/new profile or patch, approver), `canvas.reference.cleared`, `canvas.reference.ended` (WARN: a recording run that ended without a recording: nothing written, the tablet restarted, or samples missing when the next run started) |
 | scores | `scores.recomputed` |
 | data | `data.export.created`, `data.export.downloaded`, `data.replay.opened`, `data.kinematics.opened`, `data.legacy.imported`, `data.paper_scores.entered` |
 | system | `system.error`, `system.service.started`, `system.service.stopped` |
@@ -1264,6 +1275,7 @@ Every response error uses `{ "error": { "code": "...", "message_key": "...", "de
 | Dev users | Hashes generated at seed time from environment variables |
 | Communication (Phase 1) | Control events routed through the gateway instead of a WebRTC `control-events` channel; WebRTC carries only the live mirror, with a gateway relay as fallback; new `BATCH_ACK`, `BLOCK_STORED`, `PEER_STATUS`, `TABLET_STATUS`, `BLOCK_INTERRUPTED`; first-message socket authentication; cockpit reconnect replays the running block; a tablet restart mid-block frees the step (§5.1); [Next block] on the tablet (`end_reason` NEXT_BLOCK) |
 | Capture (Phase 1) | Development builds also accept the mouse as a pen, for testing without the tablet; production builds accept the pen only |
+| Intervention letter canvases (Phase 5a) | `tools/letter-sheets/extract_letter_sheet.py` measures a clinical letter sheet (PDF): box frames and the model letter from its vector drawings, the dots from a 600 dpi render, each stroke's centre line, and the writing order. Output in `Documents/05_Measures/Intervention_Letters` (JSON plus a check image), loaded by the seed as Draft canvases for ה ח ק ת. Letter cells gain `model_strokes`, `model_outline` and `show_model` (§7.1); `CanvasView` draws the letters on the tablet, the mirror and the preview |
 | Legacy data and paper cohort (Phase 4d) | Administrator cockpit **Legacy data** tab: choose the old application's files, check (dry run), import, and see past imports. Participant record: the cohort, the legacy results (read-only), and for a PAPER child a score grid per stage and block. New participant form: Tablet or Paper cohort. Gateway `routes/legacy.ts`, analytics `legacy.py` (xlrd), migration 0007 (§9 note, §14) |
 | Research exports (Phase 4c) | Portal **Exports** tab: the research screen's filters, Parquet or CSV, optional pen samples and kinematics, the user's exports with status, size and Download. Gateway `/research/exports*` (§14) and migration 0006 (§9 note); analytics `exports.py` (DuckDB writer) and the `ilt-exports` bucket |
 | Kinematics (Phase 4b) | Analytics service: speed, jerk and pressure per stroke, letter and block (§8.9), reading the research views as `ilt_analyst`; gateway routes `/research/*/kinematics` (§14). Portal: a Kinematics table on the session page, and per block attempt the speed, jerk and pressure charts over time (letter highlight, crosshair readout), letters and strokes |

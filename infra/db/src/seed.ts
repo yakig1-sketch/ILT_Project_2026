@@ -1,11 +1,11 @@
 // Seeds reference data and dev accounts (DDD §10). Idempotent: safe to run again.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { CreateBucketCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { hash } from '@node-rs/argon2';
 import pg from 'pg';
-import { SETTING_DEFINITIONS } from '@ilt/shared-types';
-import { DEFAULT_PROTOCOLS, SEED_CANVASES } from '@ilt/template-schemas';
+import { DTH_A116, SETTING_DEFINITIONS } from '@ilt/shared-types';
+import { CanvasGeometrySchema, DEFAULT_PROTOCOLS, SEED_CANVASES, ScoringProfileSchema, validateCanvas, validateProfile } from '@ilt/template-schemas';
 import { REPO_ROOT, loadEnv, required } from './env.js';
 
 loadEnv();
@@ -20,6 +20,10 @@ const REGIONS: [string, string, string][] = [
   ['NORTH', 'מחוז צפון', 'Northern District'],
   ['SOUTH', 'מחוז דרום', 'Southern District'],
 ];
+
+const LETTERS_DIR = 'Documents/05_Measures/Intervention_Letters';
+/** The order the letters are listed in (the program's order is chosen by the evaluator). */
+const LETTER_ORDER = ['LETTER_HE_HE.json', 'LETTER_HE_QOF.json', 'LETTER_HE_HET.json', 'LETTER_HE_TAV.json'];
 
 const VIDEOS = [
   {
@@ -87,10 +91,18 @@ async function seedCanvases(): Promise<void> {
         c.profile ? JSON.stringify(c.profile) : null],
     );
   }
-  // Hebrew intervention letters: empty set until the letter sheets are measured and checked.
-  await client.query(`INSERT INTO canvas_sets (language_code, set_type, name_he, name_en)
+  // Hebrew intervention letters (Phase 5a): measured from the clinical team's sheets by
+  // tools/letter-sheets, loaded as Draft until the team checks them on a tablet and activates them.
+  const letterSet = (await client.query<{ id: string }>(`INSERT INTO canvas_sets (language_code, set_type, name_he, name_en)
     VALUES ('he', 'INTERVENTION_LETTERS', 'אותיות עבריות - תוכנית התערבות', 'Hebrew letters - intervention program')
-    ON CONFLICT (language_code, set_type, name_en) DO NOTHING`);
+    ON CONFLICT (language_code, set_type, name_en) DO UPDATE SET name_he = EXCLUDED.name_he RETURNING id`)).rows[0]!.id;
+  for (const [i, letter] of loadLetterCanvases().entries()) {
+    await client.query(
+      `INSERT INTO canvases (canvas_set_id, code, version, status, canvas_type, name_he, name_en, geometry, default_scoring_profile, sort_order)
+       VALUES ($1, $2, 1, 'DRAFT', 'INTERVENTION_SHEET', $3, $4, $5, $6, $7) ON CONFLICT (code, version) DO NOTHING`,
+      [letterSet, letter.code, letter.name_he, letter.name_en, JSON.stringify(letter.geometry), JSON.stringify(letter.profile), i],
+    );
+  }
 
   for (const t of DEFAULT_PROTOCOLS) {
     await client.query(
@@ -99,6 +111,19 @@ async function seedCanvases(): Promise<void> {
       [t.code, t.session_type, t.name_he, t.name_en, JSON.stringify(t.steps)],
     );
   }
+}
+
+/** The measured letter sheets, checked against the canvas and profile schemas. */
+function loadLetterCanvases() {
+  const dir = `${REPO_ROOT}${LETTERS_DIR}`;
+  return readdirSync(dir).filter((f) => f.endsWith('.json')).sort((a, b) => LETTER_ORDER.indexOf(a) - LETTER_ORDER.indexOf(b)).map((f) => {
+    const raw = JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as { code: string; name_he: string; name_en: string; geometry: unknown; profile: unknown };
+    const geometry = CanvasGeometrySchema.parse(raw.geometry);
+    const profile = ScoringProfileSchema.parse(raw.profile);
+    const issues = [...validateCanvas(geometry, { width_mm: DTH_A116.SCREEN_W_MM, height_mm: DTH_A116.SCREEN_H_MM }, profile.fill_order), ...validateProfile(geometry, profile)];
+    if (issues.length) throw new Error(`${f}: ${issues.map((x) => x.message).join('; ')}`);
+    return { code: raw.code, name_he: raw.name_he, name_en: raw.name_en, geometry, profile };
+  });
 }
 
 async function seedVideos(): Promise<void> {
@@ -145,7 +170,9 @@ async function seedDevUsers(): Promise<void> {
     await client.query(
       `INSERT INTO users (email, password_hash, full_name, role, director_pin_hash, domain_id)
        VALUES ($1, $2, $3, $4, $5, (SELECT id FROM domains WHERE code = 'GENERAL'))
-       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, director_pin_hash = EXCLUDED.director_pin_hash`,
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+         -- Only a Research Director holds a PIN; an account whose role was changed keeps what it has.
+         director_pin_hash = CASE WHEN users.role = 'RESEARCHER' THEN EXCLUDED.director_pin_hash ELSE users.director_pin_hash END`,
       [email, password, name, role, pinHash],
     );
   }

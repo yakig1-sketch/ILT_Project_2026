@@ -814,6 +814,7 @@ export const he = {
         canvas_reference_recorded: 'ייחוס הוקלט',
         canvas_reference_accepted: 'ייחוס אושר',
         canvas_reference_cleared: 'ייחוס נוקה',
+        canvas_reference_ended: 'הקלטת ייחוס הסתיימה בלי הקלטה',
         video_uploaded: 'סרטון הועלה',
         video_retired: 'סרטון הוצא משימוש',
         scores_recomputed: 'הציונים חושבו מחדש',

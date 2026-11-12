@@ -14,6 +14,7 @@ import {
   ScoringProfileSchema,
   mirrorCanvas,
   validateCanvas,
+  validateProfile,
 } from './index.js';
 
 const geometryFile = fileURLToPath(
@@ -66,6 +67,65 @@ describe('ILT seed canvas', () => {
   it('flags a dot outside its box', () => {
     const g = { ...ILT_GRID_GEOMETRY, dots: [{ id: 'A', x: 40, y: 2, diameter_mm: 2.6 }] };
     expect(validateCanvas(g, DTH_A116_SCREEN).some((i) => i.code === 'DOT_OUTSIDE_BOX')).toBe(true);
+  });
+});
+
+describe('intervention letter sheets (Phase 5a, measured from the clinical team\'s PDFs)', () => {
+  const load = (code: string) => {
+    const raw = JSON.parse(readFileSync(fileURLToPath(new URL(`../../../Documents/05_Measures/Intervention_Letters/${code}.json`, import.meta.url)), 'utf8'));
+    return { geometry: CanvasGeometrySchema.parse(raw.geometry), profile: ScoringProfileSchema.parse(raw.profile) };
+  };
+  const SCREEN = { width_mm: 211, height_mm: 132 };
+  const letters = { LETTER_HE_HE: 'ה', LETTER_HE_HET: 'ח', LETTER_HE_QOF: 'ק', LETTER_HE_TAV: 'ת' };
+
+  it.each(Object.entries(letters))('%s: 3 rows of 5 boxes that fit the tablet and validate', (code, letter) => {
+    const { geometry, profile } = load(code);
+    expect(geometry.canvas_type).toBe('INTERVENTION_SHEET');
+    expect(geometry.boxes).toHaveLength(15);
+    expect(validateCanvas(geometry, SCREEN, profile.fill_order)).toEqual([]);
+    expect(validateProfile(geometry, profile)).toEqual([]);
+    // Right to left, row by row; two strokes per letter, so 30 lifts per sheet.
+    expect(profile.fill_order).toEqual([4, 3, 2, 1, 0, 9, 8, 7, 6, 5, 14, 13, 12, 11, 10]);
+    expect(profile.expected_pen_lifts_per_block).toBe(30);
+    const rows = (t: string) => geometry.letters.filter((l) => l.row_type === t);
+    expect(rows('TRACE_MODEL').map((l) => l.box_id)).toEqual([0, 1, 2, 3, 4]);
+    expect(rows('START_DOT').every((l) => l.dots.length === 1 && l.dots[0]!.role === 'START')).toBe(true);
+    expect(rows('FREEHAND').every((l) => l.dots.length === 0)).toBe(true);
+    // The model is shown only in row 1's first box (right-most), as on the paper.
+    expect(geometry.letters.filter((l) => l.show_model).map((l) => l.box_id)).toEqual([4]);
+    expect(geometry.letters.every((l) => l.letter === letter && l.allow_internal_lifts && l.model_strokes.length === 2)).toBe(true);
+    // Every traced box has all of the profile's dots, numbered in writing order.
+    for (const l of rows('TRACE_MODEL')) expect(l.dots.map((d) => d.id)).toEqual(profile.dot_order);
+  });
+
+  it('starts row 2 about where row 1 starts (the sheets are hand-made: within 3 mm on average)', () => {
+    for (const code of Object.keys(letters)) {
+      const { geometry } = load(code);
+      const mean = (ids: number[]) => {
+        const ds = ids.map((id) => geometry.letters.find((l) => l.box_id === id)!.dots[0]!);
+        return [ds.reduce((s, d) => s + d.x, 0) / ds.length, ds.reduce((s, d) => s + d.y, 0) / ds.length] as const;
+      };
+      const [a, b] = [mean([0, 1, 2, 3, 4]), mean([5, 6, 7, 8, 9])];
+      expect(Math.hypot(a[0] - b[0], a[1] - b[1]), code).toBeLessThan(3);
+    }
+  });
+
+  it('accepts ק\'s descender dot below its box but not one inside the next row', () => {
+    const { geometry } = load('LETTER_HE_QOF');
+    expect(geometry.letters.find((l) => l.box_id === 0)!.dots.at(-1)!.y).toBeGreaterThan(geometry.boxes[0]!.h);
+    const moved = structuredClone(geometry);
+    moved.letters.find((l) => l.box_id === 0)!.dots.at(-1)!.y = geometry.boxes[5]!.y + 2;
+    expect(validateCanvas(moved, SCREEN).map((i) => i.code)).toContain('DOT_OUTSIDE_BOX');
+  });
+
+  it('mirrors the model and its strokes with the dots', () => {
+    const { geometry } = load('LETTER_HE_HE');
+    const m = mirrorCanvas(geometry);
+    const [a, b] = [geometry.letters[4]!, m.letters[4]!];
+    const w = geometry.boxes[4]!.w;
+    expect(b.model_outline[0]![0]![0]).toBeCloseTo(w - a.model_outline[0]![0]![0]);
+    expect(b.model_strokes[1]![0]![0]).toBeCloseTo(w - a.model_strokes[1]![0]![0]);
+    expect(b.dots[0]!.x).toBeCloseTo(w - a.dots[0]!.x);
   });
 });
 

@@ -47,6 +47,25 @@ export function CanvasView({
             ))}
           </g>
         ))}
+        {geometry.letters.map((l) => {
+          const b = geometry.boxes.find((x) => x.id === l.box_id);
+          if (!b) return null;
+          return (
+            <g key={`t${l.box_id}`} transform={`translate(${b.x} ${b.y})`} data-testid={`letter-${l.box_id}`}>
+              {/* The model letter to trace over, light enough that the child's ink stays visible. */}
+              {l.show_model && l.model_outline.map((poly, i) => (
+                <polygon key={i} points={poly.map(([x, y]) => `${x},${y}`).join(' ')} fill="#b9d3ec" />
+              ))}
+              {/* Dots as on the paper sheets: a ring with a centre point. */}
+              {l.dots.map((d) => (
+                <g key={d.id}>
+                  <circle cx={d.x} cy={d.y} r={d.diameter_mm / 2 - 0.15} fill="none" stroke="#555" strokeWidth={0.3} />
+                  <circle cx={d.x} cy={d.y} r={0.35} fill="#000" />
+                </g>
+              ))}
+            </g>
+          );
+        })}
       </svg>
       {children}
     </div>
