@@ -52,8 +52,11 @@ const local = (d: Date) => {
 const daysAgo = (n: number) => local(new Date(Date.now() - n * 86_400_000));
 const empty = (): Filter => ({ from: daysAgo(7), to: '', types: [], severity: [], user_id: '', session_code: '', domain_id: '', region_id: '', q: '' });
 
-/** The query string of a filter (times sent as UTC instants). */
-function query(f: Filter): URLSearchParams {
+/** Lower case with single spaces, for comparing free text with an event's displayed name. */
+const fold = (x: string) => x.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+
+/** The query string of a filter (times sent as UTC instants); `names` gives an event type's displayed names. */
+function query(f: Filter, names?: (type: string) => string[]): URLSearchParams {
   const p = new URLSearchParams();
   if (f.from) p.set('from', new Date(f.from).toISOString());
   if (f.to) p.set('to', new Date(f.to).toISOString());
@@ -63,7 +66,13 @@ function query(f: Filter): URLSearchParams {
   if (f.session_code.trim()) p.set('session_code', f.session_code.trim());
   if (f.domain_id) p.set('domain_id', f.domain_id);
   if (f.region_id) p.set('region_id', f.region_id);
-  if (f.q.trim()) p.set('q', f.q.trim());
+  if (f.q.trim()) {
+    p.set('q', f.q.trim());
+    // Free text also finds the entries whose event name contains it ("Paper scores entered").
+    const q = fold(f.q);
+    const types = names ? LOG_EVENT_TYPES.filter((type) => names(type).some((n) => fold(n).includes(q))) : [];
+    if (types.length) p.set('q_types', types.join(','));
+  }
   return p;
 }
 
@@ -113,6 +122,8 @@ export function LogScreen() {
   const [regions, setRegions] = useState<Group[]>([]);
   const when = useMemo(() => new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'medium' }), [i18n.language]);
   const label = (type: string) => t(`admin.log.event.${type.replace(/\./g, '_')}`, { defaultValue: type });
+  /** An event type's names in the current language and in English (an English name typed in Hebrew still finds it). */
+  const names = (type: string) => [label(type), i18n.t(`admin.log.event.${type.replace(/\./g, '_')}`, { lng: 'en', defaultValue: type })];
 
   useEffect(() => {
     api<Person[]>('/users').then((u) => setPeople([...u].sort((a, b) => a.full_name.localeCompare(b.full_name, i18n.language)))).catch(() => undefined);
@@ -127,7 +138,7 @@ export function LogScreen() {
     setBusy(true);
     setError(null);
     try {
-      const p = query(f);
+      const p = query(f, names);
       p.set('limit', String(PAGE));
       if (before) p.set('before', before);
       const next = await api<Page>(`/log/events?${p}`);
@@ -155,7 +166,7 @@ export function LogScreen() {
     setError(null);
     setNotice(null);
     try {
-      const file = await apiFile(`/log/events.csv?${query(applied)}`);
+      const file = await apiFile(`/log/events.csv?${query(applied, names)}`);
       saveFile(file.blob, file.filename);
       const rows = Number(file.headers.get('x-ilt-rows') ?? 0);
       const truncated = file.headers.get('x-ilt-truncated') === 'true';

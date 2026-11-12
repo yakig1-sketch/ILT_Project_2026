@@ -266,6 +266,17 @@ For each box: start and end time; contact path; for each dot the **closest dista
 
 - **FR-LEG-1** Import of the previous application's exports (sample files in `05_Measures/Samples`): Hand Raises → pen lifts; Segment Width → width; Total Time → total time; Writing Time and Air Time → active writing time and air time.
 - **FR-LEG-2** Manual entry of paper-cohort scores (pen lifts, accuracy, time per block) by evaluators.
+- *Phase 4d design:*
+  - **Legacy import** (System Administrator, Legacy data tab):
+    - The old application's .xls files, one measure each, are checked first. Nothing is written until the import.
+    - Each child is matched by the old application's number, or created as `LEG-<number>` in the chosen Domain. The files have no grade, gender, SES, school or birth month, so these stay "not recorded" until someone completes the record. The hand comes from L/R (1 right, 0 left, owner decision 2026-11-11).
+    - Importing again under the same session label updates the values.
+    - *Open question for the clinical team:* the old "Segment width" values are whole numbers from 0 to about 18 per block. They are stored as given, and their unit (millimetres, or a count of letters) is not yet confirmed.
+  - **Paper cohort:**
+    - A participant can be created in the Paper cohort.
+    - Their record has a grid for Day 1 ILT 1–8, Day 2 ILT 1–4 and Day 14 ILT 1–2: pen lifts, accurate letters (0–15), time in seconds and notes.
+    - Each save is logged with the old and new values.
+  - **Not yet shown elsewhere:** legacy and paper results appear on the participant record only, not yet in the Comparative Summary, the analyst portal or exports. Those need a decision on how to compare them with tablet scores, and on consent for the legacy data.
 
 ## 16. Non-functional requirements
 

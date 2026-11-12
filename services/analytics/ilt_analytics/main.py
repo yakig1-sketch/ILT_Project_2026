@@ -119,3 +119,45 @@ def create_export(req: ExportRequest, connect=Depends(get_connect), store=Depend
     ids = [str(i) for i in req.session_ids]
     with connect() as conn:
         return run_export(conn, store, str(req.export_id), ids, req.format, req.filters, req.include_samples, req.include_kinematics)
+
+
+class LegacyFile(BaseModel):
+    name: str = Field(max_length=255)
+    content_base64: str = Field(max_length=14_000_000)
+    measure: str | None = Field(default=None, pattern="^(HAND_RAISES|SEGMENT_WIDTH|TOTAL_TIME|WRITING_TIME|AIR_TIME)$")
+
+
+class LegacyParse(BaseModel):
+    files: list[LegacyFile] = Field(min_length=1, max_length=10)
+
+
+@app.post("/api/v1/legacy/parse")
+def legacy_parse(req: LegacyParse) -> dict:
+    """Reads the old application's measure files (FR-LEG-1) and returns the children and block values; writes nothing."""
+    import base64
+    import binascii
+
+    from .legacy import merge, parse_file
+
+    parsed = []
+    for f in req.files:
+        try:
+            content = base64.b64decode(f.content_base64, validate=True)
+        except (binascii.Error, ValueError):
+            parsed.append({"name": f.name, "measure": f.measure, "detected": None, "rows": 0, "blocks": 0, "children": {}, "warnings": [], "error": "not_base64"})
+            continue
+        parsed.append(parse_file(f.name, content, f.measure))
+    # The same measure in two files: neither can be trusted, so both are refused (the import is then blocked).
+    counts: dict[str, int] = {}
+    for p in parsed:
+        if not p.get("error") and p["measure"]:
+            counts[p["measure"]] = counts.get(p["measure"], 0) + 1
+    for p in parsed:
+        if not p.get("error") and p["measure"] and counts[p["measure"]] > 1:
+            p["error"] = "measure_twice"
+    result = merge(parsed)
+    return {
+        "files": [{k: v for k, v in p.items() if k != "children"} for p in parsed],
+        "children": result["children"],
+        "warnings": result["warnings"],
+    }

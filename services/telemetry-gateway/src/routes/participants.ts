@@ -25,6 +25,8 @@ const CreateParticipant = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
   ses_group: z.enum(['LOW', 'MID', 'HIGH']).nullable().default(null),
   dominant_hand: z.enum(['RIGHT', 'LEFT', 'AMBIDEXTROUS']),
+  /** TABLET (default) or PAPER (scores entered by hand, FR-LEG-2). LEGACY participants come only from the legacy import. */
+  cohort: z.enum(['TABLET', 'PAPER']).default('TABLET'),
 });
 
 /** Every field but the study code can change (FR-PART-1: the code is the participant's identity). */
@@ -159,15 +161,15 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
     const created = await one<{ id: string }>(
       db(),
       `INSERT INTO participants (study_code, domain_id, region_id, school_code_hmac, grade_level, gender, ses_group, dominant_hand,
-         birth_year_month, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+         birth_year_month, created_by, cohort)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
       [p.study_code, p.domain_id, p.region_id, schoolCodeHmac(app.deps.schoolHmacKey, school), p.grade_level, p.gender,
-        p.ses_group, p.dominant_hand, `${p.birth_year_month}-01`, user.sub],
+        p.ses_group, p.dominant_hand, `${p.birth_year_month}-01`, user.sub, p.cohort],
     );
     app.appLog.write({
       severity: 'INFO', event_type: 'participants.participant.created', actor_user_id: user.sub, actor_role: user.role,
       domain_id: p.domain_id, region_id: p.region_id, entity_type: 'participant', entity_id: created!.id,
-      message: `Participant ${p.study_code} created`, details: { study_code: p.study_code },
+      message: `Participant ${p.study_code} created`, details: { study_code: p.study_code, cohort: p.cohort },
     });
     return reply.status(201).send({ id: created!.id, ...p });
   });

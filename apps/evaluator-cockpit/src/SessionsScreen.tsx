@@ -57,7 +57,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
   const [research, setResearch] = useState<{ allowed: boolean; reason?: string } | null>(null);
   /** Session languages allowed by the participant's Domain (FR-LANG-5); both until a participant is chosen. */
   const [languages, setLanguages] = useState<string[]>(['he', 'en']);
-  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; ses_group: string | null; dominant_hand: string } | null>(null);
+  const [newP, setNewP] = useState<{ study_code: string; domain_id: number; region_id: number | null; school: string; birth_year_month: string; grade_level: string; gender: string; ses_group: string | null; dominant_hand: string; cohort: 'TABLET' | 'PAPER' } | null>(null);
   const thisMonth = new Date().toISOString().slice(0, 7);
 
   useEffect(() => {
@@ -153,7 +153,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
           <button
             type="button"
             style={ui.button}
-            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, school: '', birth_year_month: '', grade_level: 'GRADE_1', gender: 'FEMALE', ses_group: null, dominant_hand: 'RIGHT' })}
+            onClick={() => setNewP({ study_code: '', domain_id: domains[0]?.id ?? 1, region_id: null, school: '', birth_year_month: '', grade_level: 'GRADE_1', gender: 'FEMALE', ses_group: null, dominant_hand: 'RIGHT', cohort: 'TABLET' })}
           >
             + {t('cockpit.new_participant')}
           </button>
@@ -234,6 +234,13 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
               {t('cockpit.hand')}
               <select value={newP.dominant_hand} onChange={(e) => setNewP({ ...newP, dominant_hand: e.target.value })}>
                 {HANDS.map((v) => <option key={v} value={v}>{t(`enum.hand.${v}`)}</option>)}
+              </select>
+            </label>
+            <label style={ui.field} title={t('participants.cohort.hint')}>
+              {t('participants.cohort.label')}
+              <select value={newP.cohort} onChange={(e) => setNewP({ ...newP, cohort: e.target.value as 'TABLET' | 'PAPER' })} data-testid="new-participant-cohort">
+                <option value="TABLET">{t('participants.cohort.TABLET')}</option>
+                <option value="PAPER">{t('participants.cohort.PAPER')}</option>
               </select>
             </label>
             <button type="submit" style={ui.primary}>{t('common.create')}</button>

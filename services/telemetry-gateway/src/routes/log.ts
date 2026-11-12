@@ -27,6 +27,8 @@ const Filter = z.object({
   domain_id: z.coerce.number().int().positive().optional(),
   region_id: z.coerce.number().int().positive().optional(),
   q: z.string().trim().min(1).max(200).optional(),
+  /** Event types whose displayed name contains the free text (the cockpit resolves the names); with q, they match too. */
+  q_types: list(LOG_EVENT_TYPES).optional(),
 });
 type Filter = z.infer<typeof Filter>;
 
@@ -81,11 +83,17 @@ function where(f: Filter, values: unknown[] = []): { sql: string; values: unknow
   // Free text: every word must appear (search_text, DDD §12); a word may be the start of a token,
   // so "S2611" finds the session code S261105-JMZW. The text is split by the same parser that built
   // search_text, so a code like QA3F-01 (stored as 'qa3f' and the signed number '-01') is found too.
+  // The event's displayed name ("Legacy data imported") is not stored, so the cockpit sends the event
+  // types whose name contains the text as q_types, and an entry of one of those types matches as well.
   if (f.q && /[\p{L}\p{N}]/u.test(f.q)) {
-    add(
-      (n) => `e.search_text @@ (SELECT to_tsquery('simple', string_agg(quote_literal(lexeme) || ':*', ' & ')) FROM unnest(to_tsvector('simple', ${n})))`,
-      f.q.replace(/\\/g, ' '),
-    );
+    values.push(f.q.replace(/\\/g, ' '));
+    const text = `e.search_text @@ (SELECT to_tsquery('simple', string_agg(quote_literal(lexeme) || ':*', ' & ')) FROM unnest(to_tsvector('simple', $${values.length})))`;
+    if (f.q_types?.length) {
+      values.push(f.q_types);
+      c.push(`(${text} OR e.event_type = ANY($${values.length}::text[]))`);
+    } else {
+      c.push(text);
+    }
   }
   return { sql: c.length ? `WHERE ${c.join(' AND ')}` : '', values };
 }

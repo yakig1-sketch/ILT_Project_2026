@@ -19,6 +19,7 @@ import { referenceRoutes } from './routes/reference.js';
 import { settingsRoutes } from './routes/settings.js';
 import { userRoutes } from './routes/users.js';
 import { researchExportRoutes, type ExportFiles } from './routes/research-exports.js';
+import { legacyRoutes } from './routes/legacy.js';
 
 export interface AppDeps {
   db: Queryable;
@@ -88,6 +89,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(ethicsRoutes, { prefix: '/api/v1' });
   await app.register(researchRoutes, { prefix: '/api/v1' });
   await app.register(researchExportRoutes, { prefix: '/api/v1' });
+  await app.register(legacyRoutes, { prefix: '/api/v1' });
   await app.register(mediaRoutes, { prefix: '/api/v1' });
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.

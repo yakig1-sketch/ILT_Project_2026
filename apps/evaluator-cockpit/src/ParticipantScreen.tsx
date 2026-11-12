@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
 import { pill, ui } from './styles';
 import { BackButton } from './BackButton';
+import { LegacyResults, PaperScores } from './ParticipantResults';
 
 interface Consent {
   id: string;
@@ -23,11 +24,14 @@ interface Detail {
   study_code: string;
   domain_id: number;
   region_id: number | null;
-  grade_level: string;
-  gender: string;
+  /** Null only for a LEGACY child (not in the old application's files). */
+  grade_level: string | null;
+  gender: string | null;
   ses_group: string | null;
-  dominant_hand: string;
+  dominant_hand: string | null;
   birth_year_month: string | null;
+  cohort: 'TABLET' | 'PAPER' | 'LEGACY';
+  legacy_ref: string | null;
   is_active: boolean;
   has_school: boolean;
   created_at: string;
@@ -99,7 +103,10 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
     e.preventDefault();
     if (!edit) return;
     try {
-      const body = Object.fromEntries(Object.entries(edit).filter(([k, v]) => k !== 'school' || (typeof v === 'string' && v.trim() !== '')));
+      // An empty school keeps the current one; a legacy child's grade, gender, hand or birth month left
+      // "not recorded" is not sent (it stays not recorded).
+      const optional = ['school', 'grade_level', 'gender', 'dominant_hand', 'birth_year_month'];
+      const body = Object.fromEntries(Object.entries(edit).filter(([k, v]) => !optional.includes(k) || (typeof v === 'string' && v.trim() !== '')));
       const r = await api<{ changed: string[] }>(`/participants/${participantId}`, { method: 'PATCH', body });
       setEdit(null);
       done(r.changed.length ? 'participants.saved' : 'participants.no_changes');
@@ -150,11 +157,16 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
         <div style={s.head}>
           <h2 style={{ margin: 0, fontSize: '1.15rem' }}>{t('participants.record')}: <bdi dir="ltr">{p.study_code}</bdi></h2>
           {!p.is_active && <span style={pill('warn')}>{t('participants.deactivated')}</span>}
+          {p.cohort !== 'TABLET' && (
+            <span style={pill('off')} data-testid="participant-cohort">
+              {t(`participants.cohort.${p.cohort}`)}{p.cohort === 'LEGACY' && p.legacy_ref && <> · {t('participants.legacy.old_number', { n: p.legacy_ref })}</>}
+            </span>
+          )}
           <span style={ui.muted}>{t('participants.sessions', { count: p.sessions })}</span>
           <span style={{ flex: 1 }} />
           {!edit && p.is_active && (
             <button style={ui.button} data-testid="participant-edit"
-              onClick={() => { setNotice(null); setEdit({ domain_id: p.domain_id, region_id: p.region_id, grade_level: p.grade_level, gender: p.gender, ses_group: p.ses_group, dominant_hand: p.dominant_hand, birth_year_month: p.birth_year_month ?? '', school: '' }); }}>
+              onClick={() => { setNotice(null); setEdit({ domain_id: p.domain_id, region_id: p.region_id, grade_level: p.grade_level ?? '', gender: p.gender ?? '', ses_group: p.ses_group, dominant_hand: p.dominant_hand ?? '', birth_year_month: p.birth_year_month ?? '', school: '' }); }}>
               {t('participants.edit')}
             </button>
           )}
@@ -194,17 +206,19 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
               </label>
               <label style={ui.field}>
                 {t('cockpit.birth_month')}
-                <input required type="month" dir="ltr" min="2000-01" max={today().slice(0, 7)} value={String(edit.birth_year_month)} onChange={(e) => setEdit({ ...edit, birth_year_month: e.target.value })} />
+                <input required={p.cohort !== 'LEGACY'} type="month" dir="ltr" min="2000-01" max={today().slice(0, 7)} value={String(edit.birth_year_month)} onChange={(e) => setEdit({ ...edit, birth_year_month: e.target.value })} />
               </label>
               <label style={ui.field}>
                 {t('cockpit.grade')}
                 <select value={String(edit.grade_level)} onChange={(e) => setEdit({ ...edit, grade_level: e.target.value })}>
+                  {edit.grade_level === '' && <option value="">{t('participants.not_recorded')}</option>}
                   {GRADES.map((v) => <option key={v} value={v}>{t(`enum.grade.${v}`)}</option>)}
                 </select>
               </label>
               <label style={ui.field}>
                 {t('cockpit.gender')}
                 <select value={String(edit.gender)} onChange={(e) => setEdit({ ...edit, gender: e.target.value })}>
+                  {edit.gender === '' && <option value="">{t('participants.not_recorded')}</option>}
                   {GENDERS.map((v) => <option key={v} value={v}>{t(`enum.gender.${v}`)}</option>)}
                 </select>
               </label>
@@ -218,6 +232,7 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
               <label style={ui.field}>
                 {t('cockpit.hand')}
                 <select value={String(edit.dominant_hand)} onChange={(e) => setEdit({ ...edit, dominant_hand: e.target.value })}>
+                  {edit.dominant_hand === '' && <option value="">{t('participants.not_recorded')}</option>}
                   {HANDS.map((v) => <option key={v} value={v}>{t(`enum.hand.${v}`)}</option>)}
                 </select>
               </label>
@@ -235,10 +250,10 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
               ['cockpit.region', p.region_id ? name(regions.find((r) => r.id === p.region_id)) : '—'],
               ['cockpit.school', t(p.has_school ? 'participants.school_kept' : 'participants.school_none')],
               ['cockpit.birth_month', p.birth_year_month ? <bdi dir="ltr">{p.birth_year_month}</bdi> : '—'],
-              ['cockpit.grade', t(`enum.grade.${p.grade_level}`)],
-              ['cockpit.gender', t(`enum.gender.${p.gender}`)],
+              ['cockpit.grade', p.grade_level ? t(`enum.grade.${p.grade_level}`) : t('participants.not_recorded')],
+              ['cockpit.gender', p.gender ? t(`enum.gender.${p.gender}`) : t('participants.not_recorded')],
               ['cockpit.ses', p.ses_group ? t(`enum.ses.${p.ses_group}`) : '—'],
-              ['cockpit.hand', t(`enum.hand.${p.dominant_hand}`)],
+              ['cockpit.hand', p.dominant_hand ? t(`enum.hand.${p.dominant_hand}`) : t('participants.not_recorded')],
             ] as const).map(([k, v]) => (
               <div key={k}><dt style={s.dt}>{t(k)}</dt><dd style={s.dd}>{v}</dd></div>
             ))}
@@ -346,6 +361,9 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
           </details>
         )}
       </section>
+
+      {p.cohort === 'LEGACY' && <LegacyResults participantId={p.id} />}
+      {p.cohort === 'PAPER' && <PaperScores participantId={p.id} editable={p.is_active} />}
     </div>
   );
 }
