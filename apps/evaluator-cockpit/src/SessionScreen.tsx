@@ -10,6 +10,7 @@ import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
 import { pill, tone, ui } from './styles';
 import { LoadError } from './BackButton';
+import { SheetMarks } from './SheetMarks';
 
 const WRITING = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
 /** The note under a block that is measured but not scored. */
@@ -53,6 +54,8 @@ interface Attempt extends AttemptScores {
   integrity_ok: boolean | null;
   score_version: number | null;
   repeat_reason: string | null;
+  /** Letter sheets (Phase 5c): how the attempt's marks stand. */
+  marks: { total: number; correct: number; error: number; open: number } | null;
 }
 interface SessionDetail {
   id: string;
@@ -69,7 +72,7 @@ interface SessionDetail {
   /** A tablet holds this session's pairing, connected or not (released tablets do not count). */
   tablet_paired: boolean;
   timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
-  scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number };
+  scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number; similarity_hint?: boolean };
   steps: Step[];
   attempts: Attempt[];
   available_videos: string[];
@@ -198,6 +201,13 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
   const play = (s: Step) => link.command('VIDEO_PLAY', { step_index: s.step_index });
   const next = session.steps.find((s) => s.status === 'PENDING' || s.status === 'ACTIVE');
   const scoredStep = link.lastScored && session.steps.find((s) => s.step_index === link.lastScored!.step_index);
+  // The sheet whose marks are shown: the last one stored, or one chosen in the step list.
+  const [reviewAttemptId, setReviewAttemptId] = useState<string | null>(null);
+  const scoredId = link.lastScored?.block_attempt_id;
+  const scoredSheet = scoredStep?.step_type === 'INTERVENTION_SHEET';
+  useEffect(() => {
+    if (scoredId && scoredSheet) setReviewAttemptId(scoredId);
+  }, [scoredId, scoredSheet]);
 
   /** "Next step": the first step not yet done, run the way its type needs (FR-COCK-3). */
   function runNext() {
@@ -242,11 +252,18 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
       {!closed && !link.tabletConnected && (
         <section style={ui.card}>
           <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.pairing.title')}</h2>
-          {pin ? (
-            <div>
+          {pin && Date.parse(pin.expires_at) > Date.now() ? (
+            <div style={{ display: 'grid', gap: '0.4rem', justifyItems: 'start' }}>
               <div style={ui.muted}>{t('cockpit.pairing.pin')}</div>
               <div dir="ltr" data-testid="pairing-pin" style={{ fontSize: '2.5rem', letterSpacing: '0.4rem', fontWeight: 600 }}>{pin.pin}</div>
               <div style={ui.muted}>{t('cockpit.pairing.expires', { time: new Date(pin.expires_at).toLocaleTimeString() })}</div>
+              <button style={ui.button} onClick={() => void openPairing()} data-testid="pairing-new">{t('cockpit.pairing.new_code')}</button>
+            </div>
+          ) : pin ? (
+            // An expired code is not shown any more: the evaluator makes a new one.
+            <div style={{ display: 'grid', gap: '0.4rem', justifyItems: 'start' }}>
+              <div style={{ color: tone.warn }} role="status" data-testid="pairing-expired">{t('cockpit.pairing.expired')}</div>
+              <button style={ui.primary} onClick={() => void openPairing()} data-testid="pairing-new">{t('cockpit.pairing.new_code')}</button>
             </div>
           ) : (
             <button style={ui.primary} onClick={() => void openPairing()}>{t('cockpit.pairing.open')}</button>
@@ -343,6 +360,18 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
           onReplay={() => onReplay(link.lastScored!.block_attempt_id)}
         />
       )}
+      <SheetMarks
+        block={block}
+        reviewAttemptId={reviewAttemptId}
+        similarity={session.scoring.similarity_hint ?? true}
+        language={session.language_code}
+        readOnly={session.status === 'ABORTED'}
+        stepLabel={(index) => {
+          const st = session.steps.find((x) => x.step_index === index);
+          return st ? stepLabel(st) : String(index + 1);
+        }}
+        onChanged={reload}
+      />
       {closed && session.status === 'COMPLETED' && (
         <p role="status" style={{ margin: 0 }}>
           {t('cockpit.session_completed')}{' '}
@@ -367,7 +396,10 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
                   <td style={ui.cell}>{stepLabel(s)}</td>
                   <td style={ui.cell}>{t(`enum.step_status.${s.status}`)}</td>
                   <td style={{ ...ui.cell, ...ui.muted }}>
-                    {current && writing && <AttemptFigures a={current} stepType={s.step_type} onReplay={() => onReplay(current.id)} />}
+                    {current && writing && (
+                      <AttemptFigures a={current} stepType={s.step_type} onReplay={() => onReplay(current.id)}
+                        onMarks={current.marks ? () => setReviewAttemptId(current.id) : undefined} />
+                    )}
                     {repeated > 0 && <div>{t('cockpit.repeated_count', { n: repeated })}</div>}
                     {s.step_type === 'PAPER_NOTEBOOK_PAGE' && s.paper_duration_ms !== null && (
                       <span>{t('cockpit.paper_time', { s: (s.paper_duration_ms / 1000).toFixed(1) })}{s.notes ? ` · ${s.notes}` : ''}</span>
@@ -418,7 +450,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
 }
 
 /** Compact figures for a step's current attempt in the step list. */
-function AttemptFigures({ a, stepType, onReplay }: { a: Attempt; stepType: string; onReplay: () => void }) {
+function AttemptFigures({ a, stepType, onReplay, onMarks }: { a: Attempt; stepType: string; onReplay: () => void; onMarks?: () => void }) {
   const { t } = useTranslation();
   const sec = a.total_time_ms !== null ? (a.total_time_ms / 1000).toFixed(1) : null;
   const parts: string[] = [];
@@ -426,6 +458,7 @@ function AttemptFigures({ a, stepType, onReplay }: { a: Attempt; stepType: strin
   if (a.integrity_ok === false) parts.push(t('cockpit.integrity_failed'));
   if (sec) parts.push(`${t('summary.time')} ${sec} ${t('units.seconds')}`);
   if (a.pen_lifts !== null) parts.push(`${t('summary.pen_lifts')} ${a.pen_lifts}`);
+  if (a.marks) parts.push(t('marks.summary', { correct: a.marks.correct, error: a.marks.error, open: a.marks.open }));
   if (stepType === 'ILT_BLOCK' && a.score_version !== null) {
     parts.push(`${t('summary.composite')} ${n(a.composite_score) ?? t('summary.not_configured')}`);
   }
@@ -433,6 +466,7 @@ function AttemptFigures({ a, stepType, onReplay }: { a: Attempt; stepType: strin
     <span>
       {parts.join(' · ')}{' '}
       {a.sample_count !== null && <button style={{ ...ui.button, paddingBlock: 0 }} onClick={onReplay}>{t('replay.open')}</button>}
+      {onMarks && <>{' '}<button style={{ ...ui.button, paddingBlock: 0 }} onClick={onMarks} data-testid={`marks-open-${a.step_index}`}>{t('marks.open')}</button></>}
     </span>
   );
 }

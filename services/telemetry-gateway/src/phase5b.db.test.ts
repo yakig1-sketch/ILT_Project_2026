@@ -147,7 +147,8 @@ describe.skipIf(!DB_URL)('Phase 5b intervention sessions against the database', 
     };
     expect(d).toMatchObject({ step_type: 'INTERVENTION_SHEET', block_number: 1, block_count: 4, fill_order: LETTER.profile.fill_order });
     expect(d.canvas.letters).toHaveLength(15);
-    expect(d.profile).toBeUndefined();
+    // Phase 5c: the letter profile goes with the sheet, for the cockpit's live marks.
+    expect(d.profile).toMatchObject({ fill_order: LETTER.profile.fill_order });
     await cockpit.next(isEvent('DISPATCH_STEP'));
     tablet.send(controlMessage('STEP_STARTED', { step_index: 1, attempt_number: d.attempt_number, block_started_at: new Date().toISOString() }));
     const samples = synthBlock([4, 3].map((id) => ({ box: d.canvas.boxes.find((b) => b.id === id)!, spec: PERFECT_ILT })));

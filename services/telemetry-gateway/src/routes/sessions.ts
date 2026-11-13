@@ -204,7 +204,11 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     const attempts = await rows(
       app.deps.db,
       `SELECT ba.id, st.step_index, ba.attempt_number, ba.status, ba.sample_count, ba.integrity_ok, ba.started_at, ba.ended_at,
-              ba.total_time_ms, ba.repeat_reason, sv.version AS score_version, coalesce(sv.pen_lifts, ba.pen_lifts) AS pen_lifts, sv.accurate_letters, sv.accuracy_score,
+              ba.total_time_ms, ba.repeat_reason, sv.version AS score_version, coalesce(sv.pen_lifts, ba.pen_lifts) AS pen_lifts,
+              (SELECT json_build_object('total', count(*), 'correct', count(*) FILTER (WHERE im.final_error IS FALSE),
+                      'error', count(*) FILTER (WHERE im.final_error IS TRUE), 'open', count(*) FILTER (WHERE im.final_error IS NULL))
+                 FROM intervention_marks im WHERE im.block_attempt_id = ba.id HAVING count(*) > 0) AS marks,
+              sv.accurate_letters, sv.accuracy_score,
               sv.avg_speed_mm_s, sv.speed_score, sv.pen_lift_score, sv.composite_score, sv.pass
          FROM block_attempts ba JOIN session_steps st ON st.id = ba.session_step_id
          LEFT JOIN score_versions sv ON sv.block_attempt_id = ba.id AND sv.is_current
@@ -220,7 +224,11 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     return {
       ...session,
       timers: timersFrom(settings_snapshot),
-      scoring: { pass_threshold: scoring.pass_threshold, weight_speed_pct: scoring.weight_speed_pct, weight_accuracy_pct: scoring.weight_accuracy_pct, weight_pen_lifts_pct: scoring.weight_pen_lifts_pct },
+      scoring: {
+        pass_threshold: scoring.pass_threshold, weight_speed_pct: scoring.weight_speed_pct, weight_accuracy_pct: scoring.weight_accuracy_pct, weight_pen_lifts_pct: scoring.weight_pen_lifts_pct,
+        // Phase 5c: whether row 3 of a letter sheet shows the similarity hint (FR-COCK-6).
+        similarity_hint: setting(settings_snapshot, 'scoring.similarity_hint.enabled', true),
+      },
       steps: steps.map(({ geometry: _g, profile: _p, ...st }) => st),
       attempts,
       available_videos: videos.map((v) => v.video_key),
@@ -384,6 +392,21 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     return { pin, expires_at: expiresAt.toISOString() };
   });
 
+  /** Whether a PIN is the latest code of an open session or reference station that expired in the last day. */
+  async function isExpiredPin(pin: string): Promise<boolean> {
+    const expired = await rows<{ pairing_pin_hash: string }>(
+      app.deps.db,
+      `SELECT pairing_pin_hash FROM sessions
+        WHERE pairing_pin_hash IS NOT NULL AND pairing_expires_at <= now() AND pairing_expires_at > now() - interval '1 day'
+          AND status NOT IN ('COMPLETED', 'ABORTED')
+       UNION ALL
+       SELECT pairing_pin_hash FROM reference_stations
+        WHERE pairing_pin_hash IS NOT NULL AND pairing_expires_at <= now() AND pairing_expires_at > now() - interval '1 day' AND closed_at IS NULL`,
+    );
+    for (const row of expired) if (await verify(row.pairing_pin_hash, pin)) return true;
+    return false;
+  }
+
   /** Tablet pairing (FR-TAB-1). Public: the PIN is the credential. */
   app.post('/sessions/pair', async (req, reply) => {
     const ip = req.ip;
@@ -415,8 +438,17 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       }
       const count = (lock && lock.until <= Date.now() ? 0 : (lock?.count ?? 0)) + 1;
       pairFailures.set(ip, { count: count >= PAIR_MAX_FAILURES ? 0 : count, until: count >= PAIR_MAX_FAILURES ? Date.now() + PAIR_LOCK_MS : 0 });
-      app.appLog.write({ severity: 'SECURITY', event_type: 'auth.login.failed', client_ip: ip, entity_type: 'tablet', message: 'Tablet pairing failed: wrong or expired PIN', details: { reason: 'PAIRING_PIN', failures: count } });
-      return reply.status(401).send({ status: 'REJECTED', error: { code: 'BAD_PIN', message_key: 'kiosk.pin_wrong', details: {} } });
+      // A code that was real but ran out gets its own message, so the evaluator knows to make a new one.
+      // Only the latest code of an open session or station counts; nothing about the session is returned.
+      const expired = await isExpiredPin(body.data.pin);
+      app.appLog.write({
+        severity: 'SECURITY', event_type: 'auth.login.failed', client_ip: ip, entity_type: 'tablet',
+        message: expired ? 'Tablet pairing failed: expired PIN' : 'Tablet pairing failed: wrong PIN',
+        details: { reason: expired ? 'PAIRING_PIN_EXPIRED' : 'PAIRING_PIN', failures: count },
+      });
+      return reply.status(401).send(expired
+        ? { status: 'REJECTED', error: { code: 'PIN_EXPIRED', message_key: 'kiosk.pin_expired', details: {} } }
+        : { status: 'REJECTED', error: { code: 'BAD_PIN', message_key: 'kiosk.pin_wrong', details: {} } });
     }
     pairFailures.delete(ip);
 

@@ -26,6 +26,7 @@ import type { TokenClaims, UserClaims } from './auth.js';
 import { one } from './db.js';
 import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
 import { deriveRecording, loadReferenceCanvas, packSamples, type RecordingKind, type ReferenceCanvas, type ReferenceKind } from './reference-store.js';
+import { storeSuggestedMarks } from './marks-store.js';
 import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
@@ -84,8 +85,8 @@ function dispatchPayload(step: StepRow, attemptNumber: number, snapshot: Setting
     timers: timersFrom(snapshot),
     block_number: sameType.findIndex((s) => s.step_index === step.step_index) + 1,
     block_count: sameType.length,
-    // A sheet's profile describes its letters, not ILT dots: the live ILT preview does not apply to it.
-    ...(step.profile && step.step_type !== 'INTERVENTION_SHEET' && { profile: step.profile }),
+    // A sheet's profile describes its letters: the cockpit uses it for the live marks of each row (Phase 5c).
+    ...(step.profile && { profile: step.profile }),
   });
 }
 
@@ -894,6 +895,16 @@ export class Hub {
           : `Block scored: step ${stepIndex}, attempt ${attemptNumber}, composite ${summary.composite_score ?? 'not configured'}`,
         details: { step_index: stepIndex, attempt_number: attemptNumber, score_version, composite: summary.composite_score },
       });
+      // A letter sheet: the system's suggested marks, for the evaluator to confirm or change (FR-COCK-5).
+      if (step.step_type === 'INTERVENTION_SHEET' && step.profile) {
+        const marks = await storeSuggestedMarks(this.db, attemptId, step.geometry, step.profile, session.settings_snapshot);
+        const count = (v: boolean | null) => marks.filter((m) => m.auto_error === v).length;
+        this.log({
+          severity: 'INFO', event_type: 'intervention.mark.suggested', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId,
+          message: `Marks suggested: step ${stepIndex}, attempt ${attemptNumber}: ${count(false)} correct, ${count(true)} error, ${count(null)} for the evaluator`,
+          details: { step_index: stepIndex, attempt_number: attemptNumber, correct: count(false), error: count(true), open: count(null) },
+        });
+      }
       this.toCockpits(sessionId, controlMessage('BLOCK_SCORED', {
         block_attempt_id: attemptId, step_index: stepIndex, attempt_number: attemptNumber, score_version, scores: { ...summary },
       }));

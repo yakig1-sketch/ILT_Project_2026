@@ -13,6 +13,7 @@ import { logRoutes } from './routes/log.js';
 import { organisationRoutes } from './routes/organisation.js';
 import { participantRoutes } from './routes/participants.js';
 import { resultRoutes } from './routes/results.js';
+import { markRoutes } from './routes/marks.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { canvasRoutes } from './routes/canvases.js';
 import { referenceRoutes } from './routes/reference.js';
@@ -82,6 +83,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(participantRoutes, { prefix: '/api/v1' });
   await app.register(sessionRoutes, { prefix: '/api/v1' });
   await app.register(resultRoutes, { prefix: '/api/v1' });
+  await app.register(markRoutes, { prefix: '/api/v1' });
   await app.register(settingsRoutes, { prefix: '/api/v1' });
   await app.register(canvasRoutes, { prefix: '/api/v1' });
   await app.register(referenceRoutes, { prefix: '/api/v1' });
