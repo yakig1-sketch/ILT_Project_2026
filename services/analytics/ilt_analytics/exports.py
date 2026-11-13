@@ -60,6 +60,15 @@ SELECT * FROM v_research_letters WHERE session_id = ANY(%(ids)s::uuid[]) ORDER B
 SCORE_VERSIONS = """
 SELECT * FROM v_research_score_versions WHERE session_id = ANY(%(ids)s::uuid[]) ORDER BY session_id, block_attempt_id, version"""
 
+# Phase 5d: one row per letter of each intervention sheet attempt, with the system's suggestion and the final mark.
+MARKS = """
+SELECT m.session_id, m.study_code, m.block_attempt_id, m.step_index, m.block_number, m.canvas_code, m.box_id, m.row_type, m.letter,
+       m.auto_error, m.start_point_ok, m.evaluator_error, m.final_error, m.decided_by, m.decided_at, m.similarity_hint,
+       m.internal_pen_lifts, m.lifts_allowed
+  FROM v_research_marks m
+ WHERE m.session_id = ANY(%(ids)s::uuid[])
+ ORDER BY m.session_id, m.step_index, m.block_attempt_id, m.box_id"""
+
 SAMPLES = """
 SELECT b.session_id, s.block_attempt_id, s.sample_seq, s.sample_time, s.t_us, s.x_mm, s.y_mm, s.pressure, s.tilt_x, s.tilt_y, s.flags, s.box_id
   FROM v_research_samples s JOIN v_research_blocks b ON b.block_attempt_id = s.block_attempt_id
@@ -91,12 +100,19 @@ letters         One row per letter box of each attempt: measures (timing, stroke
                 order, width band, line length and time, speed, accuracy).
 score_versions  Every score version of each attempt (is_current marks the one in blocks and
                 letters), with the settings and scoring profile used (JSON text).
+marks           Intervention sheets only: one row per letter of each sheet attempt. row_type
+                TRACE_MODEL (row 1), START_DOT (row 2) or FREEHAND (row 3); auto_error is the
+                system's suggestion (empty for row 3), evaluator_error the evaluator's own mark,
+                final_error the mark in force (true = error); decided_by SYSTEM or EVALUATOR;
+                similarity_hint (row 3, 0..100) is a hint that never counts; internal_pen_lifts and
+                lifts_allowed explain row 1. A sheet's accuracy_score = correct marks / marks x 100,
+                set once no mark is empty.
 {optional}
 manifest.json   This export's filters, options and row counts.
 
 Units: mm, ms (t_us in microseconds from the block start), mm/s; pressure is the raw 0..1 value.
 Scores are on 0..100. Codes: grade_level KINDERGARTEN, GRADE_1..GRADE_6; gender MALE/FEMALE/OTHER;
-ses_group LOW/MID/HIGH (empty = not recorded); session_type DAY_1/DAY_2/DAY_14.
+ses_group LOW/MID/HIGH (empty = not recorded); session_type DAY_1/DAY_2/DAY_14/INTERVENTION.
 """
 
 SAMPLES_TEXT = """samples         Every recorded pen sample of each attempt: t_us, x_mm, y_mm, pressure, tilt,
@@ -171,6 +187,7 @@ def build_tables(conn, ids: list[str], include_samples: bool, include_kinematics
         "blocks": _query(conn, BLOCKS, ids),
         "letters": _query(conn, LETTERS, ids),
         "score_versions": _query(conn, SCORE_VERSIONS, ids),
+        "marks": _query(conn, MARKS, ids),
     }
     if include_samples:
         tables["samples"] = _query(conn, SAMPLES, ids)

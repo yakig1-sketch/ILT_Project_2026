@@ -459,7 +459,7 @@ function AttemptFigures({ a, stepType, onReplay, onMarks }: { a: Attempt; stepTy
   if (sec) parts.push(`${t('summary.time')} ${sec} ${t('units.seconds')}`);
   if (a.pen_lifts !== null) parts.push(`${t('summary.pen_lifts')} ${a.pen_lifts}`);
   if (a.marks) parts.push(t('marks.summary', { correct: a.marks.correct, error: a.marks.error, open: a.marks.open }));
-  if (stepType === 'ILT_BLOCK' && a.score_version !== null) {
+  if ((stepType === 'ILT_BLOCK' || stepType === 'INTERVENTION_SHEET') && a.score_version !== null) {
     parts.push(`${t('summary.composite')} ${n(a.composite_score) ?? t('summary.not_configured')}`);
   }
   return (

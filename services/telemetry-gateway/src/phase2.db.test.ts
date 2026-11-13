@@ -299,11 +299,15 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     expect(replay.body.letters.every((l) => l.speed_mm_s > 0)).toBe(true);
     expect(replay.body.canvas.boxes).toHaveLength(15);
 
-    await app.appLog.flush();
-    const events = await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [sessionId]);
-    expect(events.rows.map((r) => r.event_type)).toEqual(expect.arrayContaining([
-      'session.video.played', 'session.video.ended', 'session.block.scored', 'session.block.repeated', 'session.inactivity.amber', 'data.replay.opened',
-    ]));
+    // Some rows are written just after their response: wait (briefly) until they are all in.
+    const expected = ['session.video.played', 'session.video.ended', 'session.block.scored', 'session.block.repeated', 'session.inactivity.amber', 'data.replay.opened'];
+    let logged: string[] = [];
+    for (let i = 0; i < 30 && !expected.every((e) => logged.includes(e)); i++) {
+      await app.appLog.flush();
+      logged = (await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [sessionId])).rows.map((r) => r.event_type);
+      if (!expected.every((e) => logged.includes(e))) await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(logged).toEqual(expect.arrayContaining(expected));
     const security = await pool.query<{ event_type: string }>(
       "SELECT event_type FROM app_events WHERE entity_id = 'scoring.pass_threshold' AND occurred_at > now() - interval '5 minutes'",
     );

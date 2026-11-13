@@ -3,6 +3,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
+import type { Queryable } from '../app-log.js';
 import type { UserClaims } from '../auth.js';
 import { one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
@@ -43,6 +44,88 @@ const num = (v: string | number | null) => (v === null ? null : Number(v));
 const roundOrNull = (v: number | null) => (v === null ? null : Math.round(v));
 const mean = (vs:(number | null)[]) => (vs.length === 0 || vs.some((v) => v === null) ? null : (vs as number[]).reduce((a, b) => a + b, 0) / vs.length);
 const r2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
+
+/** One intervention session's sheet results (Phase 5d): each sheet's latest finished attempt, and their means. */
+export interface InterventionSessionResult {
+  session_id: string;
+  session_code: string;
+  kind: 'TRAINING' | 'RETENTION';
+  code: string;
+  letter: string | null;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  sheets_total: number;
+  sheets_done: number;
+  sheets_scored: number;
+  open_marks: number;
+  avg_time_ms: number | null;
+  avg_pen_lifts: number | null;
+  accuracy_score: number | null;
+  speed_score: number | null;
+  pen_lift_score: number | null;
+  composite_score: number | null;
+  pass: boolean | null;
+  sheets: { block_number: number; attempt_id: string | null; open_marks: number; accuracy_score: number | null; composite_score: number | null }[];
+}
+
+/**
+ * The participant's intervention sessions with their sheet results, newest first (aborted left out).
+ * Means are over the scored sheets (no mark open); a session with no scored sheet has none.
+ */
+export async function interventionResults(db: Queryable, participantId: string, passThreshold: number | null): Promise<InterventionSessionResult[]> {
+  const sheets = await rows<{ session_id: string; session_code: string; kind: 'TRAINING' | 'RETENTION'; code: string; letter: string | null;
+    status: string; created_at: string; completed_at: string | null; block_number: number; step_status: string; attempt_id: string | null;
+    total_time_ms: number | null; pen_lifts: number | null; open_marks: number | null; accuracy_score: string | null; speed_score: string | null;
+    pen_lift_score: string | null; composite_score: string | null }>(db,
+    `SELECT s.id AS session_id, s.session_code, s.intervention_kind AS kind, c.code, c.geometry->'letters'->0->>'letter' AS letter,
+            s.status, s.created_at, s.completed_at, st.block_number, st.status AS step_status, a.id AS attempt_id, a.total_time_ms, a.pen_lifts,
+            (SELECT count(*)::int FROM intervention_marks im WHERE im.block_attempt_id = a.id AND im.final_error IS NULL) AS open_marks,
+            sv.accuracy_score, sv.speed_score, sv.pen_lift_score, sv.composite_score
+       FROM sessions s JOIN canvases c ON c.id = s.intervention_canvas_id
+       JOIN session_steps st ON st.session_id = s.id AND st.step_type = 'INTERVENTION_SHEET'
+       LEFT JOIN LATERAL (SELECT ba.* FROM block_attempts ba WHERE ba.session_step_id = st.id AND ba.status IN ${FINISHED}
+                           ORDER BY ba.attempt_number DESC LIMIT 1) a ON true
+       LEFT JOIN score_versions sv ON sv.block_attempt_id = a.id AND sv.is_current
+      WHERE s.participant_id = $1 AND s.session_type = 'INTERVENTION' AND s.status <> 'ABORTED'
+      ORDER BY s.created_at DESC, st.block_number`,
+    [participantId]);
+  const out: InterventionSessionResult[] = [];
+  for (const row of sheets) {
+    let r = out.find((x) => x.session_id === row.session_id);
+    if (!r) {
+      r = {
+        session_id: row.session_id, session_code: row.session_code, kind: row.kind, code: row.code, letter: row.letter, status: row.status,
+        created_at: row.created_at, completed_at: row.completed_at, sheets_total: 0, sheets_done: 0, sheets_scored: 0, open_marks: 0, avg_time_ms: null, avg_pen_lifts: null,
+        accuracy_score: null, speed_score: null, pen_lift_score: null, composite_score: null, pass: null, sheets: [],
+      };
+      out.push(r);
+    }
+    r.sheets_total += 1;
+    if (row.step_status === 'DONE' || row.step_status === 'SKIPPED') r.sheets_done += 1;
+    r.open_marks += row.open_marks ?? 0;
+    r.sheets.push({ block_number: row.block_number, attempt_id: row.attempt_id, open_marks: row.open_marks ?? 0,
+      accuracy_score: num(row.accuracy_score), composite_score: num(row.composite_score) });
+  }
+  const avg = (vs: (number | null)[]) => {
+    const known = vs.filter((v): v is number => v !== null);
+    return known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+  };
+  for (const r of out) {
+    const mine = sheets.filter((x) => x.session_id === r.session_id && x.attempt_id);
+    const scored = mine.filter((x) => x.accuracy_score !== null);
+    r.sheets_scored = scored.length;
+    r.avg_time_ms = roundOrNull(avg(mine.map((x) => x.total_time_ms)));
+    r.avg_pen_lifts = roundOrNull(avg(mine.map((x) => x.pen_lifts)));
+    r.accuracy_score = r2(avg(scored.map((x) => num(x.accuracy_score))));
+    r.pen_lift_score = r2(avg(scored.map((x) => num(x.pen_lift_score))));
+    r.speed_score = r2(avg(scored.map((x) => num(x.speed_score))));
+    // The composite needs the letter's Normal speed: only sheets that have one count.
+    r.composite_score = r2(avg(scored.map((x) => num(x.composite_score))));
+    r.pass = r.composite_score === null || passThreshold === null ? null : r.composite_score >= passThreshold;
+  }
+  return out;
+}
 
 export const resultRoutes: FastifyPluginAsync = async (app) => {
   const staff = app.requireRole('EVALUATOR', 'RESEARCHER', 'ADMIN');
@@ -113,6 +196,8 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
         weight_pen_lifts_pct: scoring.weight_pen_lifts_pct,
       },
       boxes,
+      // Phase 5d: the intervention programme's results, per session (newest first).
+      intervention: await interventionResults(app.deps.db, p.id, scoring.pass_threshold),
     };
   });
 
@@ -162,7 +247,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
     const sourceOf = (key: string) => settings[key]?.source ?? 'DEFAULT';
     const day14 = sessions.find((s) => s.session_type === 'DAY_14');
     const day14Scores = steps.filter((st) => st.session_id === day14?.id && st.step_type === 'ILT_BLOCK').map((st) => num(st.composite_score));
-    const intervention = await interventionProgram(p.id, settings, canOpen);
+    const intervention = await interventionProgram(p.id, settings, canOpen, scoringSettingsFrom(settings).pass_threshold);
     return {
       participant: {
         id: p.id, study_code: p.study_code, grade_level: p.grade_level,
@@ -194,7 +279,10 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
    * participant's intervention sessions. A letter is trained by a completed TRAINING session; its
    * retention check is due the set number of days after its last training.
    */
-  async function interventionProgram(participantId: string, settings: SettingsSnapshot, canOpen: (s: { evaluator_id: string }) => boolean) {
+  async function interventionProgram(participantId: string, settings: SettingsSnapshot, canOpen: (s: { evaluator_id: string }) => boolean, passThreshold: number | null) {
+    const results = await interventionResults(app.deps.db, participantId, passThreshold);
+    const resultOf = (id: string | undefined) => results.find((r) => r.session_id === id);
+    const latest = <T extends { completed_at: string | null }>(xs: T[]) => [...xs].sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))[0];
     const enabled = setting<string[]>(settings, 'language.enabled', ['he', 'en']);
     const preferred = setting(settings, 'language.default', 'he');
     const language = enabled.includes(preferred) ? preferred : (enabled[0] ?? 'he');
@@ -239,9 +327,16 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
           retention_due_on: due ? day(due) : null,
           retention_due: !!due && due.getTime() <= Date.now(),
           retention_done: !!last && done.some((s) => s.kind === 'RETENTION' && new Date(s.completed_at!) > last),
+          // Phase 5d: the mean composite of the letter's latest completed training, and of its latest retention check.
+          last_training_composite: resultOf(latest(trainings)?.id)?.composite_score ?? null,
+          retention_composite: resultOf(latest(done.filter((s) => s.kind === 'RETENTION'))?.id)?.composite_score ?? null,
         };
       }),
-      sessions: sessions.map(({ evaluator_id, completed_at: _c, ...s }) => ({ ...s, can_open: canOpen({ evaluator_id }) })),
+      sessions: sessions.map(({ evaluator_id, completed_at: _c, ...s }) => {
+        const r = resultOf(s.id);
+        return { ...s, can_open: canOpen({ evaluator_id }), composite_score: r?.composite_score ?? null, accuracy_score: r?.accuracy_score ?? null,
+          sheets_scored: r?.sheets_scored ?? 0, open_marks: r?.open_marks ?? 0 };
+      }),
     };
   }
 

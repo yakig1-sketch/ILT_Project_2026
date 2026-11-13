@@ -91,25 +91,30 @@ export async function scoreAttempt(db: Queryable, input: ScoreInput): Promise<{ 
 
   const r = scoreBlock(samples, input.canvas, input.profile, settings);
   const version = await inTransaction(db, async (q) => {
-    await q.query(
-      `UPDATE block_attempts SET raw_stroke_count = $2, total_time_ms = $3, active_writing_time_ms = $4, air_time_ms = $5,
-              last_box_completed = $6, skipped_boxes = $7, pen_lifts = $8 WHERE id = $1`,
-      [input.attemptId, r.raw_stroke_count, r.total_time_ms === null ? null : Math.round(r.total_time_ms), Math.round(r.active_writing_time_ms),
-        r.air_time_ms === null ? null : Math.round(r.air_time_ms), r.last_box_completed, r.skipped_boxes, r.pen_lifts],
-    );
-    for (const l of r.letters) {
-      await q.query(
-        `INSERT INTO letter_measures (block_attempt_id, box_id, fill_position, row_index, status, t_start_us, t_end_us, stroke_count_raw,
-           path_length_mm, contact_time_ms, dot_closest, width_mm, mean_pressure)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT (block_attempt_id, box_id) DO NOTHING`,
-        [input.attemptId, l.box_id, l.fill_position, l.row_index, l.status, l.t_start_us, l.t_end_us, l.stroke_count_raw,
-          l.path_length_mm, l.contact_time_ms, l.status === 'WRITTEN' ? JSON.stringify(l.dots) : null, l.width_mm, l.mean_pressure],
-      );
-    }
+    await storeMeasures(q, input.attemptId, r);
     if (!input.isScored) return null;
     return insertScoreVersion(q, input.attemptId, 1, r, settings, input.profile!, null, null);
   });
   return { score_version: version, summary: summaryOf(r) };
+}
+
+/** A scored block's measures on its attempt, and one row per letter (letter_measures, kept once written). */
+export async function storeMeasures(q: Queryable, attemptId: string, r: BlockScore): Promise<void> {
+  await q.query(
+    `UPDATE block_attempts SET raw_stroke_count = $2, total_time_ms = $3, active_writing_time_ms = $4, air_time_ms = $5,
+            last_box_completed = $6, skipped_boxes = $7, pen_lifts = $8 WHERE id = $1`,
+    [attemptId, r.raw_stroke_count, r.total_time_ms === null ? null : Math.round(r.total_time_ms), Math.round(r.active_writing_time_ms),
+      r.air_time_ms === null ? null : Math.round(r.air_time_ms), r.last_box_completed, r.skipped_boxes, r.pen_lifts],
+  );
+  for (const l of r.letters) {
+    await q.query(
+      `INSERT INTO letter_measures (block_attempt_id, box_id, fill_position, row_index, status, t_start_us, t_end_us, stroke_count_raw,
+         path_length_mm, contact_time_ms, dot_closest, width_mm, mean_pressure)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT (block_attempt_id, box_id) DO NOTHING`,
+      [attemptId, l.box_id, l.fill_position, l.row_index, l.status, l.t_start_us, l.t_end_us, l.stroke_count_raw,
+        l.path_length_mm, l.contact_time_ms, l.status === 'WRITTEN' ? JSON.stringify(l.dots) : null, l.width_mm, l.mean_pressure],
+    );
+  }
 }
 
 /** Writes a score version and its letter scores; earlier versions stop being current. */

@@ -114,6 +114,10 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     });
     expect(session.status).toBe(201);
     const sessionId = session.body.id;
+    // Phase 5d: a Normal speed of 20 mm/s for the sheets (the team records one per letter), so the composite exists.
+    await pool.query(
+      `UPDATE session_steps SET canvas_profile_snapshot = jsonb_set(canvas_profile_snapshot, '{normal_speed_mm_s}', '20')
+        WHERE session_id = $1 AND step_type = 'INTERVENTION_SHEET'`, [sessionId]);
 
     // ---- The tablet writes the whole sheet like the model, except box 3 (row 1) moved off its dots.
     const { body: room } = await call<{ pin: string }>(`/sessions/${sessionId}/pairing`, { method: 'POST', auth: token });
@@ -140,8 +144,12 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
       step_index: 1, attempt_number: d.attempt_number, end_reason: 'LAST_BOX', sample_count: samples.length, last_sample_seq: samples.length - 1, sha256: sha(samples),
     }));
     await cockpit.next(isEvent('BLOCK_STORED'));
-    const scored = (await cockpit.next(isEvent('BLOCK_SCORED'), 10_000)).payload as { block_attempt_id: string; scores: { pen_lifts: number } };
+    const scored = (await cockpit.next(isEvent('BLOCK_SCORED'), 10_000)).payload as {
+      block_attempt_id: string; score_version: number | null; scores: { pen_lifts: number; accuracy_score: number | null; composite_score: number | null; pen_lift_score: number | null };
+    };
     expect(scored.scores.pen_lifts).toBe(30);
+    // Phase 5d: row 3 is open, so the sheet has no score version yet; its pen-lift score is known.
+    expect(scored).toMatchObject({ score_version: null, scores: { accuracy_score: null, composite_score: null, pen_lift_score: 100 } });
     tablet.ws.close();
     cockpit.ws.close();
     const attemptId = scored.block_attempt_id;
@@ -150,7 +158,9 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     type Mark = { box_id: number; row_type: string; letter: string; auto_error: boolean | null; start_point_ok: boolean | null;
       evaluator_error: boolean | null; final_error: boolean | null; decided_by: string | null; decided_by_name: string | null; similarity_hint: number | null;
       internal_pen_lifts: number | null; lifts_allowed: number | null };
-    type Marks = { block_attempt_id: string; step_index: number; marks: Mark[] };
+    type Score = { score_version: number | null; open_marks: number; accuracy_score: number | null; pen_lift_score: number | null;
+      speed_score: number | null; composite_score: number | null; pass: boolean | null };
+    type Marks = { block_attempt_id: string; step_index: number; marks: Mark[]; score: Score };
     const got = (await call<Marks>(`/block-attempts/${attemptId}/intervention-marks`, { auth: token })).body;
     expect(got).toMatchObject({ block_attempt_id: attemptId, step_index: 1 });
     expect(got.marks.map((m) => m.box_id)).toEqual(LETTER.profile.fill_order);
@@ -160,6 +170,7 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     expect(byBox(got.marks, 4)).toMatchObject({ internal_pen_lifts: 1, lifts_allowed: 1 });
     expect(byBox(got.marks, 9)).toMatchObject({ internal_pen_lifts: null, lifts_allowed: null });
     expect(byBox(got.marks, 3)).toMatchObject({ auto_error: true, final_error: true, decided_by: 'SYSTEM' });
+    expect(got.score).toMatchObject({ score_version: null, open_marks: 5 });
     expect(byBox(got.marks, 9)).toMatchObject({ row_type: 'START_DOT', start_point_ok: true, final_error: false });
     for (const id of [10, 11, 12, 13, 14]) {
       expect(byBox(got.marks, id)).toMatchObject({ row_type: 'FREEHAND', auto_error: null, final_error: null, decided_by: null });
@@ -174,9 +185,19 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     expect(byBox(set1.body.marks, 3)).toMatchObject({ auto_error: true, evaluator_error: false, final_error: false, decided_by: 'EVALUATOR', decided_by_name: 'Phase 5c test EVALUATOR' });
     expect(byBox(set1.body.marks, 14)).toMatchObject({ final_error: true, decided_by: 'EVALUATOR' });
     expect(set1.body.marks.filter((m) => m.final_error === null)).toHaveLength(0);
+    // Phase 5d: every mark set, so the sheet is scored: 13 of 15 correct; pen lifts 30 of 30; speed in range.
+    expect(set1.body.score).toMatchObject({ score_version: 1, open_marks: 0, accuracy_score: 86.67, pen_lift_score: 100, speed_score: 100, composite_score: 96.67 });
     // Clearing the evaluator's value returns box 3 to the system's suggestion.
     const cleared = await put([{ box_id: 3, error: null }]);
     expect(byBox(cleared.body.marks, 3)).toMatchObject({ evaluator_error: null, final_error: true, decided_by: 'SYSTEM', decided_by_name: null });
+    // Scored again from the marks: 12 of 15; still one score version, recomputed by the evaluator.
+    expect(cleared.body.score).toMatchObject({ score_version: 1, accuracy_score: 80, composite_score: 95 });
+    const versions = await pool.query('SELECT version, is_current, reason, accurate_letters FROM score_versions WHERE block_attempt_id = $1', [attemptId]);
+    expect(versions.rows).toEqual([{ version: 1, is_current: true, reason: 'Intervention sheet: accuracy from the marks', accurate_letters: 12 }]);
+    // Clearing a row-3 mark opens it again: the sheet loses its score until it is set.
+    expect((await put([{ box_id: 10, error: null }])).body.score).toMatchObject({ score_version: null, open_marks: 1 });
+    expect((await pool.query('SELECT count(*)::int AS n FROM score_versions WHERE block_attempt_id = $1', [attemptId])).rows[0].n).toBe(0);
+    expect((await put([{ box_id: 10, error: false }])).body.score).toMatchObject({ score_version: 1, accuracy_score: 80 });
 
     // ---- Refusals: an unknown box, another evaluator, a non-sheet attempt id.
     expect((await put([{ box_id: 99, error: true }])).body).toMatchObject({ error: { code: 'UNKNOWN_BOX' } });
@@ -187,6 +208,17 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     const detail = (await call<{ attempts: { step_index: number; marks: { total: number; correct: number; error: number; open: number } | null }[] }>(`/sessions/${sessionId}`, { auth: token })).body;
     expect(detail.attempts.find((a) => a.step_index === 1)!.marks).toEqual({ total: 15, correct: 12, error: 3, open: 0 });
 
+    // ---- Phase 5d: the summary's intervention section and the console's programme carry the sheet results.
+    type Result = { session_code: string; kind: string; code: string; sheets_total: number; sheets_scored: number; open_marks: number;
+      accuracy_score: number | null; pen_lift_score: number | null; speed_score: number | null; composite_score: number | null; pass: boolean | null };
+    const summary = (await call<{ intervention: Result[] }>(`/participants/${participant.body.id}/summary`, { auth: token })).body;
+    expect(summary.intervention).toEqual([expect.objectContaining({
+      kind: 'TRAINING', code, sheets_total: 4, sheets_scored: 1, open_marks: 0, accuracy_score: 80, pen_lift_score: 100, speed_score: 100, composite_score: 95, pass: null,
+    })]);
+    const programme = (await call<{ intervention: { sessions: { composite_score: number | null; sheets_scored: number }[] } }>(
+      `/participants/${participant.body.id}/protocol`, { auth: token })).body;
+    expect(programme.intervention.sessions[0]).toMatchObject({ composite_score: 95, sheets_scored: 1 });
+
     // ---- The log: one suggestion row for the sheet, one change row per changed mark with old and new values.
     await app.appLog.flush();
     const log = await pool.query(
@@ -194,8 +226,8 @@ describe.skipIf(!DB_URL)('Phase 5c intervention marks against the database', () 
     );
     expect(log.rows[0]).toMatchObject({ event_type: 'intervention.mark.suggested', details: { correct: 9, error: 1, open: 5 } });
     const changed = log.rows.filter((r) => r.event_type === 'intervention.mark.changed').map((r) => r.details);
-    expect(changed).toHaveLength(8);
+    expect(changed).toHaveLength(10);
     expect(changed.find((c) => c.box_id === 3 && c.evaluator_error === false)).toMatchObject({ old_final_error: true, new_final_error: false });
-    expect(changed[changed.length - 1]).toMatchObject({ box_id: 3, old_final_error: false, new_final_error: true, evaluator_error: null });
+    expect(changed.find((c) => c.box_id === 3 && c.evaluator_error === null)).toMatchObject({ old_final_error: false, new_final_error: true });
   });
 });

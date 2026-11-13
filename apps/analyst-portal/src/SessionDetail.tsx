@@ -39,6 +39,7 @@ interface Detail {
   blocks: {
     block_attempt_id: string;
     step_index: number;
+    step_type: string;
     label_key: string;
     block_number: number | null;
     canvas_code: string | null;
@@ -54,6 +55,20 @@ interface Detail {
     pass: boolean | null;
     counts: boolean;
   }[];
+}
+
+/** An intervention sheet's marks (Phase 5d): the system's suggestion and the mark in force per letter. */
+interface SheetMark {
+  box_id: number;
+  row_type: 'TRACE_MODEL' | 'START_DOT' | 'FREEHAND';
+  letter: string;
+  auto_error: boolean | null;
+  start_point_ok: boolean | null;
+  final_error: boolean | null;
+  decided_by: 'SYSTEM' | 'EVALUATOR' | null;
+  similarity_hint: number | null;
+  internal_pen_lifts: number | null;
+  lifts_allowed: number | null;
 }
 
 const s = {
@@ -75,6 +90,13 @@ export function SessionDetail({ sessionId, onBack, onReplay, onKinematics }: {
   const [error, setError] = useState<string | null>(null);
   const [kin, setKin] = useState<(KinSummary & { block_attempt_id: string })[] | null>(null);
   const [kinError, setKinError] = useState<string | null>(null);
+  const [marks, setMarks] = useState<{ id: string; label: string; marks: SheetMark[] } | null>(null);
+  const [marksError, setMarksError] = useState<string | null>(null);
+  const openMarks = (id: string, label: string) => {
+    setMarksError(null);
+    if (marks?.id === id) return setMarks(null);
+    api<{ marks: SheetMark[] }>(`/research/attempts/${id}/marks`).then((r) => setMarks({ id, label, marks: r.marks })).catch((e: ApiError) => setMarksError(e.messageKey));
+  };
   const when = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }), [lang]);
 
   useEffect(() => {
@@ -168,6 +190,12 @@ export function SessionDetail({ sessionId, onBack, onReplay, onKinematics }: {
                       <span style={{ display: 'inline-flex', gap: '0.4rem' }}>
                         <button style={ui.button} onClick={() => onReplay(b.block_attempt_id)}>{t('analyst.replay')}</button>
                         <button style={ui.button} onClick={() => onKinematics(b.block_attempt_id)}>{t('analyst.kin.open')}</button>
+                        {b.step_type === 'INTERVENTION_SHEET' && (
+                          <button style={ui.button} aria-pressed={marks?.id === b.block_attempt_id} data-testid={`research-marks-${b.block_attempt_id}`}
+                            onClick={() => openMarks(b.block_attempt_id, `${t(b.label_key, { n: b.block_number ?? '' })} · ${t('analyst.attempt')} ${b.attempt_number}`)}>
+                            {t('marks.open')}
+                          </button>
+                        )}
                       </span>
                     )}
                   </td>
@@ -177,6 +205,9 @@ export function SessionDetail({ sessionId, onBack, onReplay, onKinematics }: {
           </table>
         </div>
       </section>
+
+      {marksError && <p role="alert" style={ui.error}>{t(marksError)}</p>}
+      {marks && <MarksTable title={marks.label} marks={marks.marks} language={x.language_code} />}
 
       <section style={s.section} aria-labelledby="kin-h">
         <h3 id="kin-h" style={s.h}>{t('analyst.kin.session_title')}</h3>
@@ -217,5 +248,33 @@ export function SessionDetail({ sessionId, onBack, onReplay, onKinematics }: {
         )}
       </section>
     </div>
+  );
+}
+
+/** An intervention sheet's marks by row, laid out as on the sheet (in the session language's direction). */
+function MarksTable({ title, marks, language }: { title: string; marks: SheetMark[]; language: string }) {
+  const { t } = useTranslation();
+  const mark = (v: boolean | null) => (v === null ? '—' : v ? '✗' : '✓');
+  return (
+    <section style={s.section} data-testid="research-marks" aria-label={title}>
+      <h3 style={s.h}>{t('marks.open')} · {title}</h3>
+      {(['TRACE_MODEL', 'START_DOT', 'FREEHAND'] as const).map((row) => (
+        <div key={row} style={{ display: 'grid', gap: '0.3rem' }}>
+          <strong style={{ fontSize: '0.9rem' }}>{t(`marks.row.${row}`)}</strong>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(5rem, 1fr))', gap: '0.4rem', direction: language === 'he' ? 'rtl' : 'ltr' }}>
+            {marks.filter((m) => m.row_type === row).map((m) => (
+              <div key={m.box_id} style={{ border: '1px solid var(--ilt-border)', borderRadius: 6, padding: '0.3rem', textAlign: 'center', fontSize: '0.85rem' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700 }} lang={language}>{m.letter}</div>
+                <div><strong>{mark(m.final_error)}</strong> {m.decided_by ? t(m.decided_by === 'EVALUATOR' ? 'marks.by_evaluator' : 'marks.by_system') : t('marks.to_set')}</div>
+                {m.auto_error !== null && m.decided_by === 'EVALUATOR' && <div style={ui.muted}>{t('analyst.marks_suggested', { mark: mark(m.auto_error) })}</div>}
+                {m.internal_pen_lifts !== null && m.internal_pen_lifts > (m.lifts_allowed ?? 0) && <div style={ui.muted}>{t('marks.lifts', { n: m.internal_pen_lifts, allowed: m.lifts_allowed ?? 0 })}</div>}
+                {m.start_point_ok !== null && <div style={ui.muted}>{t(m.start_point_ok ? 'marks.start_ok' : 'marks.start_off')}</div>}
+                {m.similarity_hint !== null && <div style={ui.muted}>{t('marks.hint', { n: Math.round(m.similarity_hint) })}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }

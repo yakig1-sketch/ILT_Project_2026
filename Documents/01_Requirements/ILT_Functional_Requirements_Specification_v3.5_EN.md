@@ -236,6 +236,7 @@ For each box: start and end time; contact path; for each dot the **closest dista
 
 - **FR-SCORE-15** Each letter in each row gets one mark, stored as **error: yes/no** and shown as ✓ / ✗ (FR-COCK-5).
 - **FR-SCORE-16** Sheet accuracy score = correct marks ÷ marks × 100. Pen-lift and speed scores use the letter canvas's own profile (expected lifts and Normal speed from its reference recordings). Width is not scored for intervention letters.
+  - *Phase 5d design (2026-11-13):* a sheet is scored once **all its marks are set**; until then the cockpit shows how many are left. Changing a mark later scores the sheet again (the marks' change log is the audit trail). The results appear with the marks, in the Dispatch Console, in an intervention section of the Comparative Summary, and for analysts in the portal and the exports.
 
 ## 10. Comparative Summary Dashboard
 

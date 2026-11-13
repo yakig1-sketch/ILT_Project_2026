@@ -245,6 +245,22 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /** Replay data for one research block attempt (FR-REP-4), in the same shape as the cockpit's replay. */
+  /** An intervention sheet attempt's marks (Phase 5d): the system's suggestion and the mark in force per letter. */
+  app.get<{ Params: { id: string } }>('/research/attempts/:id/marks', { preHandler: analyst }, async (req, reply) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
+    return asAnalyst(async (q) => {
+      const marks = await rows<{ box_id: number; similarity_hint: string | null }>(q, `
+        SELECT m.box_id, m.row_type, m.letter, m.auto_error, m.start_point_ok, m.evaluator_error, m.final_error, m.decided_by,
+               m.similarity_hint, m.internal_pen_lifts, m.lifts_allowed, array_position(b.fill_order_ids, m.box_id) AS fill_position
+          FROM v_research_marks m
+          JOIN (SELECT block_attempt_id, ARRAY(SELECT jsonb_array_elements_text(fill_order)::int) AS fill_order_ids
+                  FROM v_research_blocks WHERE block_attempt_id = $1) b ON b.block_attempt_id = m.block_attempt_id
+         WHERE m.block_attempt_id = $1 ORDER BY fill_position NULLS LAST, m.box_id`, [req.params.id]);
+      if (!marks.length) return reply.status(404).send(notFound);
+      return { block_attempt_id: req.params.id, marks: marks.map((m) => ({ ...m, similarity_hint: m.similarity_hint === null ? null : Number(m.similarity_hint) })) };
+    });
+  });
+
   app.get<{ Params: { id: string } }>('/research/attempts/:id/replay', { preHandler: analyst }, async (req, reply) => {
     if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
     const user = req.user as UserClaims;

@@ -27,13 +27,14 @@ import { one } from './db.js';
 import { loadSession, loadSteps, timersFrom, type SessionRow, type StepRow } from './routes/sessions.js';
 import { deriveRecording, loadReferenceCanvas, packSamples, type RecordingKind, type ReferenceCanvas, type ReferenceKind } from './reference-store.js';
 import { storeSuggestedMarks } from './marks-store.js';
+import { scoreSheet } from './sheet-score.js';
 import { scoreAttempt } from './scoring-store.js';
 import type { SettingsSnapshot } from './settings-store.js';
 import { findAttempt, finishAttempt, insertSamples, startAttempt, storedSampleCount, type AttemptRef } from './telemetry-store.js';
 
 const WRITING_STEPS = new Set(['WARMUP_BLOCK', 'ILT_BLOCK', 'NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
-/** Steps measured for time and pen lifts only: notebook pages (FR-PLAN-5) and, until sheet scoring (Phase 5d), intervention sheets. */
-const TIMED_ONLY = new Set(['NOTEBOOK_PAGE', 'INTERVENTION_SHEET']);
+/** Steps measured for time and pen lifts only: notebook pages (FR-PLAN-5). Intervention sheets are scored from their marks (sheet-score.ts). */
+const TIMED_ONLY = new Set(['NOTEBOOK_PAGE']);
 const AUTH_TIMEOUT_MS = 5000;
 
 type BlockComplete = ControlPayload<'BLOCK_COMPLETE'>;
@@ -881,30 +882,36 @@ export class Hub {
       const session = await loadSession(this.db, sessionId);
       const step = (await loadSteps(this.db, sessionId)).find((s) => s.step_index === stepIndex);
       if (!session || !step?.geometry) return;
-      const { score_version, summary } = await scoreAttempt(this.db, {
-        attemptId,
-        canvas: step.mirrored ? mirrorCanvas(step.geometry) : step.geometry,
-        profile: TIMED_ONLY.has(step.step_type) ? null : step.profile,
-        isScored: step.is_scored,
-        snapshot: session.settings_snapshot,
-      });
-      this.log({
-        severity: 'INFO', event_type: 'session.block.scored', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId,
-        message: score_version === null
-          ? `Block measured: step ${stepIndex}, attempt ${attemptNumber} (not scored)`
-          : `Block scored: step ${stepIndex}, attempt ${attemptNumber}, composite ${summary.composite_score ?? 'not configured'}`,
-        details: { step_index: stepIndex, attempt_number: attemptNumber, score_version, composite: summary.composite_score },
-      });
-      // A letter sheet: the system's suggested marks, for the evaluator to confirm or change (FR-COCK-5).
-      if (step.step_type === 'INTERVENTION_SHEET' && step.profile) {
-        const marks = await storeSuggestedMarks(this.db, attemptId, step.geometry, step.profile, session.settings_snapshot);
+      const sheet = step.step_type === 'INTERVENTION_SHEET' && step.profile;
+      let result: { score_version: number | null; summary: Awaited<ReturnType<typeof scoreAttempt>>['summary'] };
+      if (sheet) {
+        // A letter sheet: the system's suggested marks, for the evaluator to confirm or change (FR-COCK-5),
+        // then the sheet's scores, accuracy from the marks once none is open (Phase 5d).
+        const marks = await storeSuggestedMarks(this.db, attemptId, step.geometry, step.profile!, session.settings_snapshot);
         const count = (v: boolean | null) => marks.filter((m) => m.auto_error === v).length;
         this.log({
           severity: 'INFO', event_type: 'intervention.mark.suggested', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId,
           message: `Marks suggested: step ${stepIndex}, attempt ${attemptNumber}: ${count(false)} correct, ${count(true)} error, ${count(null)} for the evaluator`,
           details: { step_index: stepIndex, attempt_number: attemptNumber, correct: count(false), error: count(true), open: count(null) },
         });
+        result = await scoreSheet(this.db, attemptId, step.geometry, step.profile!, session.settings_snapshot, null);
+      } else {
+        result = await scoreAttempt(this.db, {
+          attemptId,
+          canvas: step.mirrored ? mirrorCanvas(step.geometry) : step.geometry,
+          profile: TIMED_ONLY.has(step.step_type) ? null : step.profile,
+          isScored: step.is_scored,
+          snapshot: session.settings_snapshot,
+        });
       }
+      const { score_version, summary } = result;
+      this.log({
+        severity: 'INFO', event_type: 'session.block.scored', session_id: sessionId, entity_type: 'block_attempt', entity_id: attemptId,
+        message: score_version === null
+          ? `Block measured: step ${stepIndex}, attempt ${attemptNumber} (${sheet ? 'scored once every mark is set' : 'not scored'})`
+          : `Block scored: step ${stepIndex}, attempt ${attemptNumber}, composite ${summary.composite_score ?? 'not configured'}`,
+        details: { step_index: stepIndex, attempt_number: attemptNumber, score_version, composite: summary.composite_score },
+      });
       this.toCockpits(sessionId, controlMessage('BLOCK_SCORED', {
         block_attempt_id: attemptId, step_index: stepIndex, attempt_number: attemptNumber, score_version, scores: { ...summary },
       }));

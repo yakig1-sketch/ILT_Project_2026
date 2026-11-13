@@ -43,6 +43,9 @@ interface IvLetter {
   retention_due_on: string | null;
   retention_due: boolean;
   retention_done: boolean;
+  /** Phase 5d: mean composite of the latest completed training, and of the latest retention check. */
+  last_training_composite: number | null;
+  retention_composite: number | null;
 }
 interface IvSession {
   id: string;
@@ -55,6 +58,11 @@ interface IvSession {
   sheets_total: number;
   sheets_done: number;
   can_open: boolean;
+  /** Phase 5d: means over the scored sheets; open marks still to set. */
+  composite_score: number | null;
+  accuracy_score: number | null;
+  sheets_scored: number;
+  open_marks: number;
 }
 interface Intervention {
   language_code: string;
@@ -426,6 +434,12 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
                   <span style={{ fontSize: '1.6rem', fontWeight: 700, lineHeight: 1.1 }} lang={iv.language_code}>{glyph(l)}</span>
                   {l.trainings > 0 && <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>{t('console.letter_state.trained', { count: l.trainings })}</span>}
                   <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>{letterState(l)}</span>
+                  {(l.last_training_composite !== null || l.retention_composite !== null) && (
+                    <span style={{ fontSize: '0.72rem', opacity: 0.85 }} data-testid={`iv-letter-score-${l.code}`}>
+                      {[l.last_training_composite !== null && t('console.iv_training_score', { n: l.last_training_composite.toFixed(1) }),
+                        l.retention_composite !== null && t('console.iv_retention_score', { n: l.retention_composite.toFixed(1) })].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -461,6 +475,11 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
                 <span style={s.cardTitle}>{t(`enum.intervention_kind.${x.kind}`)} · <bdi lang={iv.language_code}>{glyph(x)}</bdi></span>
                 <span style={s.cardSub}><bdi>{x.session_code}</bdi></span>
                 <span style={s.cardSub}>{t('console.iv_session_sheets', { done: x.sheets_done, total: x.sheets_total })}</span>
+                <span style={s.cardSub} data-testid="iv-session-score">
+                  {x.composite_score !== null ? t('console.iv_score', { n: x.composite_score.toFixed(1) })
+                    : x.accuracy_score !== null ? t('console.iv_accuracy', { n: x.accuracy_score.toFixed(1) })
+                    : x.open_marks > 0 ? t('console.iv_marks_open', { n: x.open_marks }) : ''}
+                </span>
                 <span style={s.cardState}>[ {t(`console.state.${state}`)} ]</span>
               </>
             );

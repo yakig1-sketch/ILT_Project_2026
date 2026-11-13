@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { UserClaims } from '../auth.js';
 import { inTransaction, one } from '../db.js';
 import { loadMarks, markWord } from '../marks-store.js';
+import { loadSheetScore, rescoreSheet } from '../sheet-score.js';
 
 const SetMarks = z.object({
   marks: z.array(z.object({
@@ -54,6 +55,8 @@ export const markRoutes: FastifyPluginAsync = async (app) => {
   const payload = async (a: AttemptRow) => ({
     block_attempt_id: a.id, session_id: a.session_id, step_index: a.step_index, attempt_number: a.attempt_number,
     marks: await loadMarks(app.deps.db, a.id, a.fill_order ?? []),
+    // Phase 5d: the sheet's score (accuracy from the marks), or the marks still to set.
+    score: await loadSheetScore(app.deps.db, a.id),
   });
 
   app.get<{ Params: { id: string } }>('/block-attempts/:id/intervention-marks', { preHandler: staff }, async (req, reply) => {
@@ -97,6 +100,8 @@ export const markRoutes: FastifyPluginAsync = async (app) => {
     if ('unknown' in result) {
       return reply.status(400).send({ error: { code: 'UNKNOWN_BOX', message_key: 'error.400', details: { box_id: result.unknown } } });
     }
+    // The sheet is scored again from its marks (or loses its score while a mark is open).
+    if (result.changes.length) await rescoreSheet(app.deps.db, a.id, user.sub);
     for (const c of result.changes) {
       app.appLog.write({
         severity: 'INFO', event_type: 'intervention.mark.changed', actor_user_id: user.sub, actor_role: user.role,

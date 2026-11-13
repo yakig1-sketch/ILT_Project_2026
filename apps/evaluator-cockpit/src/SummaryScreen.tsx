@@ -32,10 +32,33 @@ interface SummaryBox {
   composite_score: number | null;
   pass: boolean | null;
 }
+/** Phase 5d: one intervention session's sheet results. */
+interface InterventionResult {
+  session_id: string;
+  session_code: string;
+  kind: 'TRAINING' | 'RETENTION';
+  code: string;
+  letter: string | null;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  sheets_total: number;
+  sheets_done: number;
+  sheets_scored: number;
+  open_marks: number;
+  avg_time_ms: number | null;
+  avg_pen_lifts: number | null;
+  accuracy_score: number | null;
+  speed_score: number | null;
+  pen_lift_score: number | null;
+  composite_score: number | null;
+  pass: boolean | null;
+}
 interface Summary {
   participant: { id: string; study_code: string };
   scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number };
   boxes: SummaryBox[];
+  intervention: InterventionResult[];
 }
 
 const s: Record<string, CSSProperties> = {
@@ -102,6 +125,66 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
         ))}
       </div>
       <SummaryChart boxes={data.boxes} />
+      <InterventionSummary results={data.intervention} />
     </div>
+  );
+}
+
+/**
+ * The intervention programme's results (Phase 5d, FR-SCORE-16): one row per session, grouped by
+ * letter (oldest letter first), with the means over its scored sheets next to the composite.
+ */
+function InterventionSummary({ results }: { results: InterventionResult[] }) {
+  const { t, i18n } = useTranslation();
+  const nc = t('summary.not_configured');
+  const f = (v: number | null, digits = 1) => (v === null ? '—' : v.toFixed(digits));
+  const letters = [...new Set([...results].reverse().map((r) => r.code))];
+  const cell: CSSProperties = { ...ui.cell, fontSize: '0.88rem' };
+  return (
+    <section style={{ ...ui.card, display: 'grid', gap: '0.6rem' }} data-testid="summary-intervention">
+      <h3 style={{ margin: 0, fontSize: '1.05rem' }}>{t('summary.iv.title')}</h3>
+      {results.length === 0 ? <p style={{ ...ui.muted, margin: 0 }}>{t('summary.iv.none')}</p> : (
+        <>
+          <p style={{ ...ui.muted, margin: 0, fontSize: '0.85rem' }}>{t('summary.iv.help')}</p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={ui.table}>
+              <thead>
+                <tr>
+                  {['letter', 'session', 'sheets', 'time', 'pen_lifts', 'accuracy', 'pen_lift_score', 'speed_score', 'composite', 'pass'].map((k) => (
+                    <th key={k} style={{ ...cell, textAlign: 'start' }}>{t(`summary.iv.col.${k}`)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {letters.flatMap((code) => results.filter((r) => r.code === code).map((r) => (
+                  <tr key={r.session_id} data-testid={`iv-result-${r.session_code}`}>
+                    <td style={{ ...cell, fontSize: '1.2rem', fontWeight: 700 }}>{r.letter ?? r.code}</td>
+                    <td style={cell}>
+                      {t(`enum.intervention_kind.${r.kind}`)} · <bdi>{r.session_code}</bdi>
+                      {/* The day it was completed; an unfinished session shows the day it was planned and its status. */}
+                      <div style={ui.muted}>
+                        {new Date(r.completed_at ?? r.created_at).toLocaleDateString(i18n.language)}
+                        {r.status !== 'COMPLETED' && ` · ${t(`enum.session_status.${r.status}`)}`}
+                      </div>
+                    </td>
+                    <td style={cell}>
+                      {t('summary.iv.sheets', { scored: r.sheets_scored, total: r.sheets_total })}
+                      {r.open_marks > 0 && <div style={{ color: 'var(--ilt-warn)' }}>{t('marks.score_pending', { n: r.open_marks })}</div>}
+                    </td>
+                    <td style={cell}><bdi>{r.avg_time_ms === null ? '—' : `${(r.avg_time_ms / 1000).toFixed(1)} ${t('units.seconds')}`}</bdi></td>
+                    <td style={cell}><bdi>{f(r.avg_pen_lifts, 0)}</bdi></td>
+                    <td style={cell}><bdi>{f(r.accuracy_score)}</bdi></td>
+                    <td style={cell}><bdi>{f(r.pen_lift_score)}</bdi></td>
+                    <td style={cell}><bdi>{r.sheets_scored && r.speed_score === null ? nc : f(r.speed_score)}</bdi></td>
+                    <td style={{ ...cell, fontWeight: 600 }}><bdi>{r.sheets_scored && r.composite_score === null ? nc : f(r.composite_score)}</bdi></td>
+                    <td style={cell}>{r.pass === null ? <span style={ui.muted}>{r.sheets_scored ? nc : '—'}</span> : <span style={pill(r.pass ? 'ok' : 'warn')}>{t(r.pass ? 'summary.pass' : 'summary.fail')}</span>}</td>
+                  </tr>
+                )))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

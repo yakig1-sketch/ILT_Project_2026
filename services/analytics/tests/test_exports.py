@@ -19,6 +19,7 @@ def sample_tables():
         "blocks": pa.table({"session_id": ["s1"], "block_attempt_id": ["a1"], "composite_score": [88.5], "counts": [True]}),
         "letters": pa.table({"session_id": ["s1"], "block_attempt_id": ["a1"], "box_id": pa.array([3], pa.int16())}),
         "score_versions": pa.table({"session_id": ["s1"], "block_attempt_id": ["a1"], "version": pa.array([1], pa.int16())}),
+        "marks": pa.table({"session_id": ["s1"], "block_attempt_id": ["a1"], "box_id": pa.array([4], pa.int16()), "final_error": [False]}),
     }
 
 
@@ -26,12 +27,14 @@ def test_zip_has_one_file_per_table_a_readme_and_a_manifest(tmp_path):
     for fmt, ext in (("PARQUET", "parquet"), ("CSV", "csv")):
         path = tmp_path / f"{fmt}.zip"
         counts = build_zip(sample_tables(), fmt, {"gender": "FEMALE"}, {"include_samples": False}, path)
-        assert counts == {"sessions": 1, "blocks": 1, "letters": 1, "score_versions": 1}
+        assert counts == {"sessions": 1, "blocks": 1, "letters": 1, "score_versions": 1, "marks": 1}
         z = zipfile.ZipFile(path)
         assert sorted(z.namelist()) == sorted([f"{n}.{ext}" for n in counts] + ["README.txt", "manifest.json"])
         manifest = json.loads(z.read("manifest.json"))
         assert manifest["format"] == fmt and manifest["filters"] == {"gender": "FEMALE"} and manifest["row_counts"] == counts
         assert "Sessions: 1" in z.read("README.txt").decode() and "samples " not in z.read("README.txt").decode()
+        # Phase 5d: the intervention marks file is described.
+        assert "marks           Intervention sheets only" in z.read("README.txt").decode()
         z.extractall(tmp_path / fmt)
     # Parquet keeps the types, including a column with no value.
     row = duckdb.sql(f"SELECT region_id, typeof(region_id), composite_score, counts FROM '{tmp_path / 'PARQUET' / 'sessions.parquet'}' "

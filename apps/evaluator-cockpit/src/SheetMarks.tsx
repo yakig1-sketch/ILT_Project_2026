@@ -29,11 +29,22 @@ export interface MarkView {
   internal_pen_lifts?: number | null;
   lifts_allowed?: number | null;
 }
+/** The sheet's score (Phase 5d): accuracy from the marks, set once no mark is open. */
+export interface SheetScoreView {
+  score_version: number | null;
+  open_marks: number;
+  accuracy_score: number | null;
+  pen_lift_score: number | null;
+  speed_score: number | null;
+  composite_score: number | null;
+  pass: boolean | null;
+}
 interface StoredMarks {
   block_attempt_id: string;
   step_index: number;
   attempt_number: number;
   marks: MarkView[];
+  score: SheetScoreView | null;
 }
 type Overrides = Record<number, boolean | null>;
 
@@ -154,11 +165,11 @@ export function SheetMarks({ block, reviewAttemptId, similarity, language, readO
   }
 
   // The sheet being written, and a stored sheet chosen for review (also while another sheet runs).
-  const views: { live: boolean; marks: MarkView[]; title: string; editable: boolean }[] = [];
+  const views: { live: boolean; marks: MarkView[]; title: string; editable: boolean; score?: SheetScoreView | null }[] = [];
   if (liveSheet) views.push({ live: true, marks: liveMarks, title: t('marks.live', { step: stepLabel(liveSheet.step_index) }), editable: true });
   const storedIsLive = !!liveSheet && stored?.step_index === liveSheet.step_index && stored.attempt_number === liveSheet.attempt_number;
   if (stored && stored.marks.length && !storedIsLive) {
-    views.push({ live: false, marks: stored.marks, title: t('marks.stored', { step: stepLabel(stored.step_index), n: stored.attempt_number }), editable: !readOnly });
+    views.push({ live: false, marks: stored.marks, title: t('marks.stored', { step: stepLabel(stored.step_index), n: stored.attempt_number }), editable: !readOnly, score: stored.score });
   }
   if (views.length === 0) return error ? <p role="alert" style={ui.error}>{t(error)}</p> : null;
   const dir = language === 'he' ? 'rtl' : 'ltr';
@@ -175,6 +186,7 @@ export function SheetMarks({ block, reviewAttemptId, similarity, language, readO
                 {t('marks.summary', { correct: count(false), error: count(true), open: count(null) })}
               </span>
             </div>
+            {view.score && <SheetScoreLine score={view.score} />}
             <p style={{ ...ui.muted, margin: 0, fontSize: '0.85rem' }}>{t('marks.help')}</p>
             {ROWS.map((row, i) => {
               const marks = view.marks.filter((m) => m.row_type === row);
@@ -197,6 +209,26 @@ export function SheetMarks({ block, reviewAttemptId, similarity, language, readO
       })}
       {error && <p role="alert" style={ui.error}>{t(error)}</p>}
     </>
+  );
+}
+
+/** The sheet's component scores next to its composite (FR-SCORE-13), or the marks still to set. */
+function SheetScoreLine({ score }: { score: SheetScoreView }) {
+  const { t } = useTranslation();
+  if (score.score_version === null) {
+    return <p style={{ margin: 0, color: tone.warn }} data-testid="sheet-score">{t('marks.score_pending', { n: score.open_marks })}</p>;
+  }
+  const nc = t('summary.not_configured');
+  const f = (v: number | null) => (v === null ? nc : v.toFixed(1));
+  return (
+    <p style={{ margin: 0, display: 'flex', gap: '1rem', flexWrap: 'wrap' }} data-testid="sheet-score">
+      <strong>{t('marks.score')}</strong>
+      <span>{t('summary.accuracy_score')}: {f(score.accuracy_score)}</span>
+      <span>{t('summary.pen_lift_score')}: {f(score.pen_lift_score)}</span>
+      <span>{t('summary.speed_score')}: {f(score.speed_score)}</span>
+      <strong>{t('summary.composite')}: {f(score.composite_score)}</strong>
+      <span>{score.pass === null ? `${t('summary.pass_fail')}: ${nc}` : t(score.pass ? 'summary.pass' : 'summary.fail')}</span>
+    </p>
   );
 }
 
