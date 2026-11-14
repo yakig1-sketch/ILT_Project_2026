@@ -616,7 +616,7 @@ export const en: LocaleShape = {
     iv_repeat_none: 'After the first training',
     iv_next: 'Next Letter',
     iv_next_sub: 'Start training {{letter}}',
-    iv_next_none: 'Every letter is trained',
+    iv_next_none: 'No other letter to train',
     iv_open: 'An intervention session is open. Open it below, or finish it before planning another.',
     iv_sessions: 'Intervention sessions',
     iv_no_sessions: 'No intervention session yet.',
