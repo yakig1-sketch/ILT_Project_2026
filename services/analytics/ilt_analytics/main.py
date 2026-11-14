@@ -14,7 +14,7 @@ from contextlib import contextmanager
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from . import __version__
 from .config import analyst_database_url
@@ -103,7 +103,15 @@ def session_kinematics(session_id: str, connect=Depends(get_connect)) -> dict:
 
 class ExportRequest(BaseModel):
     export_id: uuid.UUID
-    session_ids: list[uuid.UUID] = Field(min_length=1, max_length=5000)
+    session_ids: list[uuid.UUID] = Field(default=[], max_length=5000)
+    # Phase 5e: study codes of the paper and legacy participants to include (the research views decide what is seen).
+    study_codes: list[str] = Field(default=[], max_length=5000)
+
+    @model_validator(mode="after")
+    def _has_content(self):
+        if not self.session_ids and not self.study_codes:
+            raise ValueError("an export needs research sessions or paper/legacy participants")
+        return self
     format: str = Field(pattern="^(PARQUET|CSV)$")
     filters: dict = {}
     include_samples: bool = False
@@ -118,7 +126,8 @@ def create_export(req: ExportRequest, connect=Depends(get_connect), store=Depend
     """
     ids = [str(i) for i in req.session_ids]
     with connect() as conn:
-        return run_export(conn, store, str(req.export_id), ids, req.format, req.filters, req.include_samples, req.include_kinematics)
+        return run_export(conn, store, str(req.export_id), ids, req.format, req.filters, req.include_samples, req.include_kinematics,
+                          study_codes=req.study_codes)
 
 
 class LegacyFile(BaseModel):

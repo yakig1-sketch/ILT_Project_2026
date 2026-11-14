@@ -46,7 +46,9 @@ const UpdateParticipant = z.object({
 const Consent = z.object({
   consent_version: z.string().trim().min(1).max(20),
   /** The day the form was signed: not in the future. */
-  signed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => v <= new Date().toISOString().slice(0, 10) && !Number.isNaN(Date.parse(v))),
+  // "Today" in the evaluator's time zone may already be tomorrow in UTC (Israel is UTC+2/+3): allow the
+  // latest calendar date anywhere (UTC+14).
+  signed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => v <= new Date(Date.now() + 14 * 3_600_000).toISOString().slice(0, 10) && !Number.isNaN(Date.parse(v))),
   allows_hand_video: z.boolean().default(false),
   allows_research_use: z.boolean().default(false),
   allows_open_science: z.boolean().default(false),

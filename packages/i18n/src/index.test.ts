@@ -18,6 +18,13 @@ describe('translations', () => {
     }
   });
 
+  it('every count has a Hebrew "two" form', () => {
+    // Hebrew plural rules give 2 its own category; without a _two key a count of 2 shows the raw key.
+    const keys = new Set(flattenKeys(resources.he.translation));
+    const missing = [...keys].filter((k) => k.endsWith('_other') && !keys.has(k.replace(/_other$/, '_two')));
+    expect(missing).toEqual([]);
+  });
+
   it('Hebrew is right-to-left', () => {
     expect(directionOf('he')).toBe('rtl');
     expect(directionOf('en')).toBe('ltr');

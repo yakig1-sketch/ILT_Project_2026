@@ -15,15 +15,20 @@ interface SummaryBlock {
   attempt_number?: number;
   session_code?: string;
   composite_score?: number | null;
+  /** Paper anchors (Phase 5e): whether this block was entered. */
+  on_paper?: boolean;
 }
 interface SummaryBox {
   key: string;
   session_type: string;
   block_numbers: number[];
+  /** Phase 5e: tablet blocks, or the paper cohort's entered blocks (no speed, no composite). */
+  source: 'TABLET' | 'PAPER';
   complete: boolean;
   blocks: SummaryBlock[];
   avg_time_ms: number | null;
   avg_pen_lifts: number | null;
+  avg_accurate_letters: number | null;
   accuracy_pct: number | null;
   avg_speed_mm_s: number | null;
   speed_score: number | null;
@@ -54,11 +59,19 @@ interface InterventionResult {
   composite_score: number | null;
   pass: boolean | null;
 }
+/** Phase 5e: the old application's results for one session label. */
+interface LegacyResult {
+  session_label: string;
+  imported_at: string;
+  blocks: { block_number: number; pen_lifts: number | null; width_mm: number | null; total_time_ms: number | null; writing_time_ms: number | null; air_time_ms: number | null }[];
+  means: { pen_lifts: number | null; width_mm: number | null; total_time_ms: number | null; writing_time_ms: number | null; air_time_ms: number | null };
+}
 interface Summary {
-  participant: { id: string; study_code: string };
+  participant: { id: string; study_code: string; cohort: string };
   scoring: { pass_threshold: number | null; weight_speed_pct: number; weight_accuracy_pct: number; weight_pen_lifts_pct: number };
   boxes: SummaryBox[];
   intervention: InterventionResult[];
+  legacy: LegacyResult[];
 }
 
 const s: Record<string, CSSProperties> = {
@@ -78,6 +91,7 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
 
   if (!data) return error ? <LoadError message={t(error)} onBack={onBack} backLabel={t('common.back')} /> : <p style={ui.muted}>{t('common.checking')}</p>;
   const nc = t('summary.not_configured');
+  const np = t('summary.not_on_paper');
   const fmt = (v: number | null, digits = 1) => (v === null ? '—' : v.toFixed(digits));
   const w = data.scoring;
   return (
@@ -93,40 +107,100 @@ export function SummaryScreen({ participantId, onBack, onReplay }: { participant
       <div style={s.grid}>
         {data.boxes.map((b) => (
           <section key={b.key} style={s.box} data-testid={`summary-${b.key}`}>
-            <h3 style={{ margin: 0, fontSize: '1rem' }}>{t(`summary.anchor.${b.key}`)}</h3>
+            <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {t(`summary.anchor.${b.key}`)}
+              {b.source === 'PAPER' && <span style={pill('off')} data-testid={`summary-${b.key}-paper`}>{t('summary.paper')}</span>}
+            </h3>
             <div style={{ ...ui.muted, fontSize: '0.8rem' }}>{t('summary.blocks', { a: b.block_numbers[0], b: b.block_numbers[1] })}</div>
-            {b.blocks.every((x) => x.attempt_id === null) ? (
+            {/* Tablet anchors have attempts; paper anchors have entered blocks (Phase 5e). */}
+            {b.blocks.every((x) => x.attempt_id === null && !x.on_paper) ? (
               <p style={ui.muted}>{t('summary.no_data')}</p>
             ) : (
               <>
                 {!b.complete && <p style={{ ...ui.muted, color: 'var(--ilt-warn)', margin: 0 }}>{t('summary.incomplete')}</p>}
                 <div style={s.line}><span>{t('summary.avg_time')}</span><bdi>{b.avg_time_ms === null ? '—' : `${(b.avg_time_ms / 1000).toFixed(1)} ${t('units.seconds')}`}</bdi></div>
                 <div style={s.line}><span>{t('summary.pen_lifts')}</span><bdi>{fmt(b.avg_pen_lifts, 0)}</bdi></div>
+                <div style={s.line}><span>{t('summary.accurate_avg')}</span><bdi>{b.avg_accurate_letters === null ? '—' : `${fmt(b.avg_accurate_letters)} / 15`}</bdi></div>
                 <div style={s.line}><span>{t('summary.accuracy_pct')}</span><bdi>{fmt(b.accuracy_pct)}</bdi></div>
-                <div style={s.line}><span>{t('summary.avg_speed')}</span><bdi>{b.avg_speed_mm_s === null ? '—' : `${b.avg_speed_mm_s.toFixed(2)} ${t('units.mm_s')}`}</bdi></div>
-                <div style={s.line}><span>{t('summary.speed_score')}</span><bdi>{b.speed_score === null ? nc : fmt(b.speed_score)}</bdi></div>
-                <div style={s.line}><span>{t('summary.accuracy_score')}</span><bdi>{fmt(b.accuracy_score)}</bdi></div>
+                <div style={s.line}><span>{t('summary.avg_speed')}</span><bdi>{b.source === 'PAPER' ? np : b.avg_speed_mm_s === null ? '—' : `${b.avg_speed_mm_s.toFixed(2)} ${t('units.mm_s')}`}</bdi></div>
+                <div style={s.line}><span>{t('summary.speed_score')}</span><bdi>{b.source === 'PAPER' ? np : b.speed_score === null ? nc : fmt(b.speed_score)}</bdi></div>
+                <div style={s.line}><span>{t('summary.accuracy_score')}</span><bdi>{b.source === 'PAPER' ? np : fmt(b.accuracy_score)}</bdi></div>
                 <div style={s.line}><span>{t('summary.pen_lift_score')}</span><bdi>{fmt(b.pen_lift_score)}</bdi></div>
-                <div style={{ ...s.line, fontWeight: 600 }}><span>{t('summary.composite')}</span><bdi>{b.composite_score === null ? nc : fmt(b.composite_score)}</bdi></div>
+                <div style={{ ...s.line, fontWeight: 600 }}><span>{t('summary.composite')}</span><bdi>{b.source === 'PAPER' ? np : b.composite_score === null ? nc : fmt(b.composite_score)}</bdi></div>
                 <div style={{ ...s.line, borderBlockEnd: 'none' }}>
                   <span>{t('summary.pass_fail')}</span>
-                  {b.pass === null ? <span style={ui.muted}>{nc}</span> : <span style={pill(b.pass ? 'ok' : 'warn')}>{t(b.pass ? 'summary.pass' : 'summary.fail')}</span>}
+                  {b.source === 'PAPER' ? <span style={ui.muted}>{np}</span>
+                    : b.pass === null ? <span style={ui.muted}>{nc}</span> : <span style={pill(b.pass ? 'ok' : 'warn')}>{t(b.pass ? 'summary.pass' : 'summary.fail')}</span>}
                 </div>
               </>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {b.source === 'PAPER' ? (
+              <p style={{ ...ui.muted, margin: 0, fontSize: '0.85rem' }}>{t('summary.paper_note')}</p>
+            ) : <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {b.blocks.map((x) => (
                 <button key={x.block_number} style={ui.button} disabled={!x.attempt_id} onClick={() => x.attempt_id && onReplay(x.attempt_id)}>
                   {t('summary.replay_block', { n: x.block_number })}
                 </button>
               ))}
-            </div>
+            </div>}
           </section>
         ))}
       </div>
       <SummaryChart boxes={data.boxes} />
       <InterventionSummary results={data.intervention} />
+      {data.legacy.length > 0 && <LegacySummary results={data.legacy} />}
     </div>
+  );
+}
+
+/**
+ * The old application's results (Phase 5e, FR-LEG-1): one table per session label, its blocks and
+ * means, as imported. No scores, and not compared with the anchors: the old measures differ.
+ */
+function LegacySummary({ results }: { results: LegacyResult[] }) {
+  const { t, i18n } = useTranslation();
+  const f = (v: number | null, digits = 1) => (v === null ? '—' : v.toFixed(digits));
+  const sec = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)} ${t('units.seconds')}`);
+  const cell: CSSProperties = { ...ui.cell, fontSize: '0.88rem' };
+  const cols = ['block', 'pen_lifts', 'width', 'total', 'writing', 'air'] as const;
+  return (
+    <section style={{ ...ui.card, display: 'grid', gap: '0.6rem' }} data-testid="summary-legacy">
+      <h3 style={{ margin: 0, fontSize: '1.05rem' }}>{t('summary.legacy.title')}</h3>
+      <p style={{ ...ui.muted, margin: 0, fontSize: '0.85rem' }}>{t('summary.legacy.help')}</p>
+      {results.map((r) => (
+        <div key={r.session_label} style={{ display: 'grid', gap: '0.3rem' }} data-testid={`legacy-${r.session_label}`}>
+          <strong>
+            <bdi>{r.session_label}</bdi>{' '}
+            <span style={{ ...ui.muted, fontWeight: 400 }}>· {t('summary.legacy.imported', { date: new Date(r.imported_at).toLocaleDateString(i18n.language) })}</span>
+          </strong>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={ui.table}>
+              <thead><tr>{cols.map((c) => <th key={c} style={{ ...cell, textAlign: 'start' }}>{t(`summary.legacy.col.${c}`)}</th>)}</tr></thead>
+              <tbody>
+                {r.blocks.map((b) => (
+                  <tr key={b.block_number}>
+                    <td style={cell}>{b.block_number}</td>
+                    <td style={cell}><bdi>{b.pen_lifts ?? '—'}</bdi></td>
+                    <td style={cell}><bdi>{f(b.width_mm)}</bdi></td>
+                    <td style={cell}><bdi>{sec(b.total_time_ms)}</bdi></td>
+                    <td style={cell}><bdi>{sec(b.writing_time_ms)}</bdi></td>
+                    <td style={cell}><bdi>{sec(b.air_time_ms)}</bdi></td>
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 600 }}>
+                  <td style={cell}>{t('summary.legacy.mean')}</td>
+                  <td style={cell}><bdi>{f(r.means.pen_lifts)}</bdi></td>
+                  <td style={cell}><bdi>{f(r.means.width_mm)}</bdi></td>
+                  <td style={cell}><bdi>{sec(r.means.total_time_ms)}</bdi></td>
+                  <td style={cell}><bdi>{sec(r.means.writing_time_ms)}</bdi></td>
+                  <td style={cell}><bdi>{sec(r.means.air_time_ms)}</bdi></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }
 

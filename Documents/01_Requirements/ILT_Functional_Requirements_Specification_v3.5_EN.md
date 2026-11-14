@@ -86,7 +86,7 @@ A **canvas** is the page the child writes on: an ILT grid, a notebook page, or a
       - **Row 3:** empty.
     - The model letter and its pen strokes are taken from the sheet.
     - The canvases stay Draft until the team checks them on a tablet:
-      - dot positions and stroke order (for example ח, whose sheet has one start dot for both strokes);
+      - dot positions and stroke order (for example ח, whose sheet has one start dot for both strokes: **confirmed 2026-11-14, the arch first**);
       - then a normal speed is recorded per letter.
     - א has no sheet yet.
 - **FR-CAN-6** The system validates a loaded canvas (it must fit the tablet screen at true size, dots must lie inside their boxes, ids must be unique) and shows a **true-size preview** on a paired tablet before activation.
@@ -291,7 +291,10 @@ For each box: start and end time; contact path; for each dot the **closest dista
     - A participant can be created in the Paper cohort.
     - Their record has a grid for Day 1 ILT 1–8, Day 2 ILT 1–4 and Day 14 ILT 1–2: pen lifts, accurate letters (0–15), time in seconds and notes.
     - Each save is logged with the old and new values.
-  - **Not yet shown elsewhere:** legacy and paper results appear on the participant record only, not yet in the Comparative Summary, the analyst portal or exports. Those need a decision on how to compare them with tablet scores, and on consent for the legacy data.
+  - *Phase 5e design (2026-11-14):*
+    - **Comparative Summary:** paper blocks fill the same anchor boxes, tagged **Paper**: average time, pen lifts, accurate letters, accuracy % (accurate ÷ 15) and the pen-lift score. Speed, the speed and accuracy scores, the composite and pass/fail are "not available on paper". Legacy results have their own section per session label, as imported, with no scores and no mapping to the anchors.
+    - **Analysts:** paper and legacy results appear in the portal (**Paper and legacy**) and in exports (`paper_blocks`, `legacy_blocks`) only for participants whose **current consent allows research use**, as for tablet sessions. A legacy child appears once their consent is recorded. The participant filters apply.
+    - **Research-purpose intervention sessions:** the Dispatch Console offers Purpose Intervention or Research for an intervention session; Research only when the setting, a valid research approval and the participant's consent allow it (FR-PLAN-1).
 
 ## 16. Non-functional requirements
 

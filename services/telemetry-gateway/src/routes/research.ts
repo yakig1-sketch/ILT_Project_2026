@@ -84,6 +84,42 @@ export function researchWhere(f: Filter): { sql: string; values: unknown[] } {
   return { sql: c.length ? `WHERE ${c.join(' AND ')}` : '', values };
 }
 
+/**
+ * Phase 5e: conditions over a paper or legacy research view (alias o) for the participant filters only
+ * (Domain, Region, school, grade, gender, SES, hand). Stage, language, canvas, timers and dates describe
+ * tablet sessions and do not apply. Values are numbered from `start`.
+ */
+export function offlineConditions(f: Filter, start = 0): { sql: string; values: unknown[] } {
+  const values: unknown[] = [];
+  const c: string[] = [];
+  const add = (sql: (n: string) => string, v: unknown) => {
+    values.push(v);
+    c.push(sql(`$${start + values.length}`));
+  };
+  if (f.domain_id?.length) add((n) => `o.domain_id = ANY(${n}::int[])`, f.domain_id);
+  if (f.region_id?.length) {
+    const none = f.region_id.includes('NONE');
+    add((n) => `(o.region_id = ANY(${n}::int[])${none ? ' OR o.region_id IS NULL' : ''})`, f.region_id.filter((x) => x !== 'NONE'));
+  }
+  if (f.school?.length) add((n) => `left(o.school_code_hmac, 8) = ANY(${n}::text[])`, f.school);
+  if (f.grade?.length) add((n) => `o.grade_level = ANY(${n}::text[])`, f.grade);
+  if (f.gender?.length) add((n) => `o.gender = ANY(${n}::text[])`, f.gender);
+  if (f.ses?.length) add((n) => `(o.ses_group = ANY(${n}::text[]) OR (o.ses_group IS NULL AND 'NONE' = ANY(${n}::text[])))`, f.ses);
+  if (f.hand?.length) add((n) => `o.dominant_hand = ANY(${n}::text[])`, f.hand);
+  return { sql: c.length ? c.join(' AND ') : 'true', values };
+}
+
+/** Study codes of the paper and legacy participants that match the participant filters (as ilt_analyst). */
+export async function offlineStudyCodes(q: Queryable, f: Filter): Promise<string[]> {
+  const { sql, values } = offlineConditions(f);
+  return (await rows<{ study_code: string }>(q, `
+    SELECT DISTINCT o.study_code FROM (
+      SELECT study_code, domain_id, region_id, school_code_hmac, grade_level, gender, ses_group, dominant_hand FROM v_research_paper_blocks
+      UNION
+      SELECT study_code, domain_id, region_id, school_code_hmac, grade_level, gender, ses_group, dominant_hand FROM v_research_legacy_blocks) o
+     WHERE ${sql} ORDER BY o.study_code`, values)).map((r) => r.study_code);
+}
+
 /** The chosen sessions (sel) and their counted blocks (counted): the latest finished attempt of each scored step. */
 const withSelection = (where: string) => `
   WITH sel AS (SELECT rs.* FROM v_research_sessions rs ${where}),
@@ -122,6 +158,9 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
       // One connection: the queries run one after another.
       const domains = await rows(q, 'SELECT id, code, name_he, name_en FROM domains ORDER BY code');
       const regions = await rows(q, 'SELECT id, code, name_he, name_en FROM regions ORDER BY code');
+      const offline = await one<{ paper: number; legacy: number }>(q, `
+          SELECT (SELECT count(DISTINCT study_code)::int FROM v_research_paper_blocks) AS paper,
+                 (SELECT count(DISTINCT study_code)::int FROM v_research_legacy_blocks) AS legacy`);
       const present = await one<{ sessions: number; participants: number; schools: string[] | null; inactivity: number[] | null; canvases: string[] | null }>(q, `
           SELECT count(*)::int AS sessions, count(DISTINCT study_code)::int AS participants,
                  array_agg(DISTINCT left(school_code_hmac, 8) ORDER BY left(school_code_hmac, 8)) FILTER (WHERE school_code_hmac IS NOT NULL) AS schools,
@@ -132,6 +171,8 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
         domains, regions,
         sessions: present?.sessions ?? 0, participants: present?.participants ?? 0,
         schools: present?.schools ?? [], inactivity_sec: (present?.inactivity ?? []).sort((a, b) => a - b), canvases: present?.canvases ?? [],
+        // Phase 5e: participants with paper or legacy results that analysts may see.
+        paper_participants: offline?.paper ?? 0, legacy_participants: offline?.legacy ?? 0,
       };
     }));
 
@@ -172,6 +213,49 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
           FROM sel LEFT JOIN counted c ON c.session_id = sel.session_id
          GROUP BY 1 ORDER BY 1 NULLS LAST`, values),
     }));
+  });
+
+  /**
+   * Phase 5e: paper-cohort and legacy results (FR-LEG-1/2) of the participants that match the participant
+   * filters: the paper means per anchor pair (as in the Comparative Summary), the legacy means per session
+   * label, and the blocks themselves (at most ROW_LIMIT of each).
+   */
+  app.get('/research/offline', { preHandler: analyst }, async (req, reply) => {
+    const f = ResearchFilter.safeParse(req.query);
+    if (!f.success) return reply.status(400).send(badRequest(f.error.flatten()));
+    const { sql, values } = offlineConditions(f.data);
+    return asAnalyst(async (q) => {
+      const anchors = await rows(q, `
+        WITH a(key, st, b1, b2, ord) AS (VALUES ('DAY_1_FIRST', 'DAY_1', 1, 2, 1), ('DAY_1_LAST', 'DAY_1', 7, 8, 2),
+                                               ('DAY_2_FIRST', 'DAY_2', 1, 2, 3), ('DAY_2_LAST', 'DAY_2', 3, 4, 4), ('DAY_14', 'DAY_14', 1, 2, 5))
+        SELECT a.key, count(DISTINCT o.study_code)::int AS participants, count(o.study_code)::int AS blocks,
+               round(avg(o.total_time_ms))::float8 AS avg_time_ms, round(avg(o.pen_lifts), 2)::float8 AS avg_pen_lifts,
+               round(avg(o.accurate_letters), 2)::float8 AS avg_accurate_letters, round(avg(o.accurate_letters) * 100 / 15.0, 2)::float8 AS accuracy_pct
+          FROM a LEFT JOIN v_research_paper_blocks o ON o.session_type = a.st AND o.block_number IN (a.b1, a.b2) AND ${sql}
+         GROUP BY a.key, a.ord ORDER BY a.ord`, values);
+      const labels = await rows(q, `
+        SELECT o.session_label, count(DISTINCT o.study_code)::int AS participants, count(*)::int AS blocks, min(o.imported_at) AS imported_at,
+               round(avg(o.pen_lifts), 2)::float8 AS pen_lifts, round(avg(o.width_mm)::numeric, 2)::float8 AS width_mm,
+               round(avg(o.total_time_ms))::float8 AS total_time_ms, round(avg(o.writing_time_ms))::float8 AS writing_time_ms,
+               round(avg(o.air_time_ms))::float8 AS air_time_ms
+          FROM v_research_legacy_blocks o WHERE ${sql} GROUP BY o.session_label ORDER BY min(o.imported_at), o.session_label`, values);
+      const paper = await rows<{ total: number }>(q, `
+        SELECT o.study_code, o.cohort, o.grade_level, o.gender, o.session_type, o.block_number, o.pen_lifts, o.accurate_letters, o.total_time_ms,
+               count(*) OVER ()::int AS total
+          FROM v_research_paper_blocks o WHERE ${sql}
+         ORDER BY o.study_code, o.session_type, o.block_number LIMIT ${ROW_LIMIT}`, values);
+      const legacy = await rows<{ total: number }>(q, `
+        SELECT o.study_code, o.cohort, o.session_label, o.block_number, o.pen_lifts, o.width_mm, o.total_time_ms, o.writing_time_ms, o.air_time_ms,
+               count(*) OVER ()::int AS total
+          FROM v_research_legacy_blocks o WHERE ${sql}
+         ORDER BY o.study_code, o.session_label, o.block_number LIMIT ${ROW_LIMIT}`, values);
+      const strip = <T extends { total: number }>(list: T[]) => ({
+        rows: list.map(({ total: _t, ...r }) => r), total: list[0]?.total ?? 0, limited: (list[0]?.total ?? 0) > ROW_LIMIT,
+      });
+      // The participants an export would include (paper and legacy together).
+      const participants = (await offlineStudyCodes(q, f.data)).length;
+      return { participants, anchors, labels, paper: strip(paper), legacy: strip(legacy) };
+    });
   });
 
   /** One research session: its details and every block attempt, the counted ones marked. */

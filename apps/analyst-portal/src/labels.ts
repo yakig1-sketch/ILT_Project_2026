@@ -11,6 +11,9 @@ export interface Options {
   schools: string[];
   inactivity_sec: number[];
   canvases: string[];
+  /** Phase 5e: participants with paper or legacy results that analysts may see. */
+  paper_participants?: number;
+  legacy_participants?: number;
 }
 
 export const nameOf = (list: Named[], id: number | string | null, language: string) => {

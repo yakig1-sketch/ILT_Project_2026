@@ -66,6 +66,8 @@ interface IvSession {
 }
 interface Intervention {
   language_code: string;
+  /** Phase 5e: whether the next session may be planned for Research (FR-PLAN-1), and why not. */
+  research: { allowed: boolean; reason?: string };
   training_sheets: number;
   retention_days: number;
   letters: IvLetter[];
@@ -353,6 +355,7 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
   const { t, i18n } = useTranslation();
   const he = i18n.language === 'he';
   const [chosen, setChosen] = useState<string | null>(null);
+  const [purpose, setPurpose] = useState<'INTERVENTION' | 'RESEARCH'>('INTERVENTION');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const open = iv.sessions.find((x) => OPEN.has(x.status));
@@ -372,7 +375,10 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
     try {
       await api('/sessions', {
         method: 'POST',
-        body: { participant_id: participantId, session_type: 'INTERVENTION', language_code: iv.language_code, letter_canvas_id: letter.canvas_id, intervention_kind: kind },
+        body: {
+          participant_id: participantId, session_type: 'INTERVENTION', language_code: iv.language_code, letter_canvas_id: letter.canvas_id, intervention_kind: kind,
+          purpose: iv.research.allowed ? purpose : 'INTERVENTION',
+        },
       });
       setChosen(letter.code);
       onPlanned();
@@ -447,6 +453,19 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
           <div style={{ fontWeight: 600, fontSize: '0.9rem' }} data-testid="iv-target">
             {target ? <>{t('console.target_letter')}: <bdi lang={iv.language_code} style={{ fontSize: '1.15rem' }}>{glyph(target)}</bdi></> : t('console.target_none')}
           </div>
+          {/* Phase 5e: Research is offered when the setting, a valid approval and the participant's consent allow it. */}
+          <label style={{ ...ui.field, maxInlineSize: '20rem' }}>
+            {t('cockpit.purpose')}
+            <select value={iv.research.allowed ? purpose : 'INTERVENTION'} onChange={(e) => setPurpose(e.target.value as typeof purpose)} data-testid="iv-purpose">
+              <option value="INTERVENTION">{t('enum.purpose.INTERVENTION')}</option>
+              <option value="RESEARCH" disabled={!iv.research.allowed}>{t('enum.purpose.RESEARCH')}</option>
+            </select>
+          </label>
+          {!iv.research.allowed && iv.research.reason && (
+            <p style={{ ...ui.muted, margin: 0, fontSize: '0.85rem' }} data-testid="iv-research-reason">
+              {t('enum.purpose.RESEARCH')}: {t(`participants.research.${iv.research.reason}`)}
+            </p>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
             {actions.map((a) => (
               <button key={a.key} disabled={!a.enabled} onClick={a.run} data-testid={`iv-${a.key}`}

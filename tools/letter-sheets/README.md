@@ -36,7 +36,7 @@ A block on the sheet is 3 rows of 5 boxes, written right to left:
 
 ## Points the clinical team should check
 
-- **Stroke order of ח.** The sheet has three dots: the top-left start serves both strokes, and the left leg's own start has no dot. The canvas takes the arch first (dots 1 → 2), then the left leg (its end is dot 3), as on the ה sheet.
+- **Stroke order of ח** (*confirmed by the team on 2026-11-14: the arch first*). The sheet has three dots: the top-left start serves both strokes, and the left leg's own start has no dot. The canvas takes the arch first (dots 1 → 2), then the left leg (its end is dot 3), as on the ה sheet.
 - **Dot positions.** They are as printed, hand-placed in Word. They vary by up to 1.6 mm between boxes, and row 2's start dot is up to 2.5 mm from row 1's.
 - **Profile defaults** (in the canvas screen, editable while Draft):
   - every dot: 3.5 mm radius, equal weights, none required;

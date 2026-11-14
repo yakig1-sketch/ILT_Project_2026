@@ -48,7 +48,7 @@ const GRADES = ['KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRA
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 const SES = ['LOW', 'MID', 'HIGH', 'NONE'];
 const HANDS = ['RIGHT', 'LEFT', 'AMBIDEXTROUS'];
-const STAGES = ['DAY_1', 'DAY_2', 'DAY_14'];
+const STAGES = ['DAY_1', 'DAY_2', 'DAY_14', 'INTERVENTION'];
 
 const s = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(11rem, 1fr))', gap: '0.75rem', alignItems: 'end' },

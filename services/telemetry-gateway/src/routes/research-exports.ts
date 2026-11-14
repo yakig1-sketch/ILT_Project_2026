@@ -9,7 +9,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { UserClaims } from '../auth.js';
 import { inTransaction, one, rows } from '../db.js';
-import { ResearchFilter, researchWhere } from './research.js';
+import { ResearchFilter, offlineStudyCodes, researchWhere } from './research.js';
 
 export interface ExportFiles {
   open(objectKey: string): Promise<{ stream: Readable; size: number | undefined } | null>;
@@ -78,11 +78,11 @@ export const researchExportRoutes: FastifyPluginAsync = async (app) => {
   };
 
   /** Builds the export in the background and records the outcome. */
-  const build = async (row: ExportRow, sessionIds: string[], user: UserClaims) => {
+  const build = async (row: ExportRow, sessionIds: string[], studyCodes: string[], user: UserClaims) => {
     try {
       if (!app.deps.analytics) throw new Error('analytics service not configured');
       const res = await app.deps.analytics('/exports', {
-        export_id: row.id, session_ids: sessionIds, format: row.format, filters: row.filters,
+        export_id: row.id, session_ids: sessionIds, study_codes: studyCodes, format: row.format, filters: row.filters,
         include_samples: row.include_samples, include_kinematics: row.include_kinematics,
       }, BUILD_TIMEOUT_MS);
       if (res.status !== 200) throw new Error(`analytics answered ${res.status}`);
@@ -118,12 +118,16 @@ export const researchExportRoutes: FastifyPluginAsync = async (app) => {
     if (!f.success) return reply.status(400).send({ error: { code: 'BAD_REQUEST', message_key: 'error.400', details: f.error.flatten() } });
     if (!app.deps.analytics) return reply.status(503).send(err('UNAVAILABLE', 'analyst.analytics_down'));
     const { sql, values } = researchWhere(f.data);
-    const ids = await inTransaction(app.deps.db, async (q) => {
+    const { ids, codes } = await inTransaction(app.deps.db, async (q) => {
       await q.query('SET LOCAL ROLE ilt_analyst');
-      return (await rows<{ session_id: string }>(q, `SELECT rs.session_id FROM v_research_sessions rs ${sql} ORDER BY rs.completed_at`, values)).map((r) => r.session_id);
+      return {
+        ids: (await rows<{ session_id: string }>(q, `SELECT rs.session_id FROM v_research_sessions rs ${sql} ORDER BY rs.completed_at`, values)).map((r) => r.session_id),
+        // Phase 5e: paper and legacy results of the participants that match the participant filters.
+        codes: await offlineStudyCodes(q, f.data),
+      };
     });
-    if (ids.length === 0) return reply.status(400).send(err('NO_SESSIONS', 'analyst.export.no_sessions'));
-    if (ids.length > EXPORT_MAX_SESSIONS) return reply.status(400).send(err('TOO_MANY', 'analyst.export.too_many'));
+    if (ids.length === 0 && codes.length === 0) return reply.status(400).send(err('NO_SESSIONS', 'analyst.export.no_sessions'));
+    if (ids.length > EXPORT_MAX_SESSIONS || codes.length > EXPORT_MAX_SESSIONS) return reply.status(400).send(err('TOO_MANY', 'analyst.export.too_many'));
     const user = req.user as UserClaims;
     // Keep only the filters that were set, as the analyst chose them.
     const filters = Object.fromEntries(Object.entries(body.data.filters).filter(([, v]) => v !== ''));
@@ -131,7 +135,7 @@ export const researchExportRoutes: FastifyPluginAsync = async (app) => {
       INSERT INTO research_exports (requested_by, format, filters, include_samples, include_kinematics, session_count)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNS}`,
       [user.sub, body.data.format, JSON.stringify(filters), body.data.include_samples, body.data.include_kinematics, ids.length]))!;
-    void build(row, ids, user);
+    void build(row, ids, codes, user);
     return reply.status(202).send(view(row));
   });
 

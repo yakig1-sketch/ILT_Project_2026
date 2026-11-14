@@ -65,8 +65,8 @@ def test_export_endpoint_uploads_the_zip(monkeypatch):
 
     seen = {}
 
-    def fake_tables(conn, ids, samples, kinematics):
-        seen.update(ids=ids, samples=samples, kinematics=kinematics)
+    def fake_tables(conn, ids, samples, kinematics, study_codes=None):
+        seen.update(ids=ids, samples=samples, kinematics=kinematics, codes=study_codes)
         return sample_tables()
 
     monkeypatch.setattr(exports, "build_tables", fake_tables)
@@ -75,12 +75,15 @@ def test_export_endpoint_uploads_the_zip(monkeypatch):
     c = TestClient(app)
     eid = "00000000-0000-0000-0000-0000000000e1"
     sid = "00000000-0000-0000-0000-0000000000a1"
-    res = c.post("/api/v1/exports", json={"export_id": eid, "session_ids": [sid], "format": "CSV", "include_samples": True})
+    res = c.post("/api/v1/exports", json={"export_id": eid, "session_ids": [sid], "study_codes": ["P-02"], "format": "CSV", "include_samples": True})
     assert res.status_code == 200
     body = res.json()
     assert body["object_key"] == f"exports/{eid}.zip" and body["size_bytes"] > 0 and body["row_counts"]["sessions"] == 1
-    assert seen == {"ids": [sid], "samples": True, "kinematics": False}
+    assert seen == {"ids": [sid], "samples": True, "kinematics": False, "codes": ["P-02"]}
     assert uploads[0][0] == f"exports/{eid}.zip" and "sessions.csv" in uploads[0][1]
+    # Neither sessions nor paper/legacy participants: nothing to export.
     assert c.post("/api/v1/exports", json={"export_id": eid, "session_ids": [], "format": "CSV"}).status_code == 422
+    # Paper and legacy participants only (Phase 5e) is enough.
+    assert c.post("/api/v1/exports", json={"export_id": eid, "study_codes": ["P-02"], "format": "CSV"}).status_code == 200
     assert c.post("/api/v1/exports", json={"export_id": eid, "session_ids": [sid], "format": "XLSX"}).status_code == 422
     app.dependency_overrides.clear()

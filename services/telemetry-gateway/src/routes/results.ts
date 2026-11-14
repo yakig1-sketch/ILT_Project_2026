@@ -2,11 +2,13 @@
 // The pass threshold is set with the other settings (routes/settings.ts).
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { penLiftScore } from '@ilt/ilt-metrics';
 import { mirrorCanvas, type CanvasGeometry } from '@ilt/template-schemas';
 import type { Queryable } from '../app-log.js';
 import type { UserClaims } from '../auth.js';
 import { one, rows } from '../db.js';
 import { scoringSettingsFrom } from '../scoring-store.js';
+import { researchCheck } from './participants.js';
 import { loadEffectiveSettings, setting, type SettingsSnapshot } from '../settings-store.js';
 
 /** Anchor pairs compared on the dashboard (FR-SUM-1). */
@@ -128,13 +130,38 @@ export async function interventionResults(db: Queryable, participantId: string, 
 }
 
 export const resultRoutes: FastifyPluginAsync = async (app) => {
+  /** A participant's imported legacy blocks by session label (first imported first), with each label's means. */
+  async function legacyResults(participantId: string) {
+    const list = await rows<{ session_label: string; block_number: number; pen_lifts: number | null; width_mm: number | null;
+      total_time_ms: number | null; writing_time_ms: number | null; air_time_ms: number | null; imported_at: string }>(app.deps.db,
+      `SELECT session_label, block_number, pen_lifts, width_mm, total_time_ms, writing_time_ms, air_time_ms, imported_at
+         FROM legacy_block_results WHERE participant_id = $1 ORDER BY imported_at, session_label, block_number`, [participantId]);
+    const labels = [...new Set(list.map((x) => x.session_label))];
+    const avg = (vs: (number | null)[]) => {
+      const known = vs.filter((v): v is number => v !== null);
+      return known.length ? r2(known.reduce((a, b) => a + b, 0) / known.length) : null;
+    };
+    return labels.map((label) => {
+      const bl = list.filter((x) => x.session_label === label);
+      return {
+        session_label: label,
+        imported_at: bl[0]!.imported_at,
+        blocks: bl.map(({ session_label: _l, imported_at: _i, ...b }) => b),
+        means: {
+          pen_lifts: avg(bl.map((b) => b.pen_lifts)), width_mm: avg(bl.map((b) => b.width_mm)), total_time_ms: avg(bl.map((b) => b.total_time_ms)),
+          writing_time_ms: avg(bl.map((b) => b.writing_time_ms)), air_time_ms: avg(bl.map((b) => b.air_time_ms)),
+        },
+      };
+    });
+  }
+
   const staff = app.requireRole('EVALUATOR', 'RESEARCHER', 'ADMIN');
   const notFound = { error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } };
 
   app.get<{ Params: { id: string } }>('/participants/:id/summary', { preHandler: staff }, async (req, reply) => {
     if (!z.string().uuid().safeParse(req.params.id).success) return reply.status(404).send(notFound);
-    const p = await one<{ id: string; study_code: string; domain_id: number; region_id: number | null }>(
-      app.deps.db, 'SELECT id, study_code, domain_id, region_id FROM participants WHERE id = $1', [req.params.id],
+    const p = await one<{ id: string; study_code: string; domain_id: number; region_id: number | null; cohort: string }>(
+      app.deps.db, 'SELECT id, study_code, domain_id, region_id, cohort FROM participants WHERE id = $1', [req.params.id],
     );
     if (!p) return reply.status(404).send(notFound);
 
@@ -161,9 +188,29 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
 
     // Threshold and weights in effect now for the participant's Domain (FR-SUM-4).
     const scoring = scoringSettingsFrom(await loadEffectiveSettings(app.deps.db, p.domain_id, p.region_id));
+    // Phase 5e: paper-cohort blocks (FR-LEG-2) fill an anchor that has no tablet blocks.
+    const paper = await rows<{ session_type: string; block_number: number; pen_lifts: number | null; accurate_letters: number | null; total_time_ms: number | null }>(
+      app.deps.db, 'SELECT session_type, block_number, pen_lifts, accurate_letters, total_time_ms FROM paper_block_scores WHERE participant_id = $1', [p.id]);
     const boxes = ANCHORS.map((a) => {
       const bs = a.blocks.map((n) => blocks.find((b) => b.session_type === a.session_type && b.block_number === n) ?? null);
       const found = bs.filter((b): b is BlockRow => b !== null);
+      const pp = a.blocks.map((n) => paper.find((x) => x.session_type === a.session_type && x.block_number === n) ?? null);
+      const pf = pp.filter((x): x is NonNullable<typeof x> => x !== null);
+      if (found.length === 0 && pf.length > 0) {
+        // Paper has pen lifts, accurate letters and time only: no dots, line or speed, so no speed score or composite.
+        return {
+          key: a.key, session_type: a.session_type, block_numbers: a.blocks, source: 'PAPER' as const,
+          complete: pf.length === a.blocks.length,
+          blocks: pp.map((x, i) => ({ block_number: a.blocks[i], attempt_id: null, on_paper: x !== null })),
+          avg_time_ms: mean(pf.map((x) => x.total_time_ms)),
+          avg_pen_lifts: roundOrNull(mean(pf.map((x) => x.pen_lifts))),
+          avg_accurate_letters: r2(mean(pf.map((x) => x.accurate_letters))),
+          accuracy_pct: r2(mean(pf.map((x) => (x.accurate_letters === null ? null : (x.accurate_letters * 100) / 15)))),
+          avg_speed_mm_s: null, speed_score: null, accuracy_score: null,
+          pen_lift_score: r2(mean(pf.map((x) => (x.pen_lifts === null ? null : penLiftScore(x.pen_lifts, 15))))),
+          composite_score: null, pass: null,
+        };
+      }
       const sumLen = found.reduce((s, b) => s + (b.sum_line_length_mm ?? 0), 0);
       const sumTime = found.reduce((s, b) => s + (b.sum_line_time_ms ?? 0), 0);
       const composite = found.length === 0 ? null : mean(found.map((b) => num(b.composite_score)));
@@ -171,6 +218,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
         key: a.key,
         session_type: a.session_type,
         block_numbers: a.blocks,
+        source: 'TABLET' as const,
         complete: found.length === a.blocks.length,
         blocks: bs.map((b, i) => (b
           ? { block_number: a.blocks[i], attempt_id: b.attempt_id, attempt_number: b.attempt_number, session_code: b.session_code, composite_score: num(b.composite_score) }
@@ -178,6 +226,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
         avg_time_ms: found.length ? mean(found.map((b) => b.total_time_ms)) : null,
         // Pen lifts are counted, so the pair's mean is a whole number (14 and 15 → 15, half rounds up).
         avg_pen_lifts: roundOrNull(found.length ? mean(found.map((b) => b.pen_lifts)) : null),
+        avg_accurate_letters: found.length ? r2(mean(found.map((b) => b.accurate_letters))) : null,
         accuracy_pct: found.length ? r2(mean(found.map((b) => num(b.accuracy_score)))) : null,
         avg_speed_mm_s: sumTime > 0 ? r2(sumLen / (sumTime / 1000)) : null,
         speed_score: found.length ? r2(mean(found.map((b) => num(b.speed_score)))) : null,
@@ -188,7 +237,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       };
     });
     return {
-      participant: { id: p.id, study_code: p.study_code },
+      participant: { id: p.id, study_code: p.study_code, cohort: p.cohort },
       scoring: {
         pass_threshold: scoring.pass_threshold,
         weight_speed_pct: scoring.weight_speed_pct,
@@ -198,6 +247,8 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       boxes,
       // Phase 5d: the intervention programme's results, per session (newest first).
       intervention: await interventionResults(app.deps.db, p.id, scoring.pass_threshold),
+      // Phase 5e: the old application's results (FR-LEG-1), per session label; no scores.
+      legacy: await legacyResults(p.id),
     };
   });
 
@@ -311,8 +362,11 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       [participantId],
     );
     const day = (d: Date) => d.toISOString().slice(0, 10);
+    // Phase 5e: whether a session may be planned for Research now (FR-PLAN-1), and why not.
+    const research = await researchCheck(app.deps.db, participantId);
     return {
       language_code: language,
+      research: research.allowed ? { allowed: true } : { allowed: false, reason: research.reason },
       training_sheets: Number(setting(settings, 'ilt.intervention.training_sheets', 4)),
       retention_days: retentionDays,
       letters: letters.map((l) => {

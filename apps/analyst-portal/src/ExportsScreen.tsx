@@ -52,6 +52,7 @@ export function ExportsScreen({ onChangeFilters }: { onChangeFilters: () => void
   const [filters] = useState(() => loadFilters().filters);
   const [options, setOptions] = useState<Options | null>(null);
   const [matching, setMatching] = useState<number | null>(null);
+  const [offline, setOffline] = useState<number | null>(null);
   const [format, setFormat] = useState<'PARQUET' | 'CSV'>('PARQUET');
   const [samples, setSamples] = useState(false);
   const [kinematics, setKinematics] = useState(false);
@@ -74,6 +75,8 @@ export function ExportsScreen({ onChangeFilters }: { onChangeFilters: () => void
   useEffect(() => {
     api<Options>('/research/options').then(setOptions).catch(() => undefined);
     api<{ total: number }>(`/research/sessions?${new URLSearchParams(sent)}`).then((r) => setMatching(r.total)).catch((e: ApiError) => setError(e.messageKey));
+    // Phase 5e: paper and legacy participants that match the participant filters go into the export too.
+    api<{ participants: number }>(`/research/offline?${new URLSearchParams(sent)}`).then((r) => setOffline(r.participants)).catch(() => setOffline(0));
     refresh();
   }, [sent, refresh]);
   // While an export is being built, look again every 2 seconds.
@@ -126,6 +129,9 @@ export function ExportsScreen({ onChangeFilters }: { onChangeFilters: () => void
           <span data-testid="export-matching">{matching == null ? t('common.checking') : t('analyst.export.matching', { count: matching })}</span>
           <button style={ui.button} onClick={onChangeFilters}>{t('analyst.export.change_filters')}</button>
         </div>
+        {offline != null && offline > 0 && (
+          <p style={{ margin: 0 }} data-testid="export-offline">{t('analyst.export.offline_matching', { count: offline })}</p>
+        )}
         <p style={{ ...ui.muted, margin: 0 }} data-testid="export-filters">{describe(filters)}</p>
         <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: '0.4rem' }}>
           <legend style={{ fontWeight: 600, marginBlockEnd: '0.3rem' }}>{t('analyst.export.format')}</legend>
@@ -139,12 +145,13 @@ export function ExportsScreen({ onChangeFilters }: { onChangeFilters: () => void
         <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: '0.4rem' }}>
           <legend style={{ fontWeight: 600, marginBlockEnd: '0.3rem' }}>{t('analyst.export.contents')}</legend>
           <span style={ui.muted}>{t('analyst.export.always')}</span>
+          {offline != null && offline > 0 && <span style={ui.muted}>{t('analyst.export.offline_files')}</span>}
           <label style={s.option}><input type="checkbox" checked={samples} onChange={(e) => setSamples(e.target.checked)} data-testid="export-samples" />{t('analyst.export.samples')}</label>
           <label style={s.option}><input type="checkbox" checked={kinematics} onChange={(e) => setKinematics(e.target.checked)} data-testid="export-kinematics" />{t('analyst.export.kinematics')}</label>
         </fieldset>
         <div>
-          <button style={ui.primary} disabled={busy || !matching} onClick={() => void create()} data-testid="export-create">
-            {t('analyst.export.create', { count: matching ?? 0 })}
+          <button style={ui.primary} disabled={busy || (!matching && !offline)} onClick={() => void create()} data-testid="export-create">
+            {!matching && offline ? t('analyst.export.create_offline') : t('analyst.export.create', { count: matching ?? 0 })}
           </button>
         </div>
       </section>
