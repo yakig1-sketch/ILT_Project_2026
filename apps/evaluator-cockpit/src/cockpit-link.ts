@@ -60,6 +60,8 @@ export class CockpitLink {
   lastScored: ControlPayload<'BLOCK_SCORED'> | null = null;
   /** The video step playing on the tablet. */
   video: ControlPayload<'VIDEO_PLAY'> | null = null;
+  /** The session's camera (Phase 5f), as the gateway last reported it. */
+  camera: ControlPayload<'CAMERA_STATUS'> | null = null;
   /** The tablet reported AMBER inactivity (FR-TAB-5); cleared by the next pen contact. */
   amber = false;
   lastError: string | null = null;
@@ -165,6 +167,9 @@ export class CockpitLink {
       case 'BLOCK_SCORED':
         this.lastScored = payload as ControlPayload<'BLOCK_SCORED'>;
         this.onSessionChanged();
+        break;
+      case 'CAMERA_STATUS':
+        this.camera = payload as ControlPayload<'CAMERA_STATUS'>;
         break;
       case 'VIDEO_PLAY':
         this.video = payload as ControlPayload<'VIDEO_PLAY'>;

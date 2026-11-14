@@ -1,7 +1,8 @@
 // Object storage for instruction videos (DDD §9 instruction_videos, §14 media). The tablet downloads
 // a video with its session token and plays it from memory, so no token appears in a URL.
 import type { Readable } from 'node:stream';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { createReadStream } from 'node:fs';
+import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { TokenClaims } from './auth.js';
@@ -43,6 +44,36 @@ export function s3ExportFiles(endpoint: string, accessKeyId: string, secretAcces
     async open(objectKey: string): Promise<{ stream: Readable; size: number | undefined } | null> {
       try {
         const res = await s3.send(new GetObjectCommand({ Bucket: EXPORTS_BUCKET, Key: objectKey }));
+        return res.Body ? { stream: res.Body as Readable, size: res.ContentLength } : null;
+      } catch (err) {
+        if ((err as { name?: string }).name === 'NoSuchKey') return null;
+        throw err;
+      }
+    },
+  };
+}
+
+/** The private hand-video bucket (Phase 5f): one clip per writing-step attempt, read only through the gateway. */
+export const VIDEO_BUCKET = 'ilt-video';
+
+export function s3ClipStore(endpoint: string, accessKeyId: string, secretAccessKey: string) {
+  const s3 = new S3Client({ endpoint, region: 'us-east-1', forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } });
+  let bucketReady = false;
+  return {
+    async put(objectKey: string, filePath: string, size: number): Promise<void> {
+      if (!bucketReady) {
+        try {
+          await s3.send(new HeadBucketCommand({ Bucket: VIDEO_BUCKET }));
+        } catch {
+          await s3.send(new CreateBucketCommand({ Bucket: VIDEO_BUCKET }));
+        }
+        bucketReady = true;
+      }
+      await s3.send(new PutObjectCommand({ Bucket: VIDEO_BUCKET, Key: objectKey, Body: createReadStream(filePath), ContentLength: size, ContentType: 'video/mp4' }));
+    },
+    async get(objectKey: string): Promise<{ stream: Readable; size: number | undefined } | null> {
+      try {
+        const res = await s3.send(new GetObjectCommand({ Bucket: VIDEO_BUCKET, Key: objectKey }));
         return res.Body ? { stream: res.Body as Readable, size: res.ContentLength } : null;
       } catch (err) {
         if ((err as { name?: string }).name === 'NoSuchKey') return null;

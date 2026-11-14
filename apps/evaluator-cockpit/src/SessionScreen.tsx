@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { DEFAULT_SCORING_SETTINGS, scoreBlock, type BlockScore } from '@ilt/ilt-metrics';
 import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
 import { CanvasView, InkRenderer, PressureLegend } from '@ilt/ui';
+import { CameraPanel } from './CameraPanel';
 import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
 import { pill, tone, ui } from './styles';
@@ -139,7 +140,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
   const [repeatReason, setRepeatReason] = useState<(typeof REPEAT_REASONS)[number]>('DISRUPTION');
   useSyncExternalStore(
     (fn) => link.subscribe(fn),
-    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastInterrupted?.attempt_number}${link.block?.attempt_number}${link.lastError}${link.lastScored?.block_attempt_id}${link.video?.step_index}${link.amber}`,
+    () => `${link.gatewayConnected}${link.tabletConnected}${link.directOpen}${link.block?.activeBoxId}${link.block?.penLifts}${link.block?.completing}${link.lastStored?.step_index}${link.lastInterrupted?.attempt_number}${link.block?.attempt_number}${link.lastError}${link.lastScored?.block_attempt_id}${link.video?.step_index}${link.amber}${link.camera?.state}${link.camera?.recording}${link.camera?.watching}`,
   );
   // One-second tick for block time, inactivity, the live preview and the relay indicator.
   const [, setTick] = useState(0);
@@ -270,6 +271,8 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
           )}
         </section>
       )}
+
+      <CameraPanel sessionId={sessionId} link={link} closed={closed} busy={busy} />
 
       <div style={layout.grid}>
         <section style={layout.mirror} aria-label="mirror">

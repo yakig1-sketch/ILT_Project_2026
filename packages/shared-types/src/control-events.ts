@@ -145,6 +145,19 @@ export const ControlPayloads = {
     attempt_number: z.number().int(),
     reason: z.enum(['TABLET_RESTARTED']),
   }),
+  /**
+   * Gateway → tablet (Phase 5f): what to show for the session's camera. CODE: the one-time pairing QR
+   * (`ILT-CAM:<code>`); FRAME: the framing guide while the evaluator positions the camera; NONE: neither.
+   */
+  CAMERA_SCREEN: z.object({ screen: z.enum(['CODE', 'FRAME', 'NONE']), code: z.string().max(40).optional() }),
+  /** Gateway → cockpit (Phase 5f): the session's camera. */
+  CAMERA_STATUS: z.object({
+    state: z.enum(['NONE', 'SEARCHING', 'PAIRED']),
+    camera: z.object({ id: uuid, label: z.string().nullable(), model: z.string(), ptz: z.boolean() }).nullable(),
+    expires_at: z.string().nullable(),
+    watching: z.number().int(),
+    recording: z.boolean(),
+  }),
   HEARTBEAT: z.object({ t: z.number() }),
   ACK: z.object({ ack_of: uuid }),
   ERROR: z.object({ ref: uuid.optional(), code: z.string(), message: z.string() }),
@@ -166,7 +179,7 @@ export type ControlEnvelope = z.infer<typeof ControlEnvelope>;
 export const UNACKED_EVENTS: ReadonlySet<ControlEventName> = new Set([
   'ACK', 'ERROR', 'HEARTBEAT', 'BATCH_ACK', 'PEER_STATUS',
   // Sent fresh on every connect / state change, so a resend after a reconnect would be stale.
-  'TABLET_STATUS', 'BLOCK_INTERRUPTED',
+  'TABLET_STATUS', 'BLOCK_INTERRUPTED', 'CAMERA_SCREEN', 'CAMERA_STATUS',
 ]);
 
 /** Builds an envelope for an event; the payload type is checked against the event's schema. */

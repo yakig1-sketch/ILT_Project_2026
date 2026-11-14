@@ -9,6 +9,7 @@ import type { CanvasGeometry } from '@ilt/template-schemas';
 import { CanvasView } from './CanvasView.js';
 import { InkRenderer } from './ink.js';
 import { PressureLegend } from './PressureLegend.js';
+import { useVideoRotation } from './rotate.js';
 import { ui } from './styles.js';
 
 export interface ReplayData {
@@ -18,18 +19,26 @@ export interface ReplayData {
   samples: { t_us: number[]; x: number[]; y: number[]; p: number[]; f: number[]; box: number[] };
   letters: { box_id: number; speed_mm_s: number | null; is_accurate: boolean | null; pen_lifts_internal: number | null }[];
   score: { composite_score: string | null; avg_speed_mm_s: string | null; pen_lifts: number | null } | null;
+  /** The attempt's hand-video clip (Phase 5f): when it starts, in ms after the attempt's start (negative: before). */
+  video?: { id: string; sync_offset_ms: number; duration_ms: number | null } | null;
 }
+
+/** The loaded clip for the player: its address (a blob URL), or why there is none. */
+export type ReplayVideo = { url: string; offsetMs: number } | 'LOADING' | 'FAILED';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const s: Record<string, CSSProperties> = {
   // Extra space below the canvas for the speed labels under the last row of houses.
   stage: { border: '1px solid var(--ilt-border)', borderRadius: 8, background: 'var(--ilt-stage)', padding: '0.5rem', paddingBlockEnd: '1.75rem', overflow: 'hidden', minInlineSize: 0 },
   bar: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' },
+  clip: { inlineSize: '100%', maxInlineSize: '40rem', borderRadius: 8, background: '#000', display: 'block' },
   speedLabel: { position: 'absolute', transform: 'translateX(-50%)', fontSize: '0.75rem', color: 'var(--ilt-link)', fontWeight: 600, whiteSpace: 'nowrap', pointerEvents: 'none' },
 };
 
-export function ReplayPlayer({ data, onBack }: { data: ReplayData; onBack: () => void }) {
+export function ReplayPlayer({ data, onBack, video }: { data: ReplayData; onBack: () => void; video?: ReplayVideo }) {
   const { t } = useTranslation();
+  const clip = useRef<HTMLVideoElement>(null);
+  const [rotated, toggleRotation] = useVideoRotation();
   const samples = useRef<PenSample[]>([]);
   if (samples.current.length === 0 && data.samples.t_us.length > 0) {
     const c = data.samples;
@@ -114,6 +123,25 @@ export function ReplayPlayer({ data, onBack }: { data: ReplayData; onBack: () =>
 
   const current = index > 0 ? all[index - 1]! : null;
   const nowUs = current?.t_us ?? 0;
+
+  // The hand video follows the pen (FR-REP-3): its time = the pen time − the clip's offset.
+  const clipAt = (us: number) => (typeof video === 'object' ? Math.max(0, us / 1e6 - video.offsetMs / 1000) : 0);
+  useEffect(() => {
+    const el = clip.current;
+    if (!el || typeof video !== 'object') return;
+    el.playbackRate = speed;
+    if (playing) void el.play().catch(() => undefined);
+    else el.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, speed, video]);
+  useEffect(() => {
+    const el = clip.current;
+    if (!el || typeof video !== 'object' || !Number.isFinite(el.duration || 0)) return;
+    const target = clipAt(nowUs);
+    // While playing, only a drift is corrected; when stopped, the picture shows the sample's moment.
+    if (!playing || Math.abs(el.currentTime - target) > 0.25) el.currentTime = target;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowUs, playing, video]);
   const liftsSoFar = all.slice(0, index).filter((x) => (x.flags & StrokeFlag.STROKE_START) !== 0).length;
   const speedByBox = new Map(data.letters.map((l) => [l.box_id, l.speed_mm_s]));
   const fmtTime = (us: number) => `${(us / 1e6).toFixed(2)} ${t('units.seconds')}`;
@@ -142,6 +170,19 @@ export function ReplayPlayer({ data, onBack }: { data: ReplayData; onBack: () =>
         </div>
       </section>
       <PressureLegend />
+      {video !== undefined && (
+        <section style={{ display: 'grid', gap: '0.4rem' }} data-testid="replay-video">
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <strong>{t('replay.video')}</strong>
+            {typeof video === 'object' && (
+              <button style={ui.button} aria-pressed={rotated} onClick={toggleRotation} data-testid="replay-video-rotate">↻ {t('replay.video_rotate')}</button>
+            )}
+          </div>
+          {typeof video === 'object'
+            ? <video ref={clip} src={video.url} style={{ ...s.clip, ...(rotated ? { transform: 'rotate(180deg)' } : {}) }} muted playsInline preload="auto" />
+            : <span style={ui.muted}>{t(video === 'LOADING' ? 'replay.video_loading' : 'replay.video_failed')}</span>}
+        </section>
+      )}
       <div style={s.bar} data-testid="replay-controls">
         <button style={ui.button} aria-label={t('replay.step_back')} onClick={() => { setPlaying(false); showTo(index - 1); }}>⏮</button>
         <button style={ui.primary} onClick={() => setPlaying((p) => !p)} data-testid="replay-play">{t(playing ? 'replay.pause' : 'replay.play')}</button>

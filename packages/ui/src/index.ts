@@ -5,6 +5,7 @@ export { HOVER_COLOUR, InkRenderer, PRESSURE_BANDS, type InkOptions } from './in
 export { PressureLegend } from './PressureLegend.js';
 export { ThemeSwitcher, useTheme, type ThemeChoice } from './theme.js';
 export { GatewayLink, PeerLink, type GatewayLinkHandlers } from './realtime.js';
-export { ReplayPlayer, type ReplayData } from './ReplayPlayer.js';
+export { ReplayPlayer, type ReplayData, type ReplayVideo } from './ReplayPlayer.js';
+export { useVideoRotation } from './rotate.js';
 export { pill, tone, ui } from './styles.js';
 export { BackButton } from './BackButton.js';

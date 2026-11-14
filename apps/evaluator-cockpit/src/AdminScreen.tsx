@@ -1,17 +1,18 @@
 // Administration (System Administrator only, FR-ROLE-2): users and roles with the Research Director
 // PIN (FR-ROLE-3), the Domains and Regions that group students (FR-ORG-1/2), the canvas library
-// (CanvasesScreen.tsx), Settings (SettingsScreen.tsx), legacy data (LegacyScreen.tsx) and the action log (LogScreen.tsx). This is the Administrator cockpit (<base>admin); the gateway checks the role on every call.
+// (CanvasesScreen.tsx), Cameras (CamerasScreen.tsx), Settings (SettingsScreen.tsx), legacy data (LegacyScreen.tsx) and the action log (LogScreen.tsx). This is the Administrator cockpit (<base>admin); the gateway checks the role on every call.
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api, getAuth } from './api';
 import { CanvasesScreen } from './CanvasesScreen';
+import { CamerasScreen } from './CamerasScreen';
 import { EthicsScreen } from './EthicsScreen';
 import { LegacyScreen } from './LegacyScreen';
 import { LogScreen } from './LogScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { pill, ui } from './styles';
 
-export const ADMIN_TABS = ['users', 'domains', 'regions', 'canvases', 'settings', 'ethics', 'legacy', 'log'] as const;
+export const ADMIN_TABS = ['users', 'domains', 'regions', 'canvases', 'cameras', 'settings', 'ethics', 'legacy', 'log'] as const;
 export type AdminTab = (typeof ADMIN_TABS)[number];
 
 const ROLES = ['ADMIN', 'RESEARCHER', 'EVALUATOR', 'ANALYST'] as const;
@@ -79,7 +80,7 @@ export function AdminScreen({ tab, onTab, canvasId, onCanvas }: {
           </button>
         ))}
       </div>
-      {tab === 'users' ? <UsersPanel /> : tab === 'log' ? <LogScreen /> : tab === 'ethics' ? <EthicsScreen /> : tab === 'legacy' ? <LegacyScreen /> : tab === 'settings' ? <SettingsScreen /> : tab === 'canvases' ? <CanvasesScreen openId={canvasId} onOpenId={onCanvas} /> : <GroupPanel key={tab} kind={tab} />}
+      {tab === 'users' ? <UsersPanel /> : tab === 'log' ? <LogScreen /> : tab === 'ethics' ? <EthicsScreen /> : tab === 'legacy' ? <LegacyScreen /> : tab === 'cameras' ? <CamerasScreen /> : tab === 'settings' ? <SettingsScreen /> : tab === 'canvases' ? <CanvasesScreen openId={canvasId} onOpenId={onCanvas} /> : <GroupPanel key={tab} kind={tab} />}
     </div>
   );
 }

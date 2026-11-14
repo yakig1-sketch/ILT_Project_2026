@@ -75,6 +75,8 @@ export class KioskSession {
   private lastRowStrokes = 0;
   /** Inactivity (FR-TAB-5): CUE shows the subtle cue on the tablet; AMBER is only reported to the cockpit. */
   inactivity: 'NONE' | 'CUE' | 'AMBER' = 'NONE';
+  /** The session's camera (Phase 5f): the pairing QR code, or the framing guide while it is positioned. */
+  camera: { screen: 'CODE'; code: string } | { screen: 'FRAME' } | null = null;
   private lastContactAt = 0;
   private activeBoxId = 0;
   private idleTimer: ReturnType<typeof setInterval> | null = null;
@@ -172,6 +174,7 @@ export class KioskSession {
         break;
       }
       case 'DISPATCH_STEP':
+        this.camera = null;
         this.onDispatch(payload as Dispatch);
         break;
       case 'PAUSE_SESSION':
@@ -202,6 +205,12 @@ export class KioskSession {
       case 'SESSION_COMPLETE':
         this.end('COMPLETE');
         break;
+      case 'CAMERA_SCREEN': {
+        const p = payload as ControlPayload<'CAMERA_SCREEN'>;
+        this.camera = p.screen === 'CODE' && p.code ? { screen: 'CODE', code: p.code } : p.screen === 'FRAME' ? { screen: 'FRAME' } : null;
+        this.emit();
+        break;
+      }
       default:
         break;
     }

@@ -78,6 +78,16 @@ export const LOG_EVENT_TYPES = [
   'canvas.reference.ended',
   'video.uploaded',
   'video.retired',
+  // session video (Phase 5f)
+  'camera.account.changed',
+  'camera.updated',
+  'camera.pairing.started',
+  'camera.paired',
+  'camera.pairing.expired',
+  'camera.pairing.cancelled',
+  'camera.released',
+  'camera.clip.stored',
+  'camera.clip.failed',
   // scores and data
   'scores.recomputed',
   'data.export.created',

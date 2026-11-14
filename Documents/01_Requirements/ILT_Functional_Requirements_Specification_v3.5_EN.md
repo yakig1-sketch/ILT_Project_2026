@@ -277,6 +277,18 @@ For each box: start and end time; contact path; for each dot the **closest dista
 - **FR-PRIV-3** Current use runs under the Chief Scientist's approval for the intervention program (not research). Previous IRB reference: 287/8918/2015. The research approval reference is entered when received.
 - **FR-PRIV-4** School codes are stored as keyed hashes.
 
+### 14.1 Session video capture (Phase 5f, 2026-11-14)
+
+Sessions run at different sites, on different networks, sometimes several side by side. Setting up the hand camera must take the evaluator a few seconds and must never mix up cameras.
+
+- **FR-VID-1** **Discovery.** The ILT server finds the desk cameras on the network it is on by ONVIF discovery; nobody types an IP address. A camera keeps its identity when its address changes. Cameras are ONVIF Profile S with H.264 (for example TP-Link Tapo C211, Sricam SP006); USB cameras are not supported in this phase.
+- **FR-VID-2** **Camera account.** The System Administrator enters one **site camera account** (user name and password) on the **Cameras** tab, and every camera at the site is set up with it, so evaluators never type a password. A camera can have its own account instead. Passwords are stored encrypted and are never shown or sent to a browser. The tab lists each camera with its status (Ready, Wrong account, Not answering, …), whether it can pan and tilt, a test picture, a name ("Camera 2") and Retire / Restore.
+- **FR-VID-3** **Pairing by QR code.** In the live cockpit, with the tablet paired and no step running, the evaluator chooses **Pair a camera**. The tablet shows a **one-time QR code** (valid 3 minutes). The evaluator points a camera at the tablet; the server looks at every free camera's picture and pairs the one that sees the code. A camera serves **one session at a time**, so sessions run side by side (one cockpit window each) never share or swap cameras. The pairing ends when the evaluator releases the camera or the session ends.
+- **FR-VID-4** **Positioning.** Right after pairing, the tablet shows a **framing guide** (its edges and corners) and the cockpit opens the camera's **live view**. With a pan/tilt camera, arrow buttons turn it in small steps. **Done** returns the tablet to its waiting screen.
+- **FR-VID-5** **Recording.** With video allowed (FR-PRIV-2) and a camera paired, **each writing step is recorded as its own clip**, from its dispatch to its end (an attempt that is repeated gets its own clip). Video only, no sound. Clips are kept in a private store, linked to their attempt, and only staff who may replay the attempt can fetch them. The cockpit shows **Recording** while a clip runs; the camera can't be released then.
+- **FR-VID-6** **Replay in sync** (FR-REP-3). Replay of an attempt with a clip plays it beside the canvas, following play, pause, the timeline and the speed.
+- **FR-VID-7** **Multi-student use.** Each session pairs its own camera by its own QR code; this is what a future Multi-Student Cockpit will reuse.
+
 ## 15. Legacy data and paper cohort
 
 - **FR-LEG-1** Import of the previous application's exports (sample files in `05_Measures/Samples`): Hand Raises → pen lifts; Segment Width → width; Total Time → total time; Writing Time and Air Time → active writing time and air time.
@@ -331,6 +343,7 @@ For each box: start and end time; contact path; for each dot the **closest dista
 | Alef added to multi-stroke letters | FR-CAN-5, FR-COCK-5 |
 | Warm-up extra, videos kept, notebook timed only | FR-PLAN-3, FR-PLAN-5 |
 | Hebrew intro video (Yaki, 2026-10-28) | FR-PLAN-6…8 |
+| Session video capture: discovery, QR pairing, positioning, several cameras (Yaki, 2026-11-14) | FR-VID-1…7, FR-PRIV-2, FR-REP-3 |
 
 ## 18. Changes from FRS v3.3 / v3.4
 

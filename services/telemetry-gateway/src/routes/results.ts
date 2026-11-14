@@ -423,6 +423,9 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
     );
     const score = await one(app.deps.db, `SELECT version, composite_score, accuracy_score, speed_score, pen_lift_score, pen_lifts, avg_speed_mm_s
       FROM score_versions WHERE block_attempt_id = $1 AND is_current`, [a.id]);
+    // Hand video of this attempt (Phase 5f), played in sync (FR-REP-3); the clip itself is fetched from /media/clips/:id.
+    const video = await one<{ id: string; sync_offset_ms: number; duration_ms: number | null }>(app.deps.db,
+      'SELECT id, sync_offset_ms, duration_ms FROM session_video_records WHERE block_attempt_id = $1 ORDER BY started_at DESC LIMIT 1', [a.id]);
     app.appLog.writeOnce(`replay:${user.sub}:${a.id}`, {
       severity: 'INFO', event_type: 'data.replay.opened', actor_user_id: user.sub, actor_role: user.role, session_id: a.session_id,
       entity_type: 'block_attempt', entity_id: a.id, message: `Replay opened: ${a.session_code} step ${a.step_index}, attempt ${a.attempt_number}`,
@@ -439,6 +442,7 @@ export const resultRoutes: FastifyPluginAsync = async (app) => {
       },
       letters,
       score: score ?? null,
+      video: video ?? null,
     };
   });
 };

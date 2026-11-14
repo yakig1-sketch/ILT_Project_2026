@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, 
 import { useTranslation } from 'react-i18next';
 import { DTH_A116 } from '@ilt/shared-types';
 import { AppShell, CanvasView } from '@ilt/ui';
+import qrcode from 'qrcode-generator';
 import { KioskSession, type Dispatch, type Pairing } from './kiosk-session';
 
 const PAIRING_KEY = 'ilt.kiosk.pairing';
@@ -223,7 +224,8 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
     () => {
       const st = session.state;
       const video = st.name === 'VIDEO' ? `${st.step_index}:${!!st.src}:${st.blocked}` : '';
-      return `${st.name}:${'secondsLeft' in st ? st.secondsLeft : ''}:${session.gatewayConnected}:${session.endReached}:${session.inactivity}:${video}`;
+      const camera = session.camera ? `${session.camera.screen}:${'code' in session.camera ? session.camera.code : ''}` : '';
+      return `${st.name}:${'secondsLeft' in st ? st.secondsLeft : ''}:${session.gatewayConnected}:${session.endReached}:${session.inactivity}:${video}:${camera}`;
     },
   );
   void snapshot;
@@ -264,6 +266,12 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
     );
   }
   const reference = session.pairing.mode === 'REFERENCE';
+  // Camera pairing and positioning (Phase 5f): only between steps.
+  if (state.name === 'WAITING' && session.camera) {
+    return session.camera.screen === 'CODE'
+      ? <CameraCode code={session.camera.code} label={t('kiosk.camera.code')} help={t('kiosk.camera.code_help')}>{banner}</CameraCode>
+      : <CameraFrame label={t('kiosk.camera.frame')}>{banner}</CameraFrame>;
+  }
   if (state.name === 'WAITING') {
     return (
       <BlockFrame step={null} reference={reference}>
@@ -305,6 +313,42 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
       {state.name === 'PAUSED' && <div style={s.overlay}>{t('kiosk.paused')}</div>}
       {state.name === 'UPLOADING' && <div style={s.overlay}>{t('kiosk.uploading')}</div>}
     </BlockFrame>
+  );
+}
+
+/** The one-time pairing code as a large QR code, black on white with its quiet zone (Phase 5f). */
+function CameraCode({ code, label, help, children }: { code: string; label: string; help: string; children: ReactNode }) {
+  const qr = qrcode(0, 'M');
+  qr.addData(`ILT-CAM:${code}`);
+  qr.make();
+  const n = qr.getModuleCount();
+  let path = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) path += `M${c + 4} ${r + 4}h1v1h-1z`;
+  return (
+    <div style={{ ...s.screen, background: '#fff', color: '#000', gap: '1rem', alignContent: 'center' }} data-testid="camera-code">
+      {children}
+      <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>{label}</div>
+      <svg viewBox={`0 0 ${n + 8} ${n + 8}`} style={{ inlineSize: 'min(72vh, 72vw)', blockSize: 'min(72vh, 72vw)' }} shapeRendering="crispEdges" role="img" aria-label={label}>
+        <rect width={n + 8} height={n + 8} fill="#fff" />
+        <path d={path} fill="#000" />
+      </svg>
+      <div style={{ fontSize: '1.1rem' }}>{help}</div>
+    </div>
+  );
+}
+
+/** The framing guide: the screen's edges and corners, so the evaluator sees the whole writing area in the camera. */
+function CameraFrame({ label, children }: { label: string; children: ReactNode }) {
+  const corner = (pos: CSSProperties): CSSProperties => ({ position: 'absolute', inlineSize: '12vmin', blockSize: '12vmin', borderColor: '#000', borderStyle: 'solid', borderWidth: 0, ...pos });
+  return (
+    <div style={{ ...s.screen, position: 'relative', background: '#fff', boxShadow: 'inset 0 0 0 1.2vmin #0a6cff' }} data-testid="camera-frame">
+      {children}
+      <div style={corner({ insetBlockStart: '3vmin', insetInlineStart: '3vmin', borderBlockStartWidth: '1.5vmin', borderInlineStartWidth: '1.5vmin' })} />
+      <div style={corner({ insetBlockStart: '3vmin', insetInlineEnd: '3vmin', borderBlockStartWidth: '1.5vmin', borderInlineEndWidth: '1.5vmin' })} />
+      <div style={corner({ insetBlockEnd: '3vmin', insetInlineStart: '3vmin', borderBlockEndWidth: '1.5vmin', borderInlineStartWidth: '1.5vmin' })} />
+      <div style={corner({ insetBlockEnd: '3vmin', insetInlineEnd: '3vmin', borderBlockEndWidth: '1.5vmin', borderInlineEndWidth: '1.5vmin' })} />
+      <div style={{ fontSize: '1.6rem', maxInlineSize: '70vw' }}>{label}</div>
+    </div>
   );
 }
 

@@ -99,7 +99,37 @@ export class Hub {
   /** Who is signed in on each cockpit socket (reference mode records who made a recording). */
   private readonly cockpitUsers = new WeakMap<WebSocket, UserClaims>();
 
-  constructor(private readonly app: FastifyInstance) {}
+  constructor(private readonly app: FastifyInstance) {
+    app.cameras?.setEvents({
+      tabletScreen: (sessionId, screen) => this.sendCameraScreen(sessionId, screen),
+      changed: (sessionId) => void this.sendCameraStatus(sessionId),
+    });
+  }
+
+  // ---- session camera (Phase 5f) ----------------------------------------------------------------
+
+  /** The tablet shows the pairing QR code, the framing guide, or neither. */
+  private sendCameraScreen(sessionId: string, screen: { code: string } | 'FRAME' | null, socket?: WebSocket) {
+    const payload: ControlPayload<'CAMERA_SCREEN'> = screen === null ? { screen: 'NONE' } : screen === 'FRAME' ? { screen: 'FRAME' } : { screen: 'CODE', code: screen.code };
+    this.sendTo(socket ?? this.rooms.get(sessionId)?.tablet, controlMessage('CAMERA_SCREEN', payload));
+  }
+
+  /** Tells the session's cockpits (or one) how its camera stands. */
+  async sendCameraStatus(sessionId: string, socket?: WebSocket) {
+    const cameras = this.app.cameras;
+    if (!cameras) return;
+    const msg = controlMessage('CAMERA_STATUS', await cameras.state(sessionId));
+    if (socket) this.sendTo(socket, msg);
+    else this.toCockpits(sessionId, msg);
+  }
+
+  /** Why the tablet cannot show the pairing code now, or null. */
+  cameraBlocker(sessionId: string): 'TABLET_OFFLINE' | 'STEP_RUNNING' | null {
+    const r = this.rooms.get(sessionId);
+    if (!r?.tablet) return 'TABLET_OFFLINE';
+    if (r.activeBlock || r.activeVideo) return 'STEP_RUNNING';
+    return null;
+  }
 
   private room(sessionId: string): Room {
     let r = this.rooms.get(sessionId);
@@ -212,6 +242,11 @@ export class Hub {
       }
       // A tablet that reloaded during a video plays it again (the kiosk ignores a repeat of the one it is playing).
       else if (r.activeVideo) this.sendTo(socket, r.activeVideo);
+      // A camera pairing in progress: the QR code again.
+      else if (this.app.cameras) {
+        const screen = await this.app.cameras.tabletScreenFor(claims.session_id);
+        if (screen) this.sendCameraScreen(claims.session_id, screen, socket);
+      }
       return claims.session_id;
     }
 
@@ -243,6 +278,7 @@ export class Hub {
       if (r.activeBlock.started) this.sendTo(socket, r.activeBlock.started);
     }
     if (r.activeVideo) this.sendTo(socket, r.activeVideo);
+    await this.sendCameraStatus(sessionId, socket);
     return sessionId;
   }
 
@@ -344,6 +380,7 @@ export class Hub {
         const attempt = await startAttempt(this.db, sessionId, p.step_index, p.attempt_number, p.block_started_at);
         if (!attempt) return this.error(socket, env.message_id, 'NO_STEP', `No step ${p.step_index}`);
         r.attempts.set(attemptKey(p.step_index, p.attempt_number), attempt);
+        this.app.cameras?.attemptStarted(sessionId, p.step_index, p.attempt_number, attempt.id);
         if (r.activeBlock) r.activeBlock.started = env;
         await this.db.query("UPDATE session_steps SET started_at = coalesce(started_at, $3) WHERE session_id = $1 AND step_index = $2", [sessionId, p.step_index, p.block_started_at]);
         this.log({ severity: 'INFO', event_type: 'session.step.started', session_id: sessionId, entity_type: 'block_attempt', entity_id: attempt.id, message: `Block started: step ${p.step_index}, attempt ${p.attempt_number}`, details: p });
@@ -358,6 +395,7 @@ export class Hub {
         const p = payload as BlockComplete;
         r.pending.set(attemptKey(p.step_index, p.attempt_number), p);
         r.activeBlock = undefined;
+        void this.app.cameras?.stopClip(sessionId);
         this.log({
           severity: 'INFO', event_type: p.end_reason === 'MANUAL' ? 'session.block.manual_finish' : 'session.block.completed', session_id: sessionId,
           message: `Block complete: step ${p.step_index}, attempt ${p.attempt_number}, ${p.sample_count} samples (${p.end_reason})`, details: p,
@@ -413,6 +451,7 @@ export class Hub {
     }
 
     r.activeBlock = undefined;
+    void this.app.cameras?.stopClip(sessionId);
     await this.db.query(
       `UPDATE block_attempts SET status = 'ABORTED', ended_at = now()
         WHERE status = 'ACTIVE' AND attempt_number = $3
@@ -477,6 +516,8 @@ export class Hub {
     const forward = base ? { ...base, payload } : controlMessage('DISPATCH_STEP', payload);
     const r = this.room(sessionId);
     r.activeBlock = { dispatch: forward, tablet: r.tablet };
+    // Hand video (FR-PRIV-2): one clip per attempt, when the session records video and has a camera.
+    if (session.video_enabled) await this.app.cameras?.startClip(sessionId, step.step_index, attemptNumber);
     const by = source === 'TABLET' ? ' from the tablet ([Next block])' : '';
     this.log({ severity: 'INFO', event_type: 'session.step.dispatched', session_id: sessionId, entity_type: 'session_step', entity_id: step.id, message: `Step ${step.step_index} (${step.step_type}) dispatched${by}, attempt ${attemptNumber}`, details: { step_index: step.step_index, attempt_number: attemptNumber, canvas: step.canvas_code, mirrored: step.mirrored, source } });
     return forward;
@@ -541,6 +582,7 @@ export class Hub {
         );
         r.activeBlock = undefined;
         r.activeVideo = undefined;
+        await this.app.cameras?.endPairing(sessionId, 'SESSION_ABORTED');
         this.log({ severity: 'WARN', event_type: 'session.aborted', session_id: sessionId, message: `Session aborted: ${p.reason}`, details: p });
         break;
       }
@@ -654,6 +696,7 @@ export class Hub {
     if (steps.some((s) => s.status === 'PENDING' || s.status === 'ACTIVE')) return false;
     const done = steps.filter((s) => s.status === 'DONE').length;
     await this.db.query("UPDATE sessions SET status = 'COMPLETED', completed_at = now() WHERE id = $1", [sessionId]);
+    await this.app.cameras?.endPairing(sessionId, 'SESSION_COMPLETED');
     this.log({ severity: 'INFO', event_type: 'session.completed', session_id: sessionId, message: `Session completed (${done} steps done)`, details: { completed_steps: done } });
     const msg = controlMessage('SESSION_COMPLETE', { session_id: sessionId, completed_steps: done });
     const r = this.room(sessionId);

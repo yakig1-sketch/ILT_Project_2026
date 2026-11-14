@@ -21,6 +21,8 @@ import { settingsRoutes } from './routes/settings.js';
 import { userRoutes } from './routes/users.js';
 import { researchExportRoutes, type ExportFiles } from './routes/research-exports.js';
 import { legacyRoutes } from './routes/legacy.js';
+import { cameraLiveRoutes, cameraRoutes } from './routes/cameras.js';
+import { CameraService, type CameraDeps } from './camera/service.js';
 
 export interface AppDeps {
   db: Queryable;
@@ -38,6 +40,8 @@ export interface AppDeps {
   analytics?: (path: string, body?: unknown, timeoutMs?: number) => Promise<{ status: number; body: unknown }>;
   /** The private exports bucket (Phase 4c); absent in unit tests. */
   exportFiles?: ExportFiles;
+  /** Session video (Phase 5f): camera relay, ONVIF, clip storage; absent when not configured. */
+  cameras?: CameraDeps;
   logLevel?: string;
 }
 
@@ -45,6 +49,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     deps: AppDeps;
     appLog: AppLog;
+    cameras?: CameraService;
   }
 }
 
@@ -58,6 +63,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(cors, { origin: true });
   await app.register(authPlugin, { secret: deps.jwtSecret });
   await app.register(websocket, { options: { maxPayload: 1 << 20 } });
+  // The camera service before the hub, which listens to it.
+  app.decorate('cameras', deps.cameras ? new CameraService(deps.db, deps.cameras, app.appLog) : undefined);
   app.decorate('hub', new Hub(app));
 
   app.setErrorHandler((err: FastifyError, req, reply) => {
@@ -93,6 +100,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(researchExportRoutes, { prefix: '/api/v1' });
   await app.register(legacyRoutes, { prefix: '/api/v1' });
   await app.register(mediaRoutes, { prefix: '/api/v1' });
+  await app.register(cameraRoutes, { prefix: '/api/v1' });
+  await app.register(cameraLiveRoutes);
 
   // Real-time links (DDD §5.1). Authentication is the first message on the socket.
   app.get('/ws/tablet', { websocket: true }, (socket, req) => app.hub.accept(socket, 'tablet', req.ip));

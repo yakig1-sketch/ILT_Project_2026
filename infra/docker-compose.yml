@@ -37,12 +37,15 @@ services:
       - s3-data:/data
       - ./s3/start-s3.sh:/etc/ilt/start-s3.sh:ro
 
-  # Optional desk-camera relay (FRS §14). Start with: docker compose --profile video up -d
+  # Desk-camera relay (FRS §14, Phase 5f). Only the gateway talks to it (local port): it adds each paired
+  # camera's stream at run time, so no camera address or password is written to a file. Pictures for the
+  # QR pairing, the live view and the step clips all come from here. No RTSP or WebRTC server is opened.
   go2rtc:
     image: alexxit/go2rtc:1.9.9
-    profiles: ["video"]
     restart: unless-stopped
-    network_mode: host
+    command: ["go2rtc", "-config", '{"api":{"listen":":1984"},"rtsp":{"listen":""},"webrtc":{"listen":""},"srtp":{"listen":""},"log":{"level":"info"}}']
+    ports:
+      - "127.0.0.1:1984:1984"
 
 volumes:
   db-data:

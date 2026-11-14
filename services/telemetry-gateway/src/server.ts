@@ -1,7 +1,10 @@
 import pg from 'pg';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
-import { s3ExportFiles, s3MediaStore } from './media.js';
+import { s3ClipStore, s3ExportFiles, s3MediaStore } from './media.js';
+import { discover, OnvifCamera } from './camera/onvif.js';
+import { go2rtcRelay } from './camera/relay.js';
+import { secretBox } from './camera/secret.js';
 import { VERSION } from './routes/health.js';
 
 const config = loadConfig();
@@ -16,6 +19,14 @@ const app = await buildApp({
   schoolHmacKey: config.schoolHmacKey,
   media: s3MediaStore(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
   exportFiles: s3ExportFiles(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
+  // Session video (Phase 5f): only with a key for the camera passwords.
+  cameras: config.cameraSecretKey ? {
+    relay: go2rtcRelay(config.go2rtcUrl),
+    secrets: secretBox(config.cameraSecretKey),
+    clips: s3ClipStore(config.s3Endpoint, config.s3AccessKey, config.s3SecretKey),
+    discover: () => discover(),
+    onvif: (deviceUrl, account) => new OnvifCamera(deviceUrl, account),
+  } : undefined,
   logLevel: config.logLevel,
   analytics: async (path, body, timeoutMs = 20_000) => {
     const res = await fetch(`${config.analyticsUrl}/api/v1${path}`, {

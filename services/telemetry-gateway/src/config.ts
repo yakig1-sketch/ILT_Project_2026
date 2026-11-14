@@ -21,6 +21,10 @@ export interface Config {
   logLevel: string;
   /** The analytics service, on the local interface (DDD §8.9). */
   analyticsUrl: string;
+  /** The camera relay (go2rtc, Phase 5f), on the local interface. */
+  go2rtcUrl: string;
+  /** Encrypts camera passwords in the database; without it the camera features are off. */
+  cameraSecretKey: string | null;
 }
 
 export const loadConfig = (): Config => ({
@@ -33,4 +37,6 @@ export const loadConfig = (): Config => ({
   schoolHmacKey: required('SCHOOL_CODE_HMAC_KEY'),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   analyticsUrl: process.env.ANALYTICS_URL ?? 'http://127.0.0.1:8090',
+  go2rtcUrl: process.env.GO2RTC_URL ?? 'http://127.0.0.1:1984',
+  cameraSecretKey: process.env.CAMERA_SECRET_KEY || null,
 });
