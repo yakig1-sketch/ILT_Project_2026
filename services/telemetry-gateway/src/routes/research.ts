@@ -139,6 +139,18 @@ const MEASURES = `
   round(avg(c.pen_lifts), 2)::float8 AS pen_lifts,
   round(avg(c.total_time_ms))::float8 AS total_time_ms`;
 
+/** Overview measures (Phase 5g): the value of one counted block for the learning curve and the box plots. */
+export const OVERVIEW_MEASURES: Record<string, string> = {
+  time: 'c.total_time_ms / 1000.0',
+  accuracy: 'c.accuracy_score',
+  composite: 'c.composite_score',
+  pen_lifts: 'c.pen_lifts',
+  speed: 'c.avg_speed_mm_s',
+  speed_score: 'c.speed_score',
+};
+/** The protocol stages whose ILT blocks make the learning curve (Day 1 blocks 1–8, Day 2 1–4, Day 14 1–2). */
+const CURVE_STAGES = "('DAY_1', 'DAY_2', 'DAY_14')";
+
 export const researchRoutes: FastifyPluginAsync = async (app) => {
   const analyst = app.requireRole('ANALYST', 'RESEARCHER');
   const notFound = { error: { code: 'NOT_FOUND', message_key: 'error.404', details: {} } };
@@ -213,6 +225,68 @@ export const researchRoutes: FastifyPluginAsync = async (app) => {
           FROM sel LEFT JOIN counted c ON c.session_id = sel.session_id
          GROUP BY 1 ORDER BY 1 NULLS LAST`, values),
     }));
+  });
+
+  /**
+   * Cohort overview (Phase 5g; FR-AN-1, FRS v3.3 Figure 8) for the chosen sessions:
+   * - totals: as the cohort table's "everyone" row;
+   * - curve: the mean of the measure per group, stage and ILT block number (the learning curve);
+   * - boxes: per group, the spread of the participants' own means of the measure over their ILT blocks;
+   * - participants: one row each, with the Day 14 composite, pass and the first Day 14 block for replay.
+   */
+  app.get<{ Querystring: Record<string, string> }>('/research/overview', { preHandler: analyst }, async (req, reply) => {
+    const { group_by = 'none', measure = 'time', ...rest } = req.query;
+    const group = GROUPS[group_by];
+    const value = OVERVIEW_MEASURES[measure];
+    const f = ResearchFilter.safeParse(rest);
+    if (!group || !value || !f.success) return reply.status(400).send(badRequest(f.success ? { group_by, measure } : f.error.flatten()));
+    const { sql, values } = researchWhere(f.data);
+    const ilt = `c.step_type = 'ILT_BLOCK' AND (${value}) IS NOT NULL`;
+    return asAnalyst(async (q) => {
+      const totals = await one(q, `${withSelection(sql)}
+        SELECT count(DISTINCT sel.study_code)::int AS participants, count(DISTINCT sel.session_id)::int AS sessions, ${MEASURES}
+          FROM sel LEFT JOIN counted c ON c.session_id = sel.session_id`, values);
+      const curve = await rows(q, `${withSelection(sql)}
+        SELECT ${group} AS grp, sel.session_type, c.block_number, count(*)::int AS blocks, count(DISTINCT sel.study_code)::int AS participants,
+               round(avg(${value})::numeric, 2)::float8 AS mean
+          FROM sel JOIN counted c ON c.session_id = sel.session_id
+         WHERE ${ilt} AND sel.session_type IN ${CURVE_STAGES} AND c.block_number IS NOT NULL
+         GROUP BY 1, 2, 3 ORDER BY 1 NULLS LAST, 2, 3`, values);
+      const boxes = await rows(q, `${withSelection(sql)},
+        per AS (SELECT ${group} AS grp, sel.study_code, avg(${value})::float8 AS v
+                  FROM sel JOIN counted c ON c.session_id = sel.session_id WHERE ${ilt} GROUP BY 1, 2)
+        SELECT grp, count(*)::int AS participants,
+               round(min(v)::numeric, 2)::float8 AS min,
+               round(percentile_cont(0.25) WITHIN GROUP (ORDER BY v)::numeric, 2)::float8 AS q1,
+               round(percentile_cont(0.5) WITHIN GROUP (ORDER BY v)::numeric, 2)::float8 AS median,
+               round(percentile_cont(0.75) WITHIN GROUP (ORDER BY v)::numeric, 2)::float8 AS q3,
+               round(max(v)::numeric, 2)::float8 AS max
+          FROM per GROUP BY grp ORDER BY grp NULLS LAST`, values);
+      const participants = await rows<{ total: number }>(q, `${withSelection(sql)},
+        who AS (SELECT sel.study_code, min(sel.domain_id) AS domain_id, min(left(sel.school_code_hmac, 8)) AS school_key,
+                       min(sel.grade_level) AS grade_level, min(sel.gender) AS gender, min(sel.ses_group) AS ses_group,
+                       min(sel.dominant_hand) AS dominant_hand, count(DISTINCT sel.session_id)::int AS sessions,
+                       array_agg(DISTINCT sel.session_type ORDER BY sel.session_type) AS stages, max(sel.completed_at) AS last_completed_at
+                  FROM sel GROUP BY sel.study_code),
+        ilt AS (SELECT sel.study_code, count(*)::int AS blocks FROM sel JOIN counted c ON c.session_id = sel.session_id
+                 WHERE c.step_type = 'ILT_BLOCK' GROUP BY 1),
+        d14 AS (SELECT DISTINCT ON (sel.study_code) sel.study_code, sel.session_id,
+                       (sel.settings_snapshot->'scoring.pass_threshold'->>'value')::numeric AS threshold
+                  FROM sel WHERE sel.session_type = 'DAY_14' ORDER BY sel.study_code, sel.completed_at DESC),
+        d14b AS (SELECT d14.study_code, avg(c.composite_score) AS composite, min(d14.threshold) AS threshold,
+                        (array_agg(c.block_attempt_id ORDER BY c.block_number))[1] AS attempt_id
+                   FROM d14 JOIN counted c ON c.session_id = d14.session_id AND c.step_type = 'ILT_BLOCK' GROUP BY d14.study_code)
+        SELECT who.*, coalesce(ilt.blocks, 0) AS ilt_blocks, round(d14b.composite, 1)::float8 AS day14_composite,
+               CASE WHEN d14b.composite IS NULL OR d14b.threshold IS NULL THEN NULL ELSE d14b.composite >= d14b.threshold END AS day14_pass,
+               d14b.attempt_id AS day14_attempt_id, count(*) OVER ()::int AS total
+          FROM who LEFT JOIN ilt ON ilt.study_code = who.study_code LEFT JOIN d14b ON d14b.study_code = who.study_code
+         ORDER BY who.study_code LIMIT ${ROW_LIMIT}`, values);
+      const total = participants[0]?.total ?? 0;
+      return {
+        group_by, measure, totals, curve, boxes,
+        participants: { rows: participants.map(({ total: _t, ...r }) => r), total, limited: total > ROW_LIMIT },
+      };
+    });
   });
 
   /**

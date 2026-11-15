@@ -41,7 +41,7 @@ export const FILTERS = ['domain_id', 'region_id', 'school', 'grade', 'gender', '
 export type FilterKey = (typeof FILTERS)[number];
 export type Filters = Record<FilterKey, string>;
 const EMPTY = Object.fromEntries(FILTERS.map((k) => [k, ''])) as Filters;
-const GROUPS = ['none', 'domain', 'region', 'school', 'grade', 'gender', 'ses', 'hand', 'language', 'stage', 'canvas', 'inactivity'] as const;
+export const GROUPS = ['none', 'domain', 'region', 'school', 'grade', 'gender', 'ses', 'hand', 'language', 'stage', 'canvas', 'inactivity'] as const;
 const STORE = 'ilt.analyst.filters';
 
 const GRADES = ['KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'GRADE_6'];
@@ -72,6 +72,15 @@ export const loadFilters = (): { filters: Filters; group: string } => {
   return { filters: EMPTY, group: 'none' };
 };
 
+/** Keeps the filters (and the research screen's grouping) for this browser tab. */
+export const saveFilters = (filters: Filters, group?: string) => {
+  try {
+    sessionStorage.setItem(STORE, JSON.stringify({ filters, group: group ?? loadFilters().group }));
+  } catch {
+    // Not kept.
+  }
+};
+
 export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
@@ -99,11 +108,7 @@ export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void
     api<Options>('/research/options').then(setOptions).catch((e: ApiError) => setError(e.messageKey));
   }, [refresh]);
   useEffect(() => {
-    try {
-      sessionStorage.setItem(STORE, JSON.stringify({ filters, group }));
-    } catch {
-      // Not kept.
-    }
+    saveFilters(filters, group);
     let live = true;
     setError(null);
     api<{ sessions: SessionRow[]; total: number; limited: boolean }>(`/research/sessions?${query}`)
@@ -115,18 +120,7 @@ export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void
     };
   }, [query, group, filters, refresh]);
 
-  const set = (k: FilterKey, v: string) => setState((st) => ({ ...st, filters: { ...st.filters, [k]: v } }));
   const label = (kind: string, v: unknown) => valueLabel(t, lang, options, kind, v);
-  const pick = (k: FilterKey, title: string, values: (string | number)[], kind: string) => (
-    <label style={ui.field}>
-      {title}
-      <select style={s.control} value={filters[k]} onChange={(e) => set(k, e.target.value)} data-testid={`filter-${k}`}>
-        <option value="">{t('analyst.all')}</option>
-        {values.map((v) => <option key={v} value={v}>{v === 'NONE' ? t('analyst.not_recorded') : label(kind, v)}</option>)}
-      </select>
-    </label>
-  );
-  const anyFilter = FILTERS.some((k) => filters[k]);
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }} data-testid="research">
@@ -134,38 +128,7 @@ export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void
       {options && options.sessions === 0 && <p style={{ ...s.notice, background: 'var(--ilt-warn-bg)' }} data-testid="research-empty">{t('analyst.empty')}</p>}
       {error && <p role="alert" style={ui.error}>{t(error)}</p>}
 
-      <section style={s.section} aria-labelledby="filters-h">
-        <div style={s.head}>
-          <h2 id="filters-h" style={s.h}>{t('analyst.filters')}</h2>
-          {options && <span style={ui.muted}>{t('analyst.totals', { sessions: options.sessions, participants: options.participants })}</span>}
-        </div>
-        <div style={s.grid}>
-          {pick('domain_id', t('analyst.domain'), options?.domains.map((d) => d.id) ?? [], 'domain')}
-          {pick('region_id', t('analyst.region'), [...(options?.regions.map((r) => r.id) ?? []), 'NONE'], 'region')}
-          {pick('school', t('analyst.school'), options?.schools ?? [], 'school')}
-          {pick('grade', t('analyst.grade'), GRADES, 'grade')}
-          {pick('gender', t('analyst.gender'), GENDERS, 'gender')}
-          {pick('ses', t('analyst.ses'), SES, 'ses')}
-          {pick('hand', t('analyst.hand'), HANDS, 'hand')}
-          {pick('language', t('analyst.language'), ['he', 'en'], 'language')}
-          {pick('session_type', t('analyst.stage'), STAGES, 'stage')}
-          {pick('canvas', t('analyst.canvas'), options?.canvases ?? [], 'canvas')}
-          {pick('inactivity_sec', t('analyst.inactivity'), options?.inactivity_sec ?? [], 'inactivity')}
-          <label style={ui.field}>
-            {t('analyst.from')}
-            <input type="date" dir="ltr" style={s.control} value={filters.from} max={filters.to || undefined} onChange={(e) => set('from', e.target.value)} />
-          </label>
-          <label style={ui.field}>
-            {t('analyst.to')}
-            <input type="date" dir="ltr" style={s.control} value={filters.to} min={filters.from || undefined} onChange={(e) => set('to', e.target.value)} />
-          </label>
-        </div>
-        <div>
-          <button style={ui.button} disabled={!anyFilter} onClick={() => setState((st) => ({ ...st, filters: EMPTY }))} data-testid="filters-clear">
-            {t('analyst.clear')}
-          </button>
-        </div>
-      </section>
+      <FilterPanel options={options} filters={filters} onChange={(next) => setState((st) => ({ ...st, filters: next }))} />
 
       <section style={s.section} aria-labelledby="cohort-h">
         <div style={s.head}>
@@ -254,5 +217,58 @@ export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void
         )}
       </section>
     </div>
+  );
+}
+
+/** The cohort filters (shared by the research sessions and the overview). */
+export function FilterPanel({ options, filters, onChange }: { options: Options | null; filters: Filters; onChange: (next: Filters) => void }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const label = (kind: string, v: unknown) => valueLabel(t, lang, options, kind, v);
+  const set = (k: FilterKey, v: string) => onChange({ ...filters, [k]: v });
+  const pick = (k: FilterKey, title: string, values: (string | number)[], kind: string) => (
+    <label style={ui.field}>
+      {title}
+      <select style={s.control} value={filters[k]} onChange={(e) => set(k, e.target.value)} data-testid={`filter-${k}`}>
+        <option value="">{t('analyst.all')}</option>
+        {values.map((v) => <option key={v} value={v}>{v === 'NONE' ? t('analyst.not_recorded') : label(kind, v)}</option>)}
+      </select>
+    </label>
+  );
+  const anyFilter = FILTERS.some((k) => filters[k]);
+
+  return (
+    <section style={s.section} aria-labelledby="filters-h">
+      <div style={s.head}>
+        <h2 id="filters-h" style={s.h}>{t('analyst.filters')}</h2>
+        {options && <span style={ui.muted}>{t('analyst.totals', { sessions: options.sessions, participants: options.participants })}</span>}
+      </div>
+      <div style={s.grid}>
+        {pick('domain_id', t('analyst.domain'), options?.domains.map((d) => d.id) ?? [], 'domain')}
+        {pick('region_id', t('analyst.region'), [...(options?.regions.map((r) => r.id) ?? []), 'NONE'], 'region')}
+        {pick('school', t('analyst.school'), options?.schools ?? [], 'school')}
+        {pick('grade', t('analyst.grade'), GRADES, 'grade')}
+        {pick('gender', t('analyst.gender'), GENDERS, 'gender')}
+        {pick('ses', t('analyst.ses'), SES, 'ses')}
+        {pick('hand', t('analyst.hand'), HANDS, 'hand')}
+        {pick('language', t('analyst.language'), ['he', 'en'], 'language')}
+        {pick('session_type', t('analyst.stage'), STAGES, 'stage')}
+        {pick('canvas', t('analyst.canvas'), options?.canvases ?? [], 'canvas')}
+        {pick('inactivity_sec', t('analyst.inactivity'), options?.inactivity_sec ?? [], 'inactivity')}
+        <label style={ui.field}>
+          {t('analyst.from')}
+          <input type="date" dir="ltr" style={s.control} value={filters.from} max={filters.to || undefined} onChange={(e) => set('from', e.target.value)} />
+        </label>
+        <label style={ui.field}>
+          {t('analyst.to')}
+          <input type="date" dir="ltr" style={s.control} value={filters.to} min={filters.from || undefined} onChange={(e) => set('to', e.target.value)} />
+        </label>
+      </div>
+      <div>
+        <button style={ui.button} disabled={!anyFilter} onClick={() => onChange(EMPTY)} data-testid="filters-clear">
+          {t('analyst.clear')}
+        </button>
+      </div>
+    </section>
   );
 }
