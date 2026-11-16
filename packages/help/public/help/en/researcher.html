@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Researcher guide · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · Researcher guide</span>
+  <a data-other-language="../he/researcher.html" href="../he/researcher.html" lang="he">עברית</a>
+  <a href="index.html">All guides</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Your work in the system</a></li>
+    <li><a href="#sign-in">Signing in</a></li>
+    <li><a href="#sessions">Sessions and planning</a></li>
+    <li><a href="#new-participant">Registering participants</a></li>
+    <li><a href="#participant-record">The participant record</a></li>
+    <li><a href="#consent">Consent</a></li>
+    <li><a href="#research-purpose">Research sessions</a></li>
+    <li><a href="#console">The Dispatch Console</a></li>
+    <li><a href="#intervention">Planning the intervention program</a></li>
+    <li><a href="#summary">Results: the Comparative summary</a></li>
+    <li><a href="#replay">Replay</a></li>
+    <li><a href="#director">The Research Director's approval</a></li>
+    <li><a href="#portal">The analyst portal</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+  </ol>
+</nav>
+<main>
+<h1>Researcher guide</h1>
+<p class="lead">For research staff who plan participants and sessions and follow the results, and for the Research Director, who approves changes to clinically governed settings.</p>
+
+<section id="overview">
+  <h2>Your work in the system</h2>
+  <p>As a researcher you use two applications:</p>
+  <ul>
+    <li><strong>The Evaluator cockpit</strong>: participants, consent, planning sessions, the Dispatch Console, the Comparative summary and replay. You see the results of every participant.</li>
+    <li><strong>The Analyst portal</strong>: de-identified research data across participants, with charts, filters and exports.</li>
+  </ul>
+  <p>A researcher who holds a <strong>Research Director PIN</strong> also approves changes that affect scoring and timers (<a href="#director">see below</a>).</p>
+  <p>Running a session with a child on the tablet is described in the <a href="evaluator.html#session">Evaluator guide</a>.</p>
+  <p class="warn">Participants are known only by their participant code. Never type a name, ID number or initials anywhere.</p>
+</section>
+
+<section id="sign-in">
+  <h2>Signing in</h2>
+  <ul>
+    <li><strong>Evaluator cockpit:</strong> the address your System Administrator gave you (for example <code>https://&lt;server&gt;:5174</code>).</li>
+    <li><strong>Analyst portal:</strong> its own address (for example <code>https://&lt;server&gt;:5175</code>), with the same email and password.</li>
+  </ul>
+  <p>The interface opens in your own language; the <span class="ui">Language</span> switch changes it for this visit. After 5 wrong passwords the account is locked for 15 minutes; the administrator can unlock it. The <strong>Help</strong> button on every screen opens the matching part of the guides.</p>
+</section>
+
+<section id="sessions">
+  <h2>Sessions and planning</h2>
+  <p>The <span class="ui">Sessions</span> screen lists sessions, newest first, with filters for a session or participant code, status, type and dates. From it you:</p>
+  <ul>
+    <li>create a participant (<span class="ui">New participant</span>) and a Day 1, Day 2 or Day 14 session (<span class="ui">New session</span>): choose the participant, the session type, the child's language and the purpose;</li>
+    <li>open a participant's <span class="ui">Protocol</span> (the <a href="#console">Dispatch Console</a>) or <span class="ui">Participant record</span>;</li>
+    <li><span class="ui">Open</span> a session.</li>
+  </ul>
+  <p>Each session takes a snapshot of the settings in effect when it is created (timers, scoring weights, threshold, canvases). Changing a setting later never changes a session that already exists.</p>
+  <p class="see">Details: <a href="evaluator.html#sessions">Evaluator guide · Sessions</a>, <a href="evaluator.html#new-session">A new session</a>.</p>
+</section>
+
+<section id="new-participant">
+  <h2>Registering participants</h2>
+  <p><span class="ui">New participant</span> asks for the participant code (unique, never changed), the school (kept only as a protected code), the birth month and year, the Domain, the Region (optional), grade, gender, socio-economic group, dominant hand, and the <span class="ui">Group</span>:</p>
+  <ul>
+    <li><strong>Tablet</strong>: the child writes on the tablet.</li>
+    <li><strong>Paper cohort</strong>: the child writes on paper; the scores are entered by hand on the participant record.</li>
+  </ul>
+  <p>Children imported from the previous application appear as <strong>Legacy</strong> participants (<code>LEG-…</code>), created by the System Administrator.</p>
+</section>
+
+<section id="participant-record">
+  <h2>The participant record</h2>
+  <p>The record shows the participant's details, the number of sessions, consent, whether research sessions and hand video are possible, and, for paper and legacy children, their scores. You can <span class="ui">Edit</span> the details, <span class="ui">Deactivate</span> a participant (kept with their results, but no new sessions) and <span class="ui">Reactivate</span> them.</p>
+  <p class="see">Details: <a href="evaluator.html#participant-record">Evaluator guide · The participant record</a>, <a href="evaluator.html#paper-scores">Paper scores</a>.</p>
+</section>
+
+<section id="consent">
+  <h2>Consent</h2>
+  <p>With no consent recorded, nothing is allowed: no hand video, no research use, no open-science sharing. <span class="ui">Record consent</span> stores the form version, the signing date and the three permissions as signed. A new consent replaces the current one; earlier ones stay in the <span class="ui">Consent history</span>.</p>
+  <ul>
+    <li><strong>Research use</strong> decides whether the participant's results reach the analyst portal and exports, and whether a research session can be created. Removing it hides their research data from analysts at once.</li>
+    <li><strong>Hand video</strong> together with the system setting decides whether sessions created from now on record the child's hand.</li>
+  </ul>
+</section>
+
+<section id="research-purpose">
+  <h2>Research sessions</h2>
+  <p>Every session has a <strong>purpose</strong>: <strong>Intervention</strong> (the default) or <strong>Research</strong>. Only Research sessions, of participants whose current consent allows research use, reach the analyst portal and the exports.</p>
+  <p>Research can be chosen only when all three hold:</p>
+  <ol>
+    <li>the setting <strong>Allow research sessions (after ethics approval)</strong> is on (System Administrator, Settings);</li>
+    <li>a <strong>Research</strong> ethics approval is recorded, valid today and not withdrawn (System Administrator, Ethics approvals);</li>
+    <li>the participant's current consent allows <strong>research use</strong>.</li>
+  </ol>
+  <p>The new-session form and the participant record say which one is missing. Intervention sessions can also be Research-purpose (the <span class="ui">Purpose</span> list in the Dispatch Console's intervention panel).</p>
+</section>
+
+<section id="console">
+  <h2>The Dispatch Console</h2>
+  <p>The console shows a participant's whole protocol: Day 1, Day 2 and Day 14 as panels of step cards (green completed, blue active, grey still to run, grey "pending" when the day is not planned yet), and the intervention program. Use it to:</p>
+  <ul>
+    <li>plan the Day 2 and Day 14 sessions (<span class="ui">Plan the … session</span>);</li>
+    <li>see where each day stands, and the Day 14 two-block average score;</li>
+    <li>open the <span class="ui">Comparative Summary View</span>.</li>
+  </ul>
+  <p class="see">Details: <a href="evaluator.html#console">Evaluator guide · The Dispatch Console</a>.</p>
+</section>
+
+<section id="intervention">
+  <h2>Planning the intervention program</h2>
+  <p>The intervention panel works one target letter at a time: <span class="ui">Video + 4 Training Sheets</span> (first training), <span class="ui">Repeat Letter</span>, <span class="ui">Next Letter</span>, and <span class="ui">2-Wk Retention</span> (one sheet, from 14 days after the last training). Only letters the administrator has activated are offered, and one intervention session is open at a time.</p>
+  <p class="see">Details: <a href="evaluator.html#intervention">Evaluator guide · The intervention program</a>, <a href="evaluator.html#marks">Marking intervention sheets</a>.</p>
+</section>
+
+<section id="summary">
+  <h2>Results: the Comparative summary</h2>
+  <p>The summary compares the anchor pairs: Day 1 first pair (blocks 1–2) and last pair (7–8), Day 2 first pair (1–2) and last pair (3–4), and Day 14 (1–2). Each box shows the average time, pen lifts, accuracy %, average ILT speed, the separate speed, accuracy and pen-lift scores, the composite and Pass/Fail. The composite is always shown next to its parts, never instead of them.</p>
+  <ul>
+    <li>The weights and the pass threshold in effect are shown at the top. "not configured" means the threshold, or the canvas's normal speed, is not set yet.</li>
+    <li>Paper blocks are tagged <strong>Paper</strong> (no speed or composite); legacy results have their own section, as imported.</li>
+    <li>The intervention table lists each intervention session with its scored sheets.</li>
+  </ul>
+  <p class="see">Details: <a href="evaluator.html#summary">Evaluator guide · The Comparative summary</a>.</p>
+</section>
+
+<section id="replay">
+  <h2>Replay</h2>
+  <p>Researchers can replay every session. Replay plays a block back with play/pause, a timeline, speeds from 0.25× to 4× and single-sample steps, with each letter's speed under its house and, when recorded, the hand video in sync. Each opening of a replay is logged.</p>
+  <p class="see">Details: <a href="evaluator.html#replay">Evaluator guide · Replay</a>.</p>
+</section>
+
+<section id="director">
+  <h2>The Research Director's approval</h2>
+  <p>A researcher with a <strong>Research Director PIN</strong> (6 digits, given by the System Administrator, shown as the green "Research Director" badge in the user list) approves changes to clinically governed values, when director approval is on (the default):</p>
+  <ul>
+    <li>scoring settings: composite weights, the pass threshold, dot radii and weights, speed and pen-lift rules;</li>
+    <li>ILT-process timers, such as the inactivity times and the transition countdown;</li>
+    <li>activating a canvas (its scoring profile goes into use) and a Domain's own scoring values for a canvas;</li>
+    <li>accepting a reference recording into a Domain's profile;</li>
+    <li>turning director approval off.</li>
+  </ul>
+  <p><strong>How:</strong> the System Administrator prepares the change in the Administrator cockpit. When they save, the review asks for <span class="ui">Research Director email</span> and <span class="ui">Director PIN</span>. You type your email and PIN on that screen; the server checks them. One approval covers all the changes saved together. The change, with you as the approver and the reason, is kept in the settings history.</p>
+  <p class="warn">Never give your PIN to anyone, and don't let it be written down. A wrong PIN is refused and logged as a security event. If you think your PIN is known, ask the administrator for a new one.</p>
+</section>
+
+<section id="portal">
+  <h2>The analyst portal</h2>
+  <p>In the portal you see the completed Research sessions of participants with research consent, by participant code only. Its tabs:</p>
+  <ul>
+    <li><span class="ui">Overview</span>: summary tiles, the learning curve across the protocol's blocks, box plots that compare groups, and a participant table with the Day 14 result;</li>
+    <li><span class="ui">Research sessions</span>: filters, the cohort table and the session list, with each session's blocks, replay and kinematics;</li>
+    <li><span class="ui">Paper and legacy</span>: paper-cohort and old-application results;</li>
+    <li><span class="ui">Exports</span>: Parquet or CSV files for DuckDB, Python, R, Superset or Metabase. Each user sees only their own exports.</li>
+  </ul>
+  <p class="see">Details: the <a href="analyst.html">Analyst guide</a>.</p>
+</section>
+
+<section id="troubleshooting">
+  <h2>When something goes wrong</h2>
+  <table>
+    <tr><th>What you see</th><th>What to do</th></tr>
+    <tr><td>Research can't be chosen for a session</td><td>The form says why: the setting, the ethics approval or the consent. See <a href="#research-purpose">Research sessions</a>.</td></tr>
+    <tr><td>A participant is missing in the analyst portal</td><td>Only completed Research sessions with current research consent appear.</td></tr>
+    <tr><td>"The director email or PIN is wrong"</td><td>Check the email is your own, and type the PIN again. Ask the administrator if you forgot it.</td></tr>
+    <tr><td>"not configured" in the summary</td><td>The pass threshold or the canvas's normal speed is not set: the administrator sets them, with your approval.</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

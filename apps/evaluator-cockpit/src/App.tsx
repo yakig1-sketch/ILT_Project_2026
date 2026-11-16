@@ -4,7 +4,7 @@
 // cockpit: its own sign-in, for the System Administrator only, and the Administration screens.
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppShell, ThemeSwitcher } from '@ilt/ui';
+import { AppShell, configureHelp, GuideLinks, HelpButton, ThemeSwitcher, useHelpSection, type HelpGuide } from '@ilt/ui';
 import { AdminScreen, ADMIN_TABS, type AdminTab } from './AdminScreen';
 import { DispatchConsole } from './DispatchConsole';
 import { ParticipantScreen } from './ParticipantScreen';
@@ -14,6 +14,13 @@ import { SessionScreen } from './SessionScreen';
 import { SessionsScreen } from './SessionsScreen';
 import { SummaryScreen } from './SummaryScreen';
 import { ui } from './styles';
+
+/** Each role's user guide. */
+const GUIDE_OF_ROLE: Record<string, HelpGuide> = { ADMIN: 'admin', RESEARCHER: 'researcher', EVALUATOR: 'evaluator', ANALYST: 'analyst' };
+/** The guide section of each Administration tab. */
+const ADMIN_HELP: Record<AdminTab, string> = {
+  users: 'users', domains: 'domains', regions: 'regions', canvases: 'canvases', cameras: 'cameras', settings: 'settings', ethics: 'ethics', legacy: 'legacy', log: 'log',
+};
 
 function useHashRoute(): [string, (to: string) => void] {
   const [hash, setHash] = useState(location.hash);
@@ -50,9 +57,16 @@ export function App() {
   useEffect(() => {
     document.title = `${t('app.name')} · ${t(ADMIN_ENTRY ? 'app.admin' : 'app.cockpit')}`;
   }, [t]);
+  // Help: the guide of the signed-in role, at the section of the screen shown.
+  configureHelp({ base: `${import.meta.env.BASE_URL}help/`, main: ADMIN_ENTRY ? 'admin' : 'evaluator', own: auth && !wrongEntry ? GUIDE_OF_ROLE[auth.user.role] : null });
+  useHelpSection(
+    !auth || wrongEntry ? 'sign-in'
+      : ADMIN_ENTRY ? (canvasId ? 'canvas-detail' : ADMIN_HELP[adminTab])
+      : replayId ? 'replay' : recordId ? 'participant-record' : consoleId ? 'console' : summaryId ? 'summary' : sessionId ? 'session' : 'sessions',
+  );
 
   return (
-    <AppShell titleKey={ADMIN_ENTRY ? 'app.admin' : 'app.cockpit'} controls={<ThemeSwitcher />}>
+    <AppShell titleKey={ADMIN_ENTRY ? 'app.admin' : 'app.cockpit'} controls={<><HelpButton /><ThemeSwitcher /></>}>
       {!auth || wrongEntry ? (
         <LoginForm />
       ) : (
@@ -193,6 +207,7 @@ function LoginForm() {
         <button type="submit" style={{ ...ui.primary, paddingBlock: '0.6rem', fontWeight: 600 }} disabled={busy}>
           {t(busy ? 'cockpit.signing_in' : 'common.sign_in')}
         </button>
+        <GuideLinks guides={ADMIN_ENTRY ? ['admin'] : ['evaluator', 'researcher']} />
       </form>
     </div>
   );

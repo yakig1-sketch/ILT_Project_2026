@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analyst guide · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · Analyst guide</span>
+  <a data-other-language="../he/analyst.html" href="../he/analyst.html" lang="he">עברית</a>
+  <a href="index.html">All guides</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Your work in the system</a></li>
+    <li><a href="#sign-in">Signing in</a></li>
+    <li><a href="#privacy">What you see, and what you don't</a></li>
+    <li><a href="#portal-overview">The Overview tab</a></li>
+    <li><a href="#portal-sessions">Research sessions</a></li>
+    <li><a href="#portal-filters">Filters</a></li>
+    <li><a href="#portal-cohort">The cohort table</a></li>
+    <li><a href="#portal-session">One session</a></li>
+    <li><a href="#portal-replay">Replay</a></li>
+    <li><a href="#portal-kinematics">Kinematics</a></li>
+    <li><a href="#portal-offline">Paper and legacy</a></li>
+    <li><a href="#portal-exports">Exports</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+  </ol>
+</nav>
+<main>
+<h1>Analyst guide</h1>
+<p class="lead">For analysts (and researchers) who study the de-identified research data in the analyst portal: charts, cohort comparisons, single sessions, kinematics and exports.</p>
+
+<section id="overview">
+  <h2>Your work in the system</h2>
+  <p>The <span class="ui">Analyst portal</span> is read-only. It has four tabs:</p>
+  <ul>
+    <li><span class="ui">Overview</span>: summary tiles, the learning curve, box plots and one row per participant.</li>
+    <li><span class="ui">Research sessions</span>: filters, the cohort table and the list of sessions, each with its blocks, replay and kinematics.</li>
+    <li><span class="ui">Paper and legacy</span>: results of the paper cohort and of the previous application.</li>
+    <li><span class="ui">Exports</span>: files for DuckDB, Python/Jupyter, R, Apache Superset, Metabase or a spreadsheet.</li>
+  </ul>
+  <p>The filters you set are shared by the tabs and kept while the browser tab is open.</p>
+</section>
+
+<section id="sign-in">
+  <h2>Signing in</h2>
+  <p>Open the analyst portal address your System Administrator gave you (for example <code>https://&lt;server&gt;:5175</code>) and sign in. The portal is for analysts and researchers; evaluators and the System Administrator are refused. After 5 wrong passwords the account is locked for 15 minutes.</p>
+  <p>The <span class="ui">Language</span> and <span class="ui">Theme</span> switches are at the top. The <strong>Help</strong> button on every screen opens the matching part of this guide; the small <strong>(?)</strong> buttons open the part about a panel.</p>
+</section>
+
+<section id="privacy">
+  <h2>What you see, and what you don't</h2>
+  <ul>
+    <li>Only <strong>completed Research sessions</strong> appear. Intervention sessions never do.</li>
+    <li>Only participants whose <strong>current</strong> consent allows research use. A later consent without research use hides their data again, at once.</li>
+    <li>Participants appear only by their participant (study) code, and the school only as a short code. There are no names, school names, birth dates or ID numbers.</li>
+    <li>Until a research ethics approval exists and research sessions are run, the portal is empty by design.</li>
+    <li>Opening a replay or kinematics, creating an export and downloading it are logged.</li>
+  </ul>
+</section>
+
+<section id="portal-overview">
+  <h2>The Overview tab</h2>
+  <p>The cohort at a glance, for the sessions that match the filters (the same filters as on Research sessions).</p>
+  <ul>
+    <li><span class="ui">Compare by</span>: a grouping (for example SES group, grade, gender, school code); <span class="ui">Measure</span>: time, composite, accuracy, pen lifts, ILT speed or speed score.</li>
+    <li><strong>Tiles:</strong> participants, sessions, counted blocks, mean time, mean accuracy and mean composite.</li>
+    <li><strong>Learning curve:</strong> the mean of the measure for each ILT block of the protocol: Day 1 blocks 1–8, Day 2 1–4, Day 14 1–2. The line breaks between the days. With a grouping, one line per group (the six largest are drawn, all are in the table). Point at a block to see its values and the number of blocks.</li>
+    <li><strong>Spread by group (box plots):</strong> each participant's own mean of the measure over their ILT blocks. The box is the middle half (25th to 75th percentile), the line in it the median, and the whiskers the lowest and highest; n is the number of participants.</li>
+    <li><span class="ui">Show as a table</span> under each chart gives the same numbers as a table.</li>
+    <li><strong>Participants:</strong> one row per participant: attributes, the stages done, ILT blocks, the Day 14 composite, Day 14 pass (✓ Pass or ✗ Below the threshold, against the threshold that session used) and <span class="ui">Replay</span> of the first Day 14 block.</li>
+  </ul>
+  <p class="note">"Counted blocks" are the latest finished attempt of each scored block. The curve and the boxes use ILT blocks only (not the warm-up or notebook pages).</p>
+</section>
+
+<section id="portal-sessions">
+  <h2>Research sessions</h2>
+  <p>The main tab: the <a href="#portal-filters">filters</a>, the <a href="#portal-cohort">cohort table</a> and the list of research sessions that match, newest first (up to 500 are listed; narrow the filters to see others).</p>
+  <p>Each row shows the session and participant codes, stage, language, grade, gender, SES, hand, Domain, Region, school code, completion date, the number of counted blocks and the mean composite. Click the session code to open <a href="#portal-session">the session</a>.</p>
+</section>
+
+<section id="portal-filters">
+  <h2>Filters</h2>
+  <p>Domain, Region, school code, grade, gender, SES group, dominant hand, language, session stage, canvas, inactivity timer, and the completion dates <span class="ui">Completed from</span> / <span class="ui">Completed until</span>. "Not recorded" finds participants with no value. <span class="ui">Clear filters</span> resets them.</p>
+  <p>The count next to <span class="ui">Filters</span> is the total of all research sessions and participants; the list, the cohort table and the Overview follow the filters.</p>
+</section>
+
+<section id="portal-cohort">
+  <h2>The cohort table</h2>
+  <p><span class="ui">Group by</span> slices the selected sessions by one dimension (or none). Per group: participants, sessions, blocks, and the means of the composite, accuracy, speed score, ILT speed (mm/s), pen lifts and time (s).</p>
+  <p>The means are over the counted blocks: the latest finished attempt of each scored ILT block. The warm-up and the notebook pages don't count.</p>
+</section>
+
+<section id="portal-session">
+  <h2>One session</h2>
+  <ul>
+    <li><span class="ui">Session details</span>: language, age (years and months), grade, gender, SES, hand, Domain, Region, school code, device, started and completed.</li>
+    <li><span class="ui">Settings used</span>: the inactivity timers, the pass threshold and the composite weights of this session.</li>
+    <li><span class="ui">Blocks and attempts</span>: every step and attempt with its canvas, status and number of samples. <span class="ui">Counted</span> marks the attempts that count; the warm-up and notebook pages are greyed. Each block with samples has <span class="ui">Replay</span> and <span class="ui">Kinematics</span>.</li>
+    <li>For intervention sheets, the marks of each letter.</li>
+    <li>The <strong>Kinematics</strong> section lists each block's summary measures.</li>
+  </ul>
+  <p><span class="ui">Research sessions</span> at the top goes back, with your filters kept.</p>
+</section>
+
+<section id="portal-replay">
+  <h2>Replay</h2>
+  <p>The page as the child wrote it, played back: <span class="ui">Play</span> / <span class="ui">Pause</span>, the timeline, speeds 0.25× to 4×, and one sample back or forward. Each letter's speed is shown under its house; ink is coloured by pressure (light, medium, firm) and the in-air path is yellow. <span class="ui">Back</span> returns to where you came from.</p>
+</section>
+
+<section id="portal-kinematics">
+  <h2>Kinematics</h2>
+  <p>For one block attempt:</p>
+  <ul>
+    <li><span class="ui">Block summary</span>: strokes, writing time, path, mean and peak speed, velocity peaks per stroke, mean and normalised jerk, mean pressure.</li>
+    <li><span class="ui">Speed, jerk and pressure over time</span>: three charts on one time axis, one line per stroke, with gaps where the pen was lifted. Point at a chart: a line marks the same moment on all three, and the values are read out above.</li>
+    <li><span class="ui">Highlight</span>: choose a letter to mark it on the charts.</li>
+    <li><span class="ui">Letters, in writing order</span>: the same measures per letter; click a row to highlight that letter.</li>
+    <li><span class="ui">Strokes</span>: one row per stroke.</li>
+  </ul>
+  <p>Kinematics are computed from the stored pen samples; nothing stored is changed. Time runs left to right in both languages.</p>
+</section>
+
+<section id="portal-offline">
+  <h2>Paper and legacy</h2>
+  <ul>
+    <li><strong>Paper cohort:</strong> blocks written on paper and entered by hand. The means per anchor pair (as in the Comparative summary): participants, blocks, time, pen lifts, accurate letters and accuracy %. Paper has no dots, so no speed or composite.</li>
+    <li><strong>Previous application:</strong> the imported results, per session label, as imported. The old application measured differently, so they are not scored or compared with the tablet anchors. The unit of its segment width is not confirmed.</li>
+    <li>"The blocks (n)" opens the rows themselves.</li>
+    <li>Only the participant filters apply here (Domain, Region, school, grade, gender, SES, hand); the session filters (stage, language, canvas, timers, dates) don't.</li>
+    <li>As for tablet sessions, only participants with current research consent appear.</li>
+  </ul>
+</section>
+
+<section id="portal-exports">
+  <h2>Exports</h2>
+  <ol>
+    <li>Set the filters on <span class="ui">Research sessions</span> (or <span class="ui">Change filters</span>). The Exports tab says how many sessions match, and how many paper or legacy participants are included too.</li>
+    <li>Choose the <span class="ui">Format</span>: <strong>Parquet</strong> (compact and typed: DuckDB, Python, R, Superset, Metabase) or <strong>CSV</strong> (plain text, for spreadsheets and any tool).</li>
+    <li><span class="ui">Contents</span>: the sessions, blocks, letters and score versions are always included (plus paper and legacy blocks). Add the <strong>raw pen samples</strong> (large) or the <strong>kinematics</strong> per block, letter and stroke (slower) if needed.</li>
+    <li><span class="ui">Create export</span>. It appears under <span class="ui">My exports</span> as "Preparing…", then <strong>Ready</strong> with its size.</li>
+    <li><span class="ui">Download</span> saves a zip: one file per table, a <code>README.txt</code> describing the tables, units and codes, and a <code>manifest.json</code> with the filters, options and row counts.</li>
+  </ol>
+  <ul>
+    <li>A download link works for 15 minutes; press <span class="ui">Download</span> again for a new one. Each user sees only their own exports.</li>
+    <li>At most 5,000 sessions in one export. Times are in UTC.</li>
+    <li>The files hold only de-identified data. Keep them on approved storage.</li>
+  </ul>
+</section>
+
+<section id="troubleshooting">
+  <h2>When something goes wrong</h2>
+  <table>
+    <tr><th>What you see</th><th>What to do</th></tr>
+    <tr><td>"There are no research sessions yet"</td><td>By design until Research sessions are run and completed with research consent.</td></tr>
+    <tr><td>A participant or session disappeared</td><td>Their consent was changed to no research use. Ask the research team.</td></tr>
+    <tr><td>"The kinematics service is not answering"</td><td>Try again later, or tell the System Administrator.</td></tr>
+    <tr><td>"This download link has expired"</td><td>Press <span class="ui">Download</span> again in My exports.</td></tr>
+    <tr><td>"Too many sessions for one export"</td><td>Narrow the filters (at most 5,000).</td></tr>
+    <tr><td>Composite or speed score "—"</td><td>The session was scored before a normal speed or weights were set for its canvas.</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

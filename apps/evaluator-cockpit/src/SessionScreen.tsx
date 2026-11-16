@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_SCORING_SETTINGS, scoreBlock, type BlockScore } from '@ilt/ilt-metrics';
 import { atLastUnit, locksByRow, type CanvasGeometry } from '@ilt/template-schemas';
-import { CanvasView, InkRenderer, PressureLegend } from '@ilt/ui';
+import { CanvasView, InkRenderer, PressureLegend, HelpLink } from '@ilt/ui';
 import { CameraPanel } from './CameraPanel';
 import { ApiError, api } from './api';
 import { CockpitLink, type LiveBlock } from './cockpit-link';
@@ -252,7 +252,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
 
       {!closed && !link.tabletConnected && (
         <section style={ui.card}>
-          <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.pairing.title')}</h2>
+          <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.pairing.title')} <HelpLink section="pairing" /></h2>
           {pin && Date.parse(pin.expires_at) > Date.now() ? (
             <div style={{ display: 'grid', gap: '0.4rem', justifyItems: 'start' }}>
               <div style={ui.muted}>{t('cockpit.pairing.pin')}</div>
@@ -383,7 +383,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
       )}
 
       <section style={ui.card}>
-        <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.steps')}</h2>
+        <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.steps')} <HelpLink section="steps" /></h2>
         <table style={ui.table}>
           <tbody>
             {session.steps.map((s) => {
@@ -655,7 +655,7 @@ function Telemetry({ block, sheets, timers, amber, scoring }: {
   ] as [string, React.ReactNode][]).filter(([k]) => !iltOnly.has(k));
   return (
     <aside style={isAmber ? layout.panelAmber : layout.panel} data-testid="telemetry" data-amber={isAmber}>
-      <h2 style={{ marginBlockStart: 0, fontSize: '1rem' }}>{t('cockpit.telemetry.title')}</h2>
+      <h2 style={{ marginBlockStart: 0, fontSize: '1rem' }}>{t('cockpit.telemetry.title')} <HelpLink section="telemetry" /></h2>
       {isAmber && <p role="alert" style={{ marginBlock: '0 0.5rem', fontWeight: 600 }}>{t('cockpit.inactivity_amber')}</p>}
       {rows.map(([k, v]) => (
         <div key={k} style={layout.row}>

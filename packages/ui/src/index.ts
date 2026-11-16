@@ -9,3 +9,4 @@ export { ReplayPlayer, type ReplayData, type ReplayVideo } from './ReplayPlayer.
 export { useVideoRotation } from './rotate.js';
 export { pill, tone, ui } from './styles.js';
 export { BackButton } from './BackButton.js';
+export { configureHelp, GuideLinks, GUIDE_SECTIONS, guideFor, HelpButton, HelpLink, helpUrl, openHelp, useHelpSection, type HelpGuide } from './help.js';

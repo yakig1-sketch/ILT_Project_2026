@@ -4,7 +4,7 @@
 // #/exports (Phase 4c), #/offline (paper and legacy results, Phase 5e), #/overview (cohort overview, Phase 5g).
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppShell, ReplayPlayer, ThemeSwitcher, ui, type ReplayData } from '@ilt/ui';
+import { AppShell, configureHelp, HelpButton, ReplayPlayer, ThemeSwitcher, ui, useHelpSection, type ReplayData } from '@ilt/ui';
 import { ApiError, PORTAL_ROLES, api, getAuth, logout, onAuthChange } from './api';
 import { ExportsScreen } from './ExportsScreen';
 import { KinematicsScreen } from './KinematicsScreen';
@@ -42,9 +42,16 @@ export function App() {
   useEffect(() => {
     document.title = `${t('app.name')} · ${t('app.analyst')}`;
   }, [t]);
+  // Help: the analyst guide; a researcher's own guide where it has the section.
+  configureHelp({ base: `${import.meta.env.BASE_URL}help/`, main: 'analyst', own: auth && !wrongRole && auth.user.role === 'RESEARCHER' ? 'researcher' : null });
+  useHelpSection(
+    !auth || wrongRole ? 'sign-in'
+      : onOverview ? 'portal-overview' : onExports ? 'portal-exports' : onOffline ? 'portal-offline'
+      : kinematicsId ? 'portal-kinematics' : replayId ? 'portal-replay' : sessionId ? 'portal-session' : 'portal-sessions',
+  );
 
   return (
-    <AppShell titleKey="app.analyst" controls={<ThemeSwitcher />}>
+    <AppShell titleKey="app.analyst" controls={<><HelpButton /><ThemeSwitcher /></>}>
       {!auth || wrongRole ? (
         <LoginForm />
       ) : (

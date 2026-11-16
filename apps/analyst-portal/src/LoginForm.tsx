@@ -1,7 +1,7 @@
 // Sign-in for the analyst portal (analysts and researchers only), in the same style as the cockpit.
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ui } from '@ilt/ui';
+import { GuideLinks, ui } from '@ilt/ui';
 import { ApiError, getAuth, login } from './api';
 
 const login_ = {
@@ -101,6 +101,7 @@ export function LoginForm() {
         <button type="submit" style={{ ...ui.primary, paddingBlock: '0.6rem', fontWeight: 600 }} disabled={busy}>
           {t(busy ? 'cockpit.signing_in' : 'common.sign_in')}
         </button>
+        <GuideLinks guides={['analyst', 'researcher']} />
       </form>
     </div>
   );

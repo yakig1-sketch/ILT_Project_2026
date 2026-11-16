@@ -1,0 +1,75 @@
+/* ILT user guides: one style for every guide, light and dark, left-to-right and right-to-left. */
+:root {
+  color-scheme: light;
+  --bg: #f6f8fa; --fg: #1f2328; --surface: #fff; --muted: #57606a; --border: #d0d7de; --soft: #eaeef2;
+  --link: #0969da; --accent: #1f6feb; --mark: #fff8c5; --note: #ddf4ff; --note-line: #54aeff; --warn: #fff8c5; --warn-line: #d4a72c;
+  --key-bg: #f6f8fa;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d1117; --fg: #e6edf3; --surface: #161b22; --muted: #8d96a0; --border: #30363d; --soft: #21262d;
+    --link: #4493f8; --accent: #1f6feb; --mark: rgba(187, 128, 9, 0.25); --note: rgba(56, 139, 253, 0.15); --note-line: #388bfd;
+    --warn: rgba(187, 128, 9, 0.18); --warn-line: #bb8009; --key-bg: #21262d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1117; --fg: #e6edf3; --surface: #161b22; --muted: #8d96a0; --border: #30363d; --soft: #21262d;
+  --link: #4493f8; --accent: #1f6feb; --mark: rgba(187, 128, 9, 0.25); --note: rgba(56, 139, 253, 0.15); --note-line: #388bfd;
+  --warn: rgba(187, 128, 9, 0.18); --warn-line: #bb8009; --key-bg: #21262d;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-block-start: 1rem; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); line-height: 1.6;
+  font-family: "Noto Sans Hebrew", "Noto Sans", "Segoe UI", Arial, sans-serif; font-size: 16px;
+}
+a { color: var(--link); }
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding: 0.75rem 1rem;
+  background: var(--surface); border-block-end: 1px solid var(--border);
+}
+.top .name { font-weight: 600; margin-inline-end: auto; }
+.layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 2rem; max-inline-size: 72rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+nav.toc { position: sticky; inset-block-start: 1rem; align-self: start; max-block-size: calc(100vh - 2rem); overflow: auto; font-size: 0.92rem; }
+nav.toc ol { margin: 0; padding-inline-start: 1.2rem; }
+nav.toc li { margin-block: 0.2rem; }
+main { min-inline-size: 0; }
+h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 0.5rem; }
+.lead { color: var(--muted); margin-block-start: 0; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-block: 1rem; }
+section:target { outline: 3px solid var(--accent); outline-offset: 2px; }
+h2 { font-size: 1.3rem; margin: 0 0 0.5rem; }
+h3 { font-size: 1.05rem; margin: 1.1rem 0 0.4rem; }
+p, ul, ol { margin-block: 0.5rem; }
+li { margin-block: 0.2rem; }
+table { border-collapse: collapse; inline-size: 100%; margin-block: 0.6rem; font-size: 0.95rem; }
+th, td { border: 1px solid var(--border); padding: 0.35rem 0.55rem; text-align: start; vertical-align: top; }
+th { background: var(--soft); }
+.ui { font-weight: 600; white-space: nowrap; }
+kbd, .key { font-family: inherit; font-size: 0.9em; padding: 0.05rem 0.4rem; border: 1px solid var(--border); border-radius: 4px; background: var(--key-bg); }
+code { font-family: Consolas, "Courier New", monospace; font-size: 0.92em; padding: 0.05rem 0.3rem; border-radius: 4px; background: var(--soft); }
+.note, .warn { padding: 0.6rem 0.85rem; border-radius: 6px; margin-block: 0.7rem; border-inline-start: 4px solid var(--note-line); background: var(--note); }
+.warn { border-inline-start-color: var(--warn-line); background: var(--warn); }
+.see { font-size: 0.92rem; color: var(--muted); }
+bdi[dir="ltr"] { unicode-bidi: isolate; }
+
+/* Inside the cockpit's help panel: no contents list and no top bar, just the guide. */
+html.embed .top, html.embed nav.toc { display: none; }
+html.embed .layout { display: block; padding: 0.75rem; }
+html.embed h1 { font-size: 1.3rem; }
+html.embed .lead { font-size: 0.92rem; }
+html.embed section { padding: 0.8rem 0.9rem; }
+
+@media (max-width: 52rem) {
+  .layout { grid-template-columns: 1fr; gap: 0; }
+  nav.toc { position: static; max-block-size: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-block-end: 1rem; }
+}
+@media print {
+  .top, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  section { break-inside: avoid; border: 0; padding: 0; }
+  body { background: #fff; color: #000; }
+}

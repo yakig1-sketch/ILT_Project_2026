@@ -1,6 +1,7 @@
 // A participant's results that do not come from tablet sessions (Phase 4d): the old application's
 // block results for a LEGACY child (FR-LEG-1, read-only), and the scores entered by hand for a PAPER
 // child (FR-LEG-2: pen lifts, accurate letters and time per block of each session stage).
+import { HelpLink } from '@ilt/ui';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
@@ -51,7 +52,7 @@ export function LegacyResults({ participantId }: { participantId: string }) {
   const mistakes = list?.find((r) => r.mistakes != null)?.mistakes;
   return (
     <section style={s.section} data-testid="legacy-results">
-      <h3 style={s.h3}>{t('participants.legacy.title')}</h3>
+      <h3 style={s.h3}>{t('participants.legacy.title')} <HelpLink section="legacy-results" /></h3>
       <p style={{ ...ui.muted, margin: 0 }}>{t('participants.legacy.note')}</p>
       {error && <p role="alert" style={ui.error}>{t(error)}</p>}
       {list && list.length === 0 && <p style={{ ...ui.muted, margin: 0 }}>{t('participants.legacy.none')}</p>}
@@ -165,7 +166,7 @@ export function PaperScores({ participantId, editable }: { participantId: string
 
   return (
     <section style={s.section} data-testid="paper-scores">
-      <h3 style={s.h3}>{t('participants.paper.title')}</h3>
+      <h3 style={s.h3}>{t('participants.paper.title')} <HelpLink section="paper-scores" /></h3>
       <p style={{ ...ui.muted, margin: 0 }}>{t('participants.paper.note')}</p>
       {error && <p role="alert" style={ui.error}>{t(error)}</p>}
       {notice && <p role="status" style={{ margin: 0, color: 'var(--ilt-ok)' }}>{t(notice)}</p>}

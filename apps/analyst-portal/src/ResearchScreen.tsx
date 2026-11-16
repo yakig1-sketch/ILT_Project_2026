@@ -2,7 +2,7 @@
 // the matching sessions. Only completed RESEARCH sessions with research consent ever reach this screen.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ui } from '@ilt/ui';
+import { HelpLink, ui } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { num, valueLabel, type Options } from './labels';
 
@@ -132,7 +132,7 @@ export function ResearchScreen({ onOpen }: { onOpen: (sessionId: string) => void
 
       <section style={s.section} aria-labelledby="cohort-h">
         <div style={s.head}>
-          <h2 id="cohort-h" style={s.h}>{t('analyst.cohort')}</h2>
+          <h2 id="cohort-h" style={s.h}>{t('analyst.cohort')} <HelpLink section="portal-cohort" /></h2>
           <label style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
             {t('analyst.group_by')}
             <select value={group} onChange={(e) => setState((st) => ({ ...st, group: e.target.value }))} data-testid="group-by">
@@ -240,7 +240,7 @@ export function FilterPanel({ options, filters, onChange }: { options: Options |
   return (
     <section style={s.section} aria-labelledby="filters-h">
       <div style={s.head}>
-        <h2 id="filters-h" style={s.h}>{t('analyst.filters')}</h2>
+        <h2 id="filters-h" style={s.h}>{t('analyst.filters')} <HelpLink section="portal-filters" /></h2>
         {options && <span style={ui.muted}>{t('analyst.totals', { sessions: options.sessions, participants: options.participants })}</span>}
       </div>
       <div style={s.grid}>

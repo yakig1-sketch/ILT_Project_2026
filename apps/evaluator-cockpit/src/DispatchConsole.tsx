@@ -2,6 +2,7 @@
 // Day 1, Day 2, Day 14 and the intervention programme as step cards (completed, active, to
 // dispatch), the Comparative Summary, and the live cockpit. A card opens its session in the live
 // cockpit, where its steps are dispatched to the tablet.
+import { HelpLink } from '@ilt/ui';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_PROTOCOLS } from '@ilt/template-schemas';
@@ -420,7 +421,7 @@ function InterventionPanel({ iv, participantId, onOpenSession, onPlanned }: {
 
   return (
     <section style={{ ...s.panel, border: `1.5px solid ${C.greenLine}` }} data-testid="console-intervention">
-      <h3 style={{ ...s.panelTitle, color: C.greenLine }}>{t('console.intervention')}</h3>
+      <h3 style={{ ...s.panelTitle, color: C.greenLine }}>{t('console.intervention')} <HelpLink section="intervention" /></h3>
       {iv.letters.length === 0 ? (
         <p style={{ ...ui.muted, margin: 0 }} data-testid="iv-no-letters">{t('console.iv_no_letters', { language })}</p>
       ) : (

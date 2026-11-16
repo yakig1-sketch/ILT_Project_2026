@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Administrator guide · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · System Administrator guide</span>
+  <a data-other-language="../he/admin.html" href="../he/admin.html" lang="he">עברית</a>
+  <a href="index.html">All guides</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Your work in the system</a></li>
+    <li><a href="#sign-in">Signing in</a></li>
+    <li><a href="#users">Users</a></li>
+    <li><a href="#domains">Domains</a></li>
+    <li><a href="#regions">Regions</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#canvases">The canvas library</a></li>
+    <li><a href="#canvas-detail">A canvas: preview, profile, versions</a></li>
+    <li><a href="#reference">Reference recordings on the tablet</a></li>
+    <li><a href="#cameras">Cameras</a></li>
+    <li><a href="#ethics">Ethics approvals</a></li>
+    <li><a href="#legacy">Legacy data</a></li>
+    <li><a href="#log">Action log</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+  </ol>
+</nav>
+<main>
+<h1>System Administrator guide</h1>
+<p class="lead">For the System Administrator: users, Domains and Regions, settings, the canvas library and reference recordings, cameras, ethics approvals, legacy data and the action log.</p>
+
+<section id="overview">
+  <h2>Your work in the system</h2>
+  <p>You work in the <span class="ui">Administrator cockpit</span>, a separate address for the System Administrator only. Its tabs are <span class="ui">Users</span>, <span class="ui">Domains</span>, <span class="ui">Regions</span>, <span class="ui">Canvases</span>, <span class="ui">Cameras</span>, <span class="ui">Settings</span>, <span class="ui">Ethics approvals</span>, <span class="ui">Legacy data</span> and <span class="ui">Action log</span>. The address always names the open tab, for example <code>…/admin#/settings</code>.</p>
+  <ul>
+    <li>Only you can change settings and canvases.</li>
+    <li>Changes to clinically governed values (scoring, timers, activating a canvas) also need a <strong>Research Director's</strong> email and PIN, typed on your screen when you save, while director approval is on (the default).</li>
+    <li>Every change is written to the action log, with the old and new values. Nothing in the log can be edited or deleted.</li>
+    <li>A new session takes a snapshot of the settings in effect. Changes apply to sessions created afterwards, never to existing ones.</li>
+  </ul>
+</section>
+
+<section id="sign-in">
+  <h2>Signing in</h2>
+  <p>Open the Administrator cockpit address (the cockpit address followed by <code>/admin</code>, for example <code>https://&lt;server&gt;:5174/admin</code>) and sign in. The System Administrator can't sign in at the evaluator address, and other users can't sign in here: each is told the right address.</p>
+  <p>After 5 wrong passwords an account is locked for 15 minutes. The <strong>Help</strong> button on every tab opens the matching part of this guide.</p>
+</section>
+
+<section id="users">
+  <h2>Users</h2>
+  <p>The list shows active users with their name, email, role, Domain, Region and status. <span class="ui">Search</span> (name or email), <span class="ui">Role</span> and <span class="ui">Status</span> (Active, Inactive, All) narrow it.</p>
+  <h3>Roles</h3>
+  <table>
+    <tr><th>Role</th><th>Uses</th></tr>
+    <tr><td>System Administrator</td><td>The Administrator cockpit</td></tr>
+    <tr><td>Researcher</td><td>The Evaluator cockpit and the analyst portal; with a director PIN, the Research Director</td></tr>
+    <tr><td>Evaluator</td><td>The Evaluator cockpit: participants and sessions</td></tr>
+    <tr><td>Analyst</td><td>The analyst portal: de-identified research data only</td></tr>
+  </table>
+  <h3>Create a user</h3>
+  <ol>
+    <li><span class="ui">+ New user</span>. Fill in the name, email, role, interface language, Domain and Region.</li>
+    <li>A 16-character password is generated; <span class="ui">Generate</span> makes another. Copy it before you press <span class="ui">Create</span> and give it to the user in person. There is no email service.</li>
+    <li>For a <strong>Researcher</strong>, an optional <span class="ui">Research Director PIN</span> (6 digits) makes them the Research Director (a green badge in the list).</li>
+  </ol>
+  <h3>Edit, unlock, reset, deactivate</h3>
+  <ul>
+    <li><span class="ui">Edit</span> changes the name, role, language, Domain, Region and status. The email can't change (create a new user instead). Leave the password empty to keep it, or <span class="ui">Generate</span> a new one: a reset also unlocks the account.</li>
+    <li>A locked account (amber <strong>Locked</strong>) is opened again with <span class="ui">Unlock</span>.</li>
+    <li>PIN: leave it empty to keep it; tick <span class="ui">Remove the Research Director PIN</span> to remove it. Changing the role away from Researcher removes the PIN.</li>
+    <li><span class="ui">Deactivate</span> (in the list, after a confirmation) stops the user from signing in; <span class="ui">Reactivate</span> brings them back. Users are never deleted.</li>
+    <li>A role change or deactivation reaches a user who is signed in within 15 minutes.</li>
+    <li>You can't deactivate yourself or change your own role.</li>
+  </ul>
+</section>
+
+<section id="domains">
+  <h2>Domains</h2>
+  <p>A <strong>Domain</strong> groups students for ILT testing, for example a study group, a program or a population. It is not necessarily geographic. Every participant belongs to one Domain. Scoring settings and the language configuration can have their own values per Domain.</p>
+  <ul>
+    <li><span class="ui">+ New Domain</span>: a code (letters, digits and underscores; saved in capitals, never changed), the Hebrew and English names, and descriptions.</li>
+    <li><span class="ui">Edit</span> changes the names and descriptions.</li>
+    <li><span class="ui">Deactivate</span> stops offering the Domain for new participants and users; existing ones keep it. At least one Domain must stay active.</li>
+  </ul>
+</section>
+
+<section id="regions">
+  <h2>Regions</h2>
+  <p>A <strong>Region</strong> is a geographic area, for example an education district. It is optional for a participant. ILT-process settings (timers, warm-up, videos, templates) can have their own values per Region. Regions are created, renamed and deactivated like Domains; every Region may be inactive.</p>
+</section>
+
+<section id="settings">
+  <h2>Settings</h2>
+  <p>Choose a <strong>level</strong>: <span class="ui">System</span>, a <span class="ui">Domain</span> or a <span class="ui">Region</span>.</p>
+  <ul>
+    <li><strong>System</strong> shows every group: Scoring, ILT process, Languages, and Governance, privacy, device and log.</li>
+    <li><strong>Domain</strong> shows Scoring and Languages; <strong>Region</strong> shows the ILT-process settings. A row with no value of its own says "Follows System" (or "Follows default"); <span class="ui">Set own value</span> gives it one, and <span class="ui">Follow System</span> removes it.</li>
+    <li>Point at a setting's description to see its default and allowed range.</li>
+  </ul>
+  <h3>Changing and saving</h3>
+  <ol>
+    <li>Change the values. Changed rows are highlighted, with <span class="ui">Undo</span> and <span class="ui">Back to default</span>; a bar at the bottom counts the changes.</li>
+    <li><span class="ui">Review and save</span> lists every change, before and after. Add a reason if you like.</li>
+    <li>If a change <strong>Needs a Research Director PIN</strong>, the Research Director types their email and PIN. One approval covers all the changes.</li>
+    <li><span class="ui">Save</span>. A value outside its range is refused and shown in red. The three composite weights must total 100%.</li>
+  </ol>
+  <p><span class="ui">History</span> lists the changes at the chosen level, newest first: when, the setting, before and after, who changed it, who approved it and the reason.</p>
+  <h3>Settings to know</h3>
+  <ul>
+    <li><strong>Pass/fail threshold on the composite score</strong> and the three <strong>weights in the composite</strong> (speed 50%, accuracy 25%, pen lifts 25% by default). Until the threshold is set, Pass/Fail shows "not configured".</li>
+    <li><strong>Timers</strong>: <em>Inactivity before the cue</em> (20 s), <em>Inactivity after the last box</em> (30 s), <em>Further time before the amber alert</em> (10 s) and the <em>Transition countdown before a block</em>.</li>
+    <li><strong>Warm-up block</strong> on or off, per Region.</li>
+    <li><strong>Languages</strong>: the enabled languages and the default language; per language the ILT, notebook and letter canvases, the fill direction and whether the block is mirrored. A note warns when a canvas's recorded fill order differs from the fill direction.</li>
+    <li><strong>Allow research sessions (after ethics approval)</strong> (see <a href="#ethics">Ethics approvals</a>), <strong>Hand video recording (subject to consent)</strong> (per Region), <strong>Clinical changes need the research director PIN</strong> (turning it off always needs a director), and the intervention settings (<em>Training sheets in an intervention session</em>, <em>Days from training to the retention check</em>, <em>Show the row-3 similarity hint</em>).</li>
+  </ul>
+</section>
+
+<section id="canvases">
+  <h2>The canvas library</h2>
+  <p>A <strong>canvas</strong> is the page the child writes on: an ILT block, a notebook page or an intervention letter sheet. Canvases are grouped by <strong>language → canvas set → canvas</strong>. Filter by <span class="ui">Language</span> and <span class="ui">Type</span>.</p>
+  <ul>
+    <li><span class="ui">+ New canvas set</span>: a language, a type (ILT blocks, notebook pages, intervention letters) and names. Sets can be renamed and deactivated.</li>
+    <li><span class="ui">+ Load a canvas</span>: a set, a code (for example <code>ILT_3X5_HE</code>), names, the geometry as JSON (typed or <span class="ui">Read from a file</span>) and optionally a scoring profile. It is loaded as a <strong>Draft</strong>.</li>
+    <li>Each canvas has a status: <strong>Draft</strong> (editable) → <strong>Active</strong> (in use, never changed) → <strong>Retired</strong>.</li>
+    <li>Settings name a canvas by its code; new sessions get the Active version of that code.</li>
+  </ul>
+  <p class="warn">Don't retire or replace the canvases in use (for example <code>ILT_3X5_HE</code>, <code>ILT_3X5_EN</code>, <code>NOTEBOOK_HE</code>, <code>NOTEBOOK_EN</code>) without planning it: every session uses them.</p>
+</section>
+
+<section id="canvas-detail">
+  <h2>A canvas: preview, profile, versions</h2>
+  <ul>
+    <li><strong>Preview:</strong> the houses and dots. <span class="ui">Box numbers and fill order</span> shows the box ids and the writing order. The size can be true size (exact on a 96 dpi screen), twice true size or fitted to the window. The true size on the tablet is checked in reference mode.</li>
+    <li><strong>Scoring profile</strong> (ILT and letter canvases): the dot order (for example A → B → C), and per dot the hit radius (mm), the accuracy weight (%) and whether it is required. Weights total 100%. Also the expected pen lifts per block, the box fill order, the normal speed (mm/s) and the flexibility (± %).</li>
+    <li><strong>A Draft</strong> can be edited (geometry, profile, names), checked (<span class="ui">Check</span> lists what must be fixed) and deleted (unless it has reference recordings). Changes are saved with <span class="ui">Save draft</span>.</li>
+    <li><strong>Activate</strong>: needs no problems and, with director approval on, the Research Director's email and PIN. New sessions using the code then get this version.</li>
+    <li><strong>New version</strong> makes an editable Draft copy of an Active canvas; activating it retires the previous version. Each canvas has at most one Draft.</li>
+    <li><strong>Domain overrides</strong>: a Domain can have its own scoring values for an Active canvas (approved with the director's PIN). Changed values are highlighted; <span class="ui">Follow the canvas profile</span> removes them. Overrides carry over to new versions.</li>
+    <li><strong>Retire</strong> is refused while a setting still names the canvas.</li>
+    <li>"Used in N session steps" and "Named in Settings" show where the canvas is used.</li>
+  </ul>
+</section>
+
+<section id="reference">
+  <h2>Reference recordings on the tablet</h2>
+  <p>Some profile values come from samples drawn on a tablet in <strong>reference mode</strong>:</p>
+  <ol>
+    <li>On a canvas, press <span class="ui">Pair a tablet in reference mode</span>. Type the 6-digit code on the tablet. It shows the amber bar "Reference recording (not a child session)". The tablet stays paired while you open other canvases.</li>
+    <li><span class="ui">Show on the tablet at true size</span>: check the size with a ruler (an ILT house is 35 × 25 mm), then tap <span class="ui">Done</span>. Nothing is recorded.</li>
+    <li><span class="ui">Record a sample block</span>: fill every house in the order a child should, then <span class="ui">Done</span>. The cockpit shows the fill order and the pen lifts. <span class="ui">Accept</span> saves them into the profile; <span class="ui">Clear</span> discards the sample (it is kept for audit). An incomplete sample can only be cleared.</li>
+    <li><span class="ui">Record the normal speed</span>: a skilled writer writes one row (or the chosen rows) at a natural pace, then <span class="ui">Done</span>. The speed is computed with the same formula as for children. <span class="ui">Accept</span> stores it as the Normal speed.</li>
+    <li><span class="ui">Disconnect the tablet</span> when done; it returns to its code screen.</li>
+  </ol>
+  <ul>
+    <li><span class="ui">Record for</span>: on a Draft, the recording goes into the canvas's own profile. On an Active canvas, choose a Domain: the value becomes that Domain's own, and <span class="ui">Accept</span> needs the director's PIN.</li>
+    <li>Until a normal speed is recorded, sessions show the speed score and composite as "not configured". Sessions created after the canvas has a normal speed get them.</li>
+    <li><span class="ui">Recordings of this canvas</span> lists every recording: when, what, for whom, values, status, recorded by and decided by.</li>
+  </ul>
+</section>
+
+<section id="cameras">
+  <h2>Cameras</h2>
+  <p>Desk cameras record the child's writing hand. The server finds the ONVIF cameras on its network by itself; nobody types an address.</p>
+  <ol>
+    <li>In each camera's own app, set up a camera account (user name and password), the same on every camera.</li>
+    <li>On <span class="ui">Cameras</span>, enter it under <span class="ui">Site camera account</span> and <span class="ui">Save</span>. The cameras are checked; each becomes <strong>Ready</strong>. The password is stored encrypted and never shown again.</li>
+    <li><span class="ui">Search the network</span> looks for new cameras.</li>
+  </ol>
+  <ul>
+    <li>Each camera shows its status (Ready, No account, Wrong account, Not answering), whether it can pan and tilt, when it was last seen, and <span class="ui">Picture</span> (a current picture).</li>
+    <li><span class="ui">Rename</span> gives it a name (Enter saves, Escape cancels), for example "Camera 2".</li>
+    <li><span class="ui">Own account</span> gives one camera its own account; <span class="ui">Use the site account</span> returns to the site account.</li>
+    <li><span class="ui">Retire</span> stops using a camera for pairing; <span class="ui">Restore</span> brings it back.</li>
+    <li>Recording also needs the setting <strong>Hand video recording (subject to consent)</strong> and the participant's consent. Evaluators pair a camera to a session by a QR code on the tablet.</li>
+    <li>A warning at the top means the camera relay is not answering: cameras can't be checked, paired or recorded until it runs.</li>
+  </ul>
+</section>
+
+<section id="ethics">
+  <h2>Ethics approvals</h2>
+  <p>The approvals under which sessions run: their kind (for example Intervention programme or Research), the authority, the reference and the dates they are valid.</p>
+  <ul>
+    <li><span class="ui">+ Add an approval</span> records one. "Valid from" must not be after "Valid until".</li>
+    <li><span class="ui">Withdraw</span> keeps it in the list as withdrawn; <span class="ui">Restore</span> brings it back.</li>
+    <li>Each approval shows how many sessions used it.</li>
+  </ul>
+  <p><strong>Research sessions</strong> can be created only when the setting <strong>Allow research sessions (after ethics approval)</strong> is on, a Research approval is valid today, and the participant's consent allows research use. The top of this tab says whether research sessions are turned on.</p>
+</section>
+
+<section id="legacy">
+  <h2>Legacy data</h2>
+  <p>Imports results from the previous application's .xls files (one measure per file: hand raises → pen lifts, segment width → width, total time, writing time, air time).</p>
+  <ol>
+    <li><span class="ui">Files</span>: choose the files. Each file's measure is recognised from its name or sheet; you can set it by hand. A measure can't come from two files.</li>
+    <li>Choose the <span class="ui">Domain</span> for new children and a <span class="ui">Session label</span> (for example "Legacy").</li>
+    <li><span class="ui">Check files</span>: shows how many children are new or already in the system, the block rows, and a sample. Nothing is written yet.</li>
+    <li><span class="ui">Import</span>. Each child is matched by their old number or created as <code>LEG-&lt;number&gt;</code>. Importing again under the same label updates the values; nothing is doubled.</li>
+  </ol>
+  <p>The files have no grade, gender, SES, school or birth month: these stay "Not recorded" until an evaluator completes the record. The hand comes from L/R (1 right, 0 left). The unit of the old segment width is not confirmed; it is stored as given. <span class="ui">Imports</span> lists every import.</p>
+</section>
+
+<section id="log">
+  <h2>Action log</h2>
+  <p>Every action in the system, newest first; the last 7 days by default.</p>
+  <ul>
+    <li><strong>Filters:</strong> <span class="ui">From</span> / <span class="ui">To</span> (with <span class="ui">Last 24 hours</span> and <span class="ui">Any time</span>), <span class="ui">Event types</span> (by area, or a whole area), <span class="ui">Severity</span>, <span class="ui">User</span>, <span class="ui">Session code</span>, <span class="ui">Domain</span> / Region and <span class="ui">Free text</span> (messages, details and event names). Press <span class="ui">Search</span>.</li>
+    <li>Click a row to see its details (user email, record, device, address and the details). <span class="ui">Show more</span> loads the next 100.</li>
+    <li><span class="ui">Export to CSV</span> saves the filtered entries (up to 50,000); times are in UTC. The export is itself logged.</li>
+    <li>Severity <strong>Security</strong> marks failed sign-ins, wrong director PINs and user changes. No password or PIN ever appears in the log.</li>
+  </ul>
+</section>
+
+<section id="troubleshooting">
+  <h2>When something goes wrong</h2>
+  <table>
+    <tr><th>What you see</th><th>What to do</th></tr>
+    <tr><td>"The director email or PIN is wrong"</td><td>The Research Director types them again. Give a new PIN in <span class="ui">Users</span> if needed.</td></tr>
+    <tr><td>A canvas can't be activated</td><td>Fix the problems listed under the actions (for example dot weights not totalling 100), save the draft, then <span class="ui">Check</span>.</td></tr>
+    <tr><td>A canvas can't be retired</td><td>A setting still names it: choose another canvas in Settings first.</td></tr>
+    <tr><td>Scores show "not configured"</td><td>Record a normal speed for the canvas (reference mode) and set the pass threshold.</td></tr>
+    <tr><td>A camera is Wrong account or Not answering</td><td>Check the account in the camera's app and on the Cameras tab, and that the camera is on the same network.</td></tr>
+    <tr><td>A user is locked out</td><td><span class="ui">Edit</span> → <span class="ui">Unlock</span>, or give a new password.</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

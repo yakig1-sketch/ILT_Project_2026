@@ -1,6 +1,7 @@
 // Session list and planning: find or create a participant, then create a session. The list can be
 // filtered by code, status, type and creation date (filtered on the server). A participant's code
 // and the Protocol button open their Dispatch Console.
+import { HelpLink } from '@ilt/ui';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
@@ -137,7 +138,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <section style={ui.card}>
-        <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.new_session')}</h2>
+        <h2 style={{ marginBlockStart: 0, fontSize: '1.1rem' }}>{t('cockpit.new_session')} <HelpLink section="new-session" /></h2>
         <form onSubmit={createSession} style={ui.row}>
           <ParticipantPicker
             value={participant}
@@ -187,6 +188,7 @@ export function SessionsScreen({ onOpen, onConsole }: { onOpen: (id: string) => 
 
         {newP && (
           <form onSubmit={createParticipant} style={{ ...ui.row, marginBlockStart: '1rem', paddingBlockStart: '1rem', borderBlockStart: '1px solid var(--ilt-border-soft)' }}>
+            <span style={{ flexBasis: '100%', fontWeight: 600 }}>{t('cockpit.new_participant')} <HelpLink section="new-participant" /></span>
             <label style={ui.field}>
               {t('cockpit.participant_code')}
               <input required dir="ltr" pattern="[A-Za-z0-9_\-]+" maxLength={40} value={newP.study_code} onChange={(e) => setNewP({ ...newP, study_code: e.target.value })} />

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluator guide · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · Evaluator guide</span>
+  <a data-other-language="../he/evaluator.html" href="../he/evaluator.html" lang="he">עברית</a>
+  <a href="index.html">All guides</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Your work in the system</a></li>
+    <li><a href="#sign-in">Signing in</a></li>
+    <li><a href="#sessions">The Sessions screen</a></li>
+    <li><a href="#new-participant">A new participant</a></li>
+    <li><a href="#new-session">A new session</a></li>
+    <li><a href="#participant-record">The participant record</a></li>
+    <li><a href="#consent">Consent</a></li>
+    <li><a href="#paper-scores">Paper scores</a></li>
+    <li><a href="#legacy-results">Results from the old application</a></li>
+    <li><a href="#console">The Dispatch Console</a></li>
+    <li><a href="#intervention">The intervention program</a></li>
+    <li><a href="#tablet">Preparing the tablet</a></li>
+    <li><a href="#pairing">Pairing the tablet</a></li>
+    <li><a href="#session">The live session screen</a></li>
+    <li><a href="#steps">Running the steps</a></li>
+    <li><a href="#telemetry">Live mirror and clinical telemetry</a></li>
+    <li><a href="#block-end">How a block ends</a></li>
+    <li><a href="#controls">Pause, repeat, abort, release, finish</a></li>
+    <li><a href="#marks">Marking intervention sheets</a></li>
+    <li><a href="#camera">Hand video (camera)</a></li>
+    <li><a href="#summary">The Comparative summary</a></li>
+    <li><a href="#replay">Replay</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+  </ol>
+</nav>
+<main>
+<h1>Evaluator guide</h1>
+<p class="lead">For evaluators who run ILT sessions with children: registering participants, planning and running sessions on the tablet, marking intervention sheets and reading the results.</p>
+
+<section id="overview">
+  <h2>Your work in the system</h2>
+  <p>You work in the <span class="ui">Evaluator cockpit</span> on a computer, while the child writes on the tablet, the <span class="ui">Child station</span>. The cockpit shows what the child writes, live, and lets you send each step of the session to the tablet.</p>
+  <ul>
+    <li><strong>Participants</strong> are known only by a <strong>participant code</strong>. Never type a name, ID number or initials anywhere. The school is kept only as a protected code, and only the birth month and year are stored.</li>
+    <li>A <strong>session</strong> is one meeting with a child, built from a protocol: <strong>Day 1</strong> (acquisition), <strong>Day 2</strong> (24-hour retention), <strong>Day 14</strong> (two-week automaticity) and <strong>Intervention</strong> sessions with real letters.</li>
+    <li>The child writes in <strong>houses</strong>: the boxes of the ILT page. A block has 15 houses.</li>
+    <li>The settings a session uses (timers, scoring) are fixed when the session is created. Later setting changes don't alter it.</li>
+  </ul>
+  <p>The usual order of work: <a href="#new-participant">register the participant</a> → <a href="#consent">record consent</a> → <a href="#new-session">plan the session</a> → <a href="#tablet">prepare</a> and <a href="#pairing">pair the tablet</a> → <a href="#steps">run the steps</a> → <a href="#summary">read the results</a>.</p>
+</section>
+
+<section id="sign-in">
+  <h2>Signing in</h2>
+  <ol>
+    <li>Open the Evaluator cockpit address that your System Administrator gave you (for example <code>https://&lt;server&gt;:5174</code>).</li>
+    <li>Enter your email and password, and press <span class="ui">Sign in</span>. The eye button shows the password as you type it.</li>
+  </ol>
+  <ul>
+    <li>The interface opens in your own language, set by the administrator. The <span class="ui">Language</span> switch at the top changes it for this visit. <span class="ui">Theme</span> chooses Light, Dark or Like the computer.</li>
+    <li>After 5 wrong passwords the account is locked for 15 minutes. The administrator can unlock it and give you a new password.</li>
+    <li>The <strong>Help</strong> button at the top of every screen opens the part of this guide about that screen. The small <strong>(?)</strong> buttons next to some panels open the part about that panel.</li>
+  </ul>
+  <p class="note">The System Administrator signs in at a different address (<code>…/admin</code>). Analysts and researchers also have the analyst portal.</p>
+</section>
+
+<section id="sessions">
+  <h2>The Sessions screen</h2>
+  <p>After signing in you see your sessions, newest first. Each row shows the session code, the participant code, the session type (with “Research” for a research session), the language, the status and when it was created.</p>
+  <ul>
+    <li><strong>Filters:</strong> <span class="ui">Search</span> (a session or participant code), the status (Planned, Paired, In progress, Paused, Completed, Aborted), the type and the dates <span class="ui">From</span> / <span class="ui">To</span>. <span class="ui">Clear filters</span> shows everything again. The number of sessions found is shown above the list.</li>
+    <li><span class="ui">Open</span> opens the session in the <a href="#session">live session screen</a>.</li>
+    <li><span class="ui">Protocol</span>, or the participant code, opens the participant's <a href="#console">Dispatch Console</a>.</li>
+    <li><span class="ui">New participant</span> and <span class="ui">New session</span> open the forms described below.</li>
+  </ul>
+</section>
+
+<section id="new-participant">
+  <h2>A new participant</h2>
+  <ol>
+    <li>On <span class="ui">Sessions</span>, press <span class="ui">New participant</span>.</li>
+    <li>Fill in:
+      <ul>
+        <li><span class="ui">Participant code</span>: the study code from the list the principal investigator keeps outside the system. It can never be changed later, and must be unique (capital and small letters count as the same code).</li>
+        <li><span class="ui">School</span>: typed once and kept only as a protected code; the name is not stored.</li>
+        <li><span class="ui">Birth month and year</span>: the child's age in months is worked out for every session.</li>
+        <li><span class="ui">Domain</span> (the study group), <span class="ui">Region</span> (optional), <span class="ui">Grade</span>, <span class="ui">Gender</span>, <span class="ui">Socio-economic group</span>, <span class="ui">Dominant hand</span>.</li>
+        <li><span class="ui">Group</span>: <strong>Tablet</strong> for children who write on the tablet, or <strong>Paper cohort</strong> for children who write on paper and whose scores you enter by hand (<a href="#paper-scores">Paper scores</a>).</li>
+      </ul>
+    </li>
+    <li>Press <span class="ui">Create</span>. The new participant is chosen in the participant field, ready for a session.</li>
+  </ol>
+  <p class="warn">No names, ID numbers or initials, in any field, including notes.</p>
+  <p>Next, open the <a href="#participant-record">participant record</a> to <a href="#consent">record consent</a>.</p>
+</section>
+
+<section id="new-session">
+  <h2>A new session</h2>
+  <ol>
+    <li>On <span class="ui">Sessions</span>, type the participant code in the participant field and choose the participant.</li>
+    <li>Choose the <span class="ui">Session type</span> (Day 1, Day 2 or Day 14; intervention sessions are planned in the <a href="#intervention">Dispatch Console</a>) and the <span class="ui">Session language</span>, the language of the child. It decides the tablet's instructions and which canvases are used. Only the languages enabled for the participant's Domain are offered.</li>
+    <li>Choose the <span class="ui">Purpose</span>: <strong>Intervention</strong> (the default) or <strong>Research</strong>. Research can be chosen only when research sessions are turned on in the settings, a research ethics approval is valid today, and the participant's consent allows research use. When one is missing, the form says which.</li>
+    <li>Press <span class="ui">Create</span>. The session gets a code (for example <code>S261115-AB2C</code>) and opens in the live session screen.</li>
+  </ol>
+  <p>You can also plan Day 2 and Day 14 from the <a href="#console">Dispatch Console</a> (<span class="ui">Plan the … session</span>), and intervention sessions from its <a href="#intervention">intervention panel</a>.</p>
+  <p class="note">The steps of each day come from the protocol template. Day 1: intro video, warm-up block (not scored), ILT blocks 1–4, notebook demo video, notebook pages 1–4 on the tablet, ILT blocks 5–8. Day 2: ILT blocks 1–4 and 2 pages in a real paper notebook, timed by you. Day 14: ILT blocks 1–2. The administrator can turn the warm-up off for a Region.</p>
+</section>
+
+<section id="participant-record">
+  <h2>The participant record</h2>
+  <p>Open it with <span class="ui">Participant record</span> next to the participant field on <span class="ui">Sessions</span>, or at the top of the Dispatch Console.</p>
+  <ul>
+    <li><strong>Details:</strong> Domain, Region, school ("Kept as a protected code"), birth month, grade, gender, socio-economic group and dominant hand, with the number of sessions and when the record was created and last changed.</li>
+    <li><span class="ui">Edit</span> changes the details. The participant code can't change. To change the school, type the new school name; leave it empty to keep the current one.</li>
+    <li><span class="ui">Deactivate</span> takes the participant out of the participant search, so no new session can be created for them. Their sessions and results are kept, and their Dispatch Console and summary still open. <span class="ui">Reactivate</span> undoes it.</li>
+    <li><strong>Research sessions</strong> says whether a research session can be created for this participant, and if not, why.</li>
+    <li><strong>Hand video</strong> says whether hand video will be recorded: it needs both the system setting and the participant's consent.</li>
+  </ul>
+  <p><span class="ui">Dispatch Console</span> at the top goes back to the console.</p>
+</section>
+
+<section id="consent">
+  <h2>Consent</h2>
+  <p>Consent is recorded on the participant record. With no consent recorded, the most private defaults apply: no hand video, no research use and no open-science sharing.</p>
+  <ol>
+    <li>Press <span class="ui">Record consent</span> (or <span class="ui">Record a new consent</span>).</li>
+    <li>Enter the <span class="ui">Consent form version</span> and the date it was <span class="ui">Signed on</span> (not in the future).</li>
+    <li>Tick only what the signed form allows: <span class="ui">Hand video</span>, <span class="ui">Research use</span>, <span class="ui">Open-science sharing</span>. Every box starts unticked.</li>
+    <li>Press <span class="ui">Record consent</span>.</li>
+  </ol>
+  <p>A new consent replaces the current one; the earlier ones stay in the <span class="ui">Consent history</span>, with who recorded them.</p>
+  <p class="note">Recording a consent without research use takes the participant's research results out of the analyst portal straight away. Whether a session records hand video is decided when the session is created.</p>
+</section>
+
+<section id="paper-scores">
+  <h2>Paper scores</h2>
+  <p>For a participant in the <strong>Paper cohort</strong>, the record has a <span class="ui">Paper scores</span> grid: Day 1 ILT 1–8, Day 2 ILT 1–4 and Day 14 ILT 1–2.</p>
+  <ul>
+    <li>For each block written on paper, enter the pen lifts (0–200), the accurate letters (0–15), the time in seconds and any notes, then press <span class="ui">Save</span> on that row.</li>
+    <li>Leave a block empty if it was not written. Emptying a saved block and saving removes it.</li>
+    <li>Every save is logged with the old and new values.</li>
+  </ul>
+  <p>Paper blocks appear in the <a href="#summary">Comparative summary</a> tagged <strong>Paper</strong>. Paper has no speed, so no speed score or composite.</p>
+</section>
+
+<section id="legacy-results">
+  <h2>Results from the old application</h2>
+  <p>Children imported from the previous application have the tag "Legacy (old application)" with their old number. Their record shows <span class="ui">Results from the old application</span>: per block, the pen lifts, segment width, total, writing and air time, as imported. They are read-only. The imported files have no grade, gender or school, so these show "Not recorded" until you complete the record with <span class="ui">Edit</span>.</p>
+</section>
+
+<section id="console">
+  <h2>The Dispatch Console</h2>
+  <p>The <span class="ui">ILT Evaluator Control &amp; Dispatch Console</span> shows one participant's whole protocol on one page. Open it with <span class="ui">Protocol</span> on the Sessions screen or in a session.</p>
+  <ul>
+    <li><strong>Day 1</strong>, <strong>Day 2</strong> and <strong>Day 14</strong> are panels of step cards. Blocks or pages of one kind that follow each other form one card, for example "ILT 4 Blocks · Blocks 1–4 (Scored)".</li>
+    <li>Card colours: <strong>green</strong> <span class="ui">COMPLETED</span>; <strong>blue</strong> <span class="ui">ACTIVE</span> (with how many of its steps are done); grey <span class="ui">DISPATCH</span> (still to run); lighter grey <span class="ui">SKIPPED</span>; grey <span class="ui">PENDING Day N</span> (the day's session is not planned yet).</li>
+    <li>Clicking a card opens its session in the live session screen, where you send the steps to the tablet.</li>
+    <li><span class="ui">Plan the Day 2 session</span> / <span class="ui">Plan the Day 14 session</span> create that day's session.</li>
+    <li>The Day 14 panel shows the two blocks' average score once both are scored, and <span class="ui">Comparative Summary View</span> opens the <a href="#summary">summary</a>.</li>
+    <li>The status bar at the bottom names the step running on the tablet, the timer policy in effect and the warm-up setting. <span class="ui">OPEN LIVE COCKPIT</span> opens the session in progress (or the first planned one).</li>
+    <li>A session run by another evaluator is shown with its status, but its cards can't be clicked ("Another evaluator runs this session.").</li>
+  </ul>
+</section>
+
+<section id="intervention">
+  <h2>The intervention program</h2>
+  <p>The green <span class="ui">Intervention program</span> panel of the Dispatch Console plans the intervention sessions, one target letter at a time. Only letters that the administrator has activated are offered.</p>
+  <ul>
+    <li>Click a letter to make it the <span class="ui">Target letter</span>. Each letter shows its state: Not trained, Trained once, Retention from <em>date</em>, Retention due, Retention done.</li>
+    <li><span class="ui">Video + 4 Training Sheets</span>: the first training of the letter: its video (skipped with a note when the library has none), then four letter sheets.</li>
+    <li><span class="ui">Repeat Letter</span>: another training of the same letter.</li>
+    <li><span class="ui">Next Letter</span>: starts training the next letter that has not been trained.</li>
+    <li><span class="ui">2-Wk Retention</span>: one sheet, offered from 14 days after the letter's last completed training (the number of days is a setting).</li>
+    <li><span class="ui">Purpose</span>: Intervention, or Research when research is allowed (see <a href="#new-session">A new session</a>).</li>
+  </ul>
+  <p>Only one intervention session can be open at a time: finish (or abort) it before planning the next. The planned session appears as a card under <span class="ui">Intervention sessions</span>; click it to open it. The card shows the sheets done, the score (the mean composite of the scored sheets), or how many marks are still to set.</p>
+</section>
+
+<section id="tablet">
+  <h2>Preparing the tablet</h2>
+  <ol>
+    <li>Charge the tablet and place it in front of the child, with the pen.</li>
+    <li>Open the Child station address on the tablet (for example <code>https://&lt;server&gt;:5173</code>). It shows <span class="ui">Type the 6-digit code</span>.</li>
+    <li>The page should fill the screen. If the browser bars are showing, tap the title bar or any area outside the writing page; after the tablet wakes from sleep, a <span class="ui">⛶ Full screen</span> button appears in the corner.</li>
+  </ol>
+  <ul>
+    <li>The canvas is drawn at true size. The tablet answers <strong>the pen only</strong>: touches of the hand are ignored.</li>
+    <li>If the network drops, the tablet keeps the writing and sends it when it reconnects ("No connection to the server. Writing is kept on the tablet").</li>
+    <li>The tablet shows its messages in the session language.</li>
+  </ul>
+</section>
+
+<section id="pairing">
+  <h2>Pairing the tablet</h2>
+  <ol>
+    <li>In the live session screen, under <span class="ui">Tablet pairing</span>, press <span class="ui">Show pairing code</span>. A 6-digit code appears, valid for 10 minutes (<span class="ui">New code</span> gives another).</li>
+    <li>On the tablet, type the code and press <span class="ui">Connect</span>. The cockpit shows <span class="ui">Tablet connected</span>, and the tablet shows "Waiting for the evaluator to start".</li>
+  </ol>
+  <ul>
+    <li>One tablet serves one session at a time.</li>
+    <li>The tablet stays tied to its session through reloads, network drops and clearing the browser, until the session is finished, aborted or the tablet is released. This protects the child's writing; it is also why a tablet still tied to an old session doesn't take a new code: release it first.</li>
+    <li><strong>Leaving an unfinished session:</strong> <span class="ui">Back</span> with the tablet connected asks: <span class="ui">Release tablet and go back</span>, <span class="ui">Go back without releasing</span> or <span class="ui">Stay in this session</span>.</li>
+    <li><span class="ui">Release tablet</span> (next to <span class="ui">Abort session</span>) does the same from inside the session, also when the tablet is off or out of range. The tablet returns to its code screen. The session stays open: open it again, show a new code and pair to go on where it stopped.</li>
+    <li>You can't release the tablet while a block or a video runs on it: finish or stop it first.</li>
+    <li>A tablet that reconnects after its session was finished or aborted shows the end screen and returns to the code screen by itself.</li>
+    <li>The code is wrong or expired: the tablet says so; ask for a new code. After too many wrong codes the tablet waits 15 minutes.</li>
+  </ul>
+</section>
+
+<section id="session">
+  <h2>The live session screen</h2>
+  <p>The header names the participant, the session type, the purpose and the language. The screen has:</p>
+  <ul>
+    <li><strong>Tablet pairing</strong> and, when cameras are set up, <strong>Hand video</strong> (<a href="#camera">camera</a>).</li>
+    <li><strong>The live mirror</strong> of the tablet page and the <strong>Clinical telemetry</strong> panel (<a href="#telemetry">see below</a>).</li>
+    <li><strong>Session steps</strong>: every step of the session, in order, with its state and result (<a href="#steps">Running the steps</a>).</li>
+    <li>The session controls: <span class="ui">Pause</span>, <span class="ui">Finish block manually</span>, <span class="ui">Repeat block</span>, <span class="ui">Abort session</span>, <span class="ui">Release tablet</span>, <span class="ui">Finish session</span> (<a href="#controls">see below</a>).</li>
+    <li><span class="ui">Comparative summary</span> and <span class="ui">Protocol</span> (the Dispatch Console).</li>
+  </ul>
+</section>
+
+<section id="steps">
+  <h2>Running the steps</h2>
+  <p>The big <span class="ui">Next step: …</span> button runs the first step that is not done yet, whatever its type. You can also act on each step in <span class="ui">Session steps</span>.</p>
+  <h3>Videos</h3>
+  <ul>
+    <li><span class="ui">Play on tablet</span> plays the video full screen on the tablet in the session language; the cockpit shows "Playing on the tablet". The step is done when the video ends, or when you press <span class="ui">Stop video</span>.</li>
+    <li>If the browser blocks the sound, the tablet shows <span class="ui">Tap to play the video</span>: tap it.</li>
+    <li>A video that has no version in the session language is flagged: "No video in the session language: skip it and explain verbally". Press <span class="ui">Skip</span> and explain to the child yourself.</li>
+  </ul>
+  <h3>Writing steps (warm-up, ILT blocks, notebook pages, letter sheets)</h3>
+  <ul>
+    <li><span class="ui">Send to tablet</span> sends the step. The tablet counts down ("Get ready…"), then shows the page, for example "Block 1 of 8".</li>
+    <li>The child writes the houses in order. A finished or skipped house takes no more ink (forward only). On notebook pages, earlier rows lock once the child moves to the next row.</li>
+    <li>The <strong>warm-up</strong> is one full block, measured but not scored. Verbal help is allowed.</li>
+    <li><strong>Notebook pages</strong> use the same letter, 3 rows of 5, and are timed only.</li>
+  </ul>
+  <h3>Paper notebook pages (Day 2)</h3>
+  <ul>
+    <li>The child writes in a real paper notebook. Press <span class="ui">Start</span> when the child starts and <span class="ui">Stop</span> when they finish; <span class="ui">Continue</span> resumes the timer.</li>
+    <li>Add <span class="ui">Notes</span> if needed and press <span class="ui">Save page</span>. The step shows the time and the note.</li>
+  </ul>
+  <h3>Skipping</h3>
+  <p><span class="ui">Skip</span> marks a step as skipped without running it. Skips are logged.</p>
+</section>
+
+<section id="telemetry">
+  <h2>Live mirror and clinical telemetry</h2>
+  <p>The mirror shows the child's page as it is written. The ink is coloured by pen pressure (light, medium, firm), and the pen's path in the air above the page is drawn in yellow.</p>
+  <p>The <span class="ui">Clinical telemetry</span> panel updates about once a second:</p>
+  <table>
+    <tr><th>Line</th><th>Meaning</th></tr>
+    <tr><td><span class="ui">Active house</span></td><td>The house being written, for example 6 of 15</td></tr>
+    <tr><td><span class="ui">Block time</span></td><td>From the first pen-down in the first house</td></tr>
+    <tr><td><span class="ui">Inactivity</span></td><td>Time without writing, against the threshold</td></tr>
+    <tr><td><span class="ui">Pen lifts in block</span></td><td>The norm is 15 at the end of a block</td></tr>
+    <tr><td><span class="ui">Pen lifts inside letters</span></td><td>Lifts inside a letter, with the house numbers</td></tr>
+    <tr><td><span class="ui">Width outside band</span></td><td>Letters whose width is outside 9–13 mm (recorded, not scored)</td></tr>
+    <tr><td><span class="ui">Dot B hit</span></td><td>How many letters touched the middle target dot B</td></tr>
+    <tr><td><span class="ui">Skipped houses</span></td><td>Houses left empty</td></tr>
+    <tr><td><span class="ui">Average ILT speed</span></td><td>In mm/s</td></tr>
+  </table>
+  <p>Letter sheets show the time, inactivity, pen lifts and skipped houses only; their marks appear below (<a href="#marks">Marking intervention sheets</a>).</p>
+  <h3>Inactivity</h3>
+  <p>After 20 s without writing (30 s after the last house) the tablet shows a soft glow around the page. After 10 s more, the telemetry panel turns amber ("No writing: check the child") and, when allowed, <span class="ui">Finish block manually</span> blinks amber. The times are settings.</p>
+</section>
+
+<section id="block-end">
+  <h2>How a block ends</h2>
+  <ul>
+    <li><strong>Next block on the tablet:</strong> after the last house, the tablet shows <span class="ui">Next block</span>. It answers a tap of the pen only, and only after the last house. It ends the block and starts the next writing block at once, with no countdown. (A step sent from the cockpit still has the countdown.) On notebook pages it comes on after at least 5 strokes in the last row.</li>
+    <li><strong>Finish block manually:</strong> stays faded until the child has written in the last house (on a notebook page: reached the last row) <strong>and</strong> 30 s have passed without the pen touching the page. Then it blinks amber. If a child stops before the last house, the block can't be ended with Manual finish: use <span class="ui">Pause</span> or <span class="ui">Abort session</span>.</li>
+    <li>When the block is stored, the cockpit shows "Block saved" with the number of samples and the integrity check, and a <strong>result card</strong>: time, pen lifts, accuracy, average speed, the speed, accuracy and pen-lift scores and the composite. A warm-up says "measured, not scored"; a notebook page "timed only".</li>
+    <li>The speed score and composite show "not configured" until a normal speed is recorded for the canvas, and Pass/Fail until the pass threshold is set. This is set by the administrator.</li>
+    <li>The tablet asks the child to put the pen down on the table beside the tablet when a block is complete.</li>
+  </ul>
+</section>
+
+<section id="controls">
+  <h2>Pause, repeat, abort, release, finish</h2>
+  <ul>
+    <li><span class="ui">Pause</span> (with a <span class="ui">Pause reason</span>) shows "Short break" on the tablet; <span class="ui">Resume</span> goes on.</li>
+    <li><span class="ui">Repeat block</span>: for a finished block that was disturbed. Choose a <span class="ui">Repeat reason</span> and confirm. The finished attempt is kept for audit and the block is sent again; the step shows "1 earlier attempt(s) repeated". The latest finished attempt is the one that counts.</li>
+    <li><span class="ui">Abort session</span> ends the session early. The data collected so far is kept.</li>
+    <li><span class="ui">Release tablet</span>: frees the tablet; the session stays open (see <a href="#pairing">Pairing</a>).</li>
+    <li><span class="ui">Finish session</span>: when all steps are done or skipped. The tablet shows "All done! Well done" and returns to its code screen. A finished session also releases its camera.</li>
+    <li>If the tablet restarts during a block, the block is stopped: "The tablet restarted during the block…". Send it to the tablet again.</li>
+  </ul>
+</section>
+
+<section id="marks">
+  <h2>Marking intervention sheets</h2>
+  <p>A letter sheet has three rows of five letters:</p>
+  <table>
+    <tr><th>Row</th><th>The child</th><th>Correct when</th><th>Who decides</th></tr>
+    <tr><td>1</td><td>Traces over the model through the dots</td><td>Every dot touched in order and no pen lift inside the letter (ה ק ח ת א may lift the pen once between strokes)</td><td>The system suggests</td></tr>
+    <tr><td>2</td><td>Writes from the start dot only</td><td>Starts at the start dot <strong>and</strong> the form is right</td><td>The system checks the start; you confirm the form</td></tr>
+    <tr><td>3</td><td>Writes freehand</td><td>Recognisably the letter, right stroke direction, starting about where row 2 started</td><td>You</td></tr>
+  </table>
+  <ul>
+    <li>The marks panel shows each row as soon as the child moves on to the next row. The letters sit as on the sheet (right to left for Hebrew).</li>
+    <li>Rows 1 and 2 come with the system's suggestion (✓ / ✗, "system"). Change only what you disagree with: your mark shows "evaluator". Pressing your own choice again returns the mark to the system's suggestion.</li>
+    <li>Row 3 starts empty, with dashed frames "to set". Each letter shows a <strong>similarity</strong> hint (0–100): a hint only, it never counts.</li>
+    <li>You can set marks during the sheet or later: <span class="ui">Marks</span> on a sheet in <span class="ui">Session steps</span> opens its marks again.</li>
+    <li>The sheet is scored once <strong>every mark is set</strong>: accuracy (correct marks ÷ 15), the pen-lift and speed scores and the composite. Until then it says how many marks are left. Changing a mark later scores the sheet again.</li>
+  </ul>
+</section>
+
+<section id="camera">
+  <h2>Hand video (camera)</h2>
+  <p>When hand video is allowed (the system setting <strong>and</strong> the participant's consent, when the session was created) and cameras are set up, the session screen has a <span class="ui">Hand video</span> panel. Otherwise it says the video is off for this session.</p>
+  <ol>
+    <li>Pair the tablet first, and make sure no step is running.</li>
+    <li>Press <span class="ui">Pair a camera</span>. The tablet shows a large QR code ("Camera pairing"), valid for 3 minutes.</li>
+    <li>Point a camera at the tablet. Within a few seconds the camera that sees the code is paired: the cockpit shows <span class="ui">Camera: <em>name</em></span> and opens the live view; the tablet shows a frame.</li>
+    <li>Turn or move the camera until the whole frame and the child's writing hand are in view. A camera that can turn has arrow buttons (<span class="ui">Up</span>, <span class="ui">Down</span>, <span class="ui">Left</span>, <span class="ui">Right</span>). <span class="ui">Rotate 180°</span> turns the picture if the camera faces the child.</li>
+    <li>Press <span class="ui">Done</span>. The tablet returns to its waiting screen.</li>
+  </ol>
+  <ul>
+    <li>Each writing step is then recorded as its own clip, video only, no sound. The panel shows <span class="ui">● Recording</span> while a clip runs; the camera can't be released then.</li>
+    <li><span class="ui">Position the camera</span> opens the live view again; <span class="ui">Release camera</span> frees it for another session.</li>
+    <li>A camera serves one session at a time, so sessions side by side never mix cameras. "No free camera is ready" means every camera is busy or not working: ask the administrator.</li>
+  </ul>
+</section>
+
+<section id="summary">
+  <h2>The Comparative summary</h2>
+  <p>Open it with <span class="ui">Comparative summary</span> in a session or <span class="ui">Comparative Summary View</span> in the Dispatch Console. It compares five anchors:</p>
+  <ul>
+    <li><span class="ui">Day 1 · first pair</span> (blocks 1–2), <span class="ui">Day 1 · last pair</span> (7–8), <span class="ui">Day 2 · first pair</span> (1–2), <span class="ui">Day 2 · last pair</span> (3–4), <span class="ui">Day 14</span> (1–2).</li>
+    <li>Each box shows the average time, pen lifts (a whole number), accuracy %, average ILT speed, the speed, accuracy and pen-lift scores, the composite and Pass/Fail, with a replay button for each block.</li>
+    <li>The composite weights and the pass threshold in effect are shown at the top. "not configured" means the threshold, or the canvas's normal speed, has not been set yet.</li>
+    <li>Blocks entered from paper are tagged <strong>Paper</strong>: no replay, speed or composite.</li>
+    <li>The <span class="ui">Comparative summary diagram</span> draws the measures across the five anchors; point at an anchor to see its values.</li>
+    <li>Below: the <span class="ui">Intervention program</span> table (one row per intervention session, with its scored sheets) and, for imported children, <span class="ui">Results from the previous application</span>, as imported and not scored.</li>
+  </ul>
+</section>
+
+<section id="replay">
+  <h2>Replay</h2>
+  <p><span class="ui">Replay</span> (on a result card, a step or a summary box) plays a block back like a video.</p>
+  <ul>
+    <li><span class="ui">Play</span> / <span class="ui">Pause</span>, the <span class="ui">Timeline</span> to jump, the <span class="ui">Speed</span> from 0.25× to 4×, and one sample back or forward.</li>
+    <li>The speed of each letter is shown under its house. Ink is coloured by pressure; the in-air path is yellow.</li>
+    <li>If hand video was recorded, it plays beside the page, following play, pause, the timeline and the speed. <span class="ui">Rotate 180°</span> turns it (remembered in this browser).</li>
+  </ul>
+  <p>You can replay the sessions you ran.</p>
+</section>
+
+<section id="troubleshooting">
+  <h2>When something goes wrong</h2>
+  <table>
+    <tr><th>What you see</th><th>What to do</th></tr>
+    <tr><td><span class="ui">Server status: Offline</span></td><td>The cockpit can't reach the server. Check the network. The tablet keeps the child's writing until the connection is back.</td></tr>
+    <tr><td><span class="ui">Tablet not connected</span></td><td>Check the tablet is on, on the network and showing the session. If it shows the code screen, show a new code and pair again.</td></tr>
+    <tr><td>The tablet won't take a new code</td><td>It is still tied to another session: open that session and press <span class="ui">Release tablet</span>.</td></tr>
+    <tr><td><span class="ui">Finish block manually</span> stays faded</td><td>The child hasn't reached the last house, or 30 s without writing have not passed. See <a href="#block-end">How a block ends</a>.</td></tr>
+    <tr><td>The browser bars cover the page</td><td>Tap the title bar or outside the writing page, or the <span class="ui">⛶ Full screen</span> button.</td></tr>
+    <tr><td>"No video in the session language"</td><td>Skip the step and explain verbally.</td></tr>
+    <tr><td>"not configured" in the scores</td><td>No normal speed or pass threshold yet: ask the administrator.</td></tr>
+    <tr><td>Research can't be chosen</td><td>The form says why: the setting, the ethics approval or the participant's consent.</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

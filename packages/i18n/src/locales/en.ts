@@ -1424,6 +1424,15 @@ export const en: LocaleShape = {
       session_note: 'Per block attempt with pen samples. Open one for its charts, letters and strokes.',
     },
   },
+  help: {
+    button: 'Help',
+    title: 'Help',
+    about: 'Help about this part',
+    open_full: 'Open the full guide in a new tab',
+    close: 'Close the help',
+    guides: 'User guides',
+    guide: { evaluator: 'Evaluator guide', researcher: 'Researcher guide', admin: 'System Administrator guide', analyst: 'Analyst guide' },
+  },
   units: {
     mm: 'mm',
     mm_s: 'mm/s',

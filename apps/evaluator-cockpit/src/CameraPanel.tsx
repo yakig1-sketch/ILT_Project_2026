@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ControlPayload } from '@ilt/shared-types';
-import { useVideoRotation } from '@ilt/ui';
+import { useVideoRotation, HelpLink } from '@ilt/ui';
 import { ApiError, api, getAuth } from './api';
 import type { CockpitLink } from './cockpit-link';
 import { pill, tone, ui } from './styles';
@@ -69,7 +69,7 @@ export function CameraPanel({ sessionId, link, closed, busy }: { sessionId: stri
   return (
     <section style={s.card} data-testid="camera-panel" aria-labelledby="camera-title">
       <div style={s.row}>
-        <h2 id="camera-title" style={{ margin: 0, fontSize: '1.05rem' }}>{t('cockpit.camera.title')}</h2>
+        <h2 id="camera-title" style={{ margin: 0, fontSize: '1.05rem' }}>{t('cockpit.camera.title')} <HelpLink section="camera" /></h2>
         {status?.state === 'PAIRED' && <span style={pill('ok')} data-testid="camera-name">{t('cockpit.camera.paired', { name: cameraName })}</span>}
         {status?.recording
           ? <span style={{ ...pill('warn'), color: tone.warn }} data-testid="camera-recording">● {t('cockpit.camera.recording')}</span>

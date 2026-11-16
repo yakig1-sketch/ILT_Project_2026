@@ -1,6 +1,7 @@
 // Participant record (FRS FR-PART-1…4, FR-PLAN-1, FR-PRIV-1/2): the participant's details (no identity
 // data: the study code never changes and the school is only a protected code), deactivation, consent
 // with its history, and whether a research session or hand video is possible now.
+import { HelpLink } from '@ilt/ui';
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, api } from './api';
@@ -267,7 +268,7 @@ export function ParticipantScreen({ participantId, onConsole }: { participantId:
 
       <section style={{ ...ui.card, display: 'grid', gap: '0.75rem' }} data-testid="consent">
         <div style={s.head}>
-          <h3 style={s.h3}>{t('participants.consent.title')}</h3>
+          <h3 style={s.h3}>{t('participants.consent.title')} <HelpLink section="consent" /></h3>
           <span style={{ flex: 1 }} />
           {!consentForm && p.is_active && (
             <button style={c ? ui.button : ui.primary} data-testid="consent-record"

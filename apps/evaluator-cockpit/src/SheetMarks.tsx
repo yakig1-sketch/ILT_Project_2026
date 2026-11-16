@@ -3,6 +3,7 @@
 // writes, each row appears as soon as it is finished (suggestions computed here with the scoring
 // engine); the evaluator's changes are kept and saved once the sheet is stored, where the marks
 // stay editable.
+import { HelpLink } from '@ilt/ui';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_SCORING_SETTINGS, suggestSheetMarks, type SheetMark } from '@ilt/ilt-metrics';
@@ -181,7 +182,7 @@ export function SheetMarks({ block, reviewAttemptId, similarity, language, readO
         return (
           <section key={view.live ? 'live' : 'stored'} style={s.card} data-testid="sheet-marks" data-kind={view.live ? 'live' : 'stored'} aria-label={view.title}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{view.title}</h2>
+              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{view.title} <HelpLink section="marks" /></h2>
               <span style={ui.muted} data-testid="marks-summary">
                 {t('marks.summary', { correct: count(false), error: count(true), open: count(null) })}
               </span>

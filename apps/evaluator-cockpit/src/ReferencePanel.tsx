@@ -7,7 +7,7 @@ import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'r
 import { useTranslation } from 'react-i18next';
 import { controlMessage, type ControlEnvelope, type ControlEventName, type ControlPayload } from '@ilt/shared-types';
 import type { ScoringProfile } from '@ilt/template-schemas';
-import { GatewayLink } from '@ilt/ui';
+import { GatewayLink, HelpLink } from '@ilt/ui';
 import { ApiError, api, getAuth } from './api';
 import { pill, tone, ui } from './styles';
 
@@ -192,7 +192,7 @@ export function ReferencePanel({ canvas, recordings, domains, approvalOn, onChan
 
   return (
     <section style={{ ...ui.card, display: 'grid', gap: '0.6rem' }} data-testid="canvas-reference">
-      <h3 style={{ margin: 0, fontSize: '1rem' }}>{t('admin.reference.title')}</h3>
+      <h3 style={{ margin: 0, fontSize: '1rem' }}>{t('admin.reference.title')} <HelpLink section="reference" /></h3>
       <p style={{ ...ui.muted, margin: 0 }}>{t('admin.reference.intro')}</p>
 
       {/* ---- Station and pairing ---- */}
