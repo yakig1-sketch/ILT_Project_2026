@@ -8,8 +8,17 @@ describe('translations', () => {
     expect(en).toEqual(he);
   });
 
+  it('Japanese has the same keys, and translates every text the child sees on the tablet (Phase 6b″)', () => {
+    expect(flattenKeys(resources.ja.translation).sort()).toEqual(flattenKeys(resources.he.translation).sort());
+    const childFacing = ['waiting', 'get_ready', 'paused', 'uploading', 'session_done', 'task_title', 'block_of', 'warmup_of',
+      'page_of', 'sheet_of', 'next_block', 'pen_down_note', 'video_loading', 'video_failed', 'tap_to_play', 'enter_pin', 'connect'] as const;
+    for (const k of childFacing) expect(resources.ja.translation.kiosk[k], k).not.toBe(resources.en.translation.kiosk[k]);
+    // The staff screens stay in English for a Japanese key.
+    expect(resources.ja.translation.auth).toEqual(resources.en.translation.auth);
+  });
+
   it('no translation is empty', () => {
-    for (const lang of ['he', 'en'] as const) {
+    for (const lang of ['he', 'en', 'ja'] as const) {
       const t = resources[lang].translation;
       for (const key of flattenKeys(t)) {
         const value = key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)[k], t);
@@ -28,5 +37,6 @@ describe('translations', () => {
   it('Hebrew is right-to-left', () => {
     expect(directionOf('he')).toBe('rtl');
     expect(directionOf('en')).toBe('ltr');
+    expect(directionOf('ja')).toBe('ltr');
   });
 });

@@ -7,7 +7,13 @@ import {
   ILT_GRID_GEOMETRY,
   ILT_PROFILE_EN,
   ILT_PROFILE_HE,
+  ILT_PROFILE_JA,
+  ILT_TATEGAKI_GEOMETRY,
   NOTEBOOK_GEOMETRY,
+  NOTEBOOK_KOKUGO_GEOMETRY,
+  SEED_CANVASES,
+  fillOrderFor,
+  isVerticalLine,
   atLastUnit,
   isLocked,
   ProtocolTemplateSchema,
@@ -166,5 +172,60 @@ describe('forward-only locking and end of page (FR-TAB-4)', () => {
     expect(atLastUnit(NOTEBOOK_GEOMETRY, order, order[9]!)).toBe(false);
     expect(atLastUnit(NOTEBOOK_GEOMETRY, order, order[10]!)).toBe(true);
     expect(atLastUnit(NOTEBOOK_GEOMETRY, order, null)).toBe(false);
+  });
+
+  describe('Japanese canvases (Phase 6b″)', () => {
+    // The DTH-A116's real screen (shared-types DTH_A116), landscape; the tablet page's title and footer take about 21 mm.
+    const LANDSCAPE = { width_mm: 211, height_mm: 132 };
+    const PORTRAIT = { width_mm: 132, height_mm: 211 };
+
+    it('the proposed tategaki grid (24 mm boxes) is too tall for the DTH-A116 in landscape: an open decision', () => {
+      // 5 boxes of 24 mm with 4 mm gaps = 136 mm. Activation refuses it (DOES_NOT_FIT) until the research team
+      // chooses smaller boxes or the tablet in portrait, where it fits.
+      expect(validateCanvas(ILT_TATEGAKI_GEOMETRY, LANDSCAPE).map((i) => i.code)).toEqual(['DOES_NOT_FIT']);
+      expect(validateCanvas(ILT_TATEGAKI_GEOMETRY, PORTRAIT, ILT_PROFILE_JA.fill_order)).toEqual([]);
+    });
+
+    it('the tategaki ILT grid is filled down each column, columns from the right', () => {
+      expect(validateProfile(ILT_TATEGAKI_GEOMETRY, ILT_PROFILE_JA)).toEqual([]);
+      const pos = (id: number) => ILT_TATEGAKI_GEOMETRY.boxes.find((b) => b.id === id)!;
+      const order = ILT_PROFILE_JA.fill_order.map(pos);
+      // First the right-hand column, top to bottom; then the next column to its left.
+      expect(order.slice(0, 5).map((b) => b.x)).toEqual([72, 72, 72, 72, 72]);
+      expect(order.slice(0, 5).map((b) => b.y)).toEqual([0, 28, 56, 84, 112]);
+      expect(order[5]!.x).toBe(36);
+      expect(order[14]!).toMatchObject({ x: 0, y: 112 });
+      expect(ILT_TATEGAKI_GEOMETRY.size).toEqual({ width: 96, height: 136 });
+    });
+
+    it('locks a box the child has passed, like the horizontal grid', () => {
+      const order = ILT_PROFILE_JA.fill_order;
+      // In the 7th box (2nd column, 2nd square), a pen-down back in the right-hand column is locked.
+      expect(isLocked(ILT_TATEGAKI_GEOMETRY, order, 6, 80, 10)).toBe(true);
+      expect(isLocked(ILT_TATEGAKI_GEOMETRY, order, 6, 40, 70)).toBe(false);
+      expect(atLastUnit(ILT_TATEGAKI_GEOMETRY, order, order[14]!)).toBe(true);
+    });
+
+    it('the kokugo page has 8 masu columns with cross-guides; the child writes in the 3 on the right, locked per column', () => {
+      expect(validateCanvas(NOTEBOOK_KOKUGO_GEOMETRY, LANDSCAPE)).toEqual([]);
+      expect(NOTEBOOK_KOKUGO_GEOMETRY.size).toEqual({ width: 180, height: 90 });
+      const vertical = NOTEBOOK_KOKUGO_GEOMETRY.lines.filter(isVerticalLine);
+      expect(vertical).toHaveLength(8 * 3);
+      expect(vertical.filter((l) => l.role === 'GUIDE')).toHaveLength(8);
+      expect(NOTEBOOK_KOKUGO_GEOMETRY.boxes.map((b) => b.x).slice(0, 5)).toEqual([157.5, 157.5, 157.5, 157.5, 157.5]);
+      const order = fillOrderFor(NOTEBOOK_KOKUGO_GEOMETRY.boxes, 'TTB_RTL_COLUMNS');
+      // On the second column, the whole right-hand column is locked, and the page ends in the third column.
+      expect(isLocked(NOTEBOOK_KOKUGO_GEOMETRY, order, 5, 165, 80)).toBe(true);
+      expect(atLastUnit(NOTEBOOK_KOKUGO_GEOMETRY, order, order[10]!)).toBe(true);
+      expect(atLastUnit(NOTEBOOK_KOKUGO_GEOMETRY, order, order[9]!)).toBe(false);
+    });
+
+    it('both are seeded as Drafts, and parse with vertical guide lines', () => {
+      const ja = SEED_CANVASES.filter((c) => c.language === 'ja');
+      expect(ja.map((c) => [c.code, c.status])).toEqual([['ILT_TATEGAKI_JA', 'DRAFT'], ['NOTEBOOK_KOKUGO_JA', 'DRAFT']]);
+      expect(CanvasGeometrySchema.parse(JSON.parse(JSON.stringify(NOTEBOOK_KOKUGO_GEOMETRY)))).toEqual(NOTEBOOK_KOKUGO_GEOMETRY);
+      // The other seed canvases stay Active.
+      expect(SEED_CANVASES.filter((c) => c.language !== 'ja').every((c) => (c.status ?? 'ACTIVE') === 'ACTIVE')).toBe(true);
+    });
   });
 });

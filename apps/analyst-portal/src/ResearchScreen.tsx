@@ -2,6 +2,7 @@
 // the matching sessions. Only completed RESEARCH sessions with research consent ever reach this screen.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LANGUAGES } from '@ilt/shared-types';
 import { HelpLink, ui } from '@ilt/ui';
 import { ApiError, api } from './api';
 import { num, valueLabel, type Options } from './labels';
@@ -251,7 +252,7 @@ export function FilterPanel({ options, filters, onChange }: { options: Options |
         {pick('gender', t('analyst.gender'), GENDERS, 'gender')}
         {pick('ses', t('analyst.ses'), SES, 'ses')}
         {pick('hand', t('analyst.hand'), HANDS, 'hand')}
-        {pick('language', t('analyst.language'), ['he', 'en'], 'language')}
+        {pick('language', t('analyst.language'), [...LANGUAGES], 'language')}
         {pick('session_type', t('analyst.stage'), STAGES, 'stage')}
         {pick('canvas', t('analyst.canvas'), options?.canvases ?? [], 'canvas')}
         {pick('inactivity_sec', t('analyst.inactivity'), options?.inactivity_sec ?? [], 'inactivity')}

@@ -38,7 +38,7 @@ const VIDEOS = [
 
 async function seedReferenceData(): Promise<void> {
   await client.query(`INSERT INTO languages (code, name_native, name_en, direction) VALUES
-    ('he', 'עברית', 'Hebrew', 'rtl'), ('en', 'English', 'English', 'ltr') ON CONFLICT (code) DO NOTHING`);
+    ('he', 'עברית', 'Hebrew', 'rtl'), ('en', 'English', 'English', 'ltr'), ('ja', '日本語', 'Japanese', 'ltr') ON CONFLICT (code) DO NOTHING`);
   await client.query(`INSERT INTO domains (code, name_he, name_en, description_he, description_en)
     VALUES ('GENERAL', 'כללי', 'General', 'קבוצת ברירת מחדל', 'Default student grouping') ON CONFLICT (code) DO NOTHING`);
   for (const [code, he, en] of REGIONS) {
@@ -86,9 +86,9 @@ async function seedCanvases(): Promise<void> {
     await client.query(
       `INSERT INTO canvases (canvas_set_id, code, version, status, canvas_type, name_he, name_en, geometry,
          default_scoring_profile, activated_at)
-       VALUES ($1, $2, 1, 'ACTIVE', $3, $4, $5, $6, $7, now()) ON CONFLICT (code, version) DO NOTHING`,
+       VALUES ($1, $2, 1, $8::varchar, $3, $4, $5, $6, $7, CASE WHEN $8::varchar = 'ACTIVE' THEN now() END) ON CONFLICT (code, version) DO NOTHING`,
       [sets.get(setKey), c.code, c.geometry.canvas_type, c.name_he, c.name_en, JSON.stringify(c.geometry),
-        c.profile ? JSON.stringify(c.profile) : null],
+        c.profile ? JSON.stringify(c.profile) : null, c.status ?? 'ACTIVE'],
     );
   }
   // Hebrew intervention letters (Phase 5a): measured from the clinical team's sheets by

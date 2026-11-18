@@ -2,6 +2,7 @@
 import { LANGUAGE_DIRECTION, type LanguageCode } from '@ilt/shared-types';
 import { he } from './locales/he.js';
 import { en } from './locales/en.js';
+import { ja } from './locales/ja.js';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 /** Every locale has exactly the Hebrew keys. */
@@ -10,6 +11,7 @@ export type LocaleShape = Widen<typeof he>;
 export const resources: Record<LanguageCode, { translation: LocaleShape }> = {
   he: { translation: he },
   en: { translation: en },
+  ja: { translation: ja },
 };
 
 export const DEFAULT_LANGUAGE: LanguageCode = 'he';

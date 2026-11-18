@@ -27,16 +27,19 @@ export type Box = z.infer<typeof BoxSchema>;
 
 export const LineStyleSchema = z.enum(['SOLID', 'DASHED', 'DOTTED']);
 
-export const LineSchema = z.object({
-  y: mm,
-  x1: mm,
-  x2: mm,
+const lineLook = {
   style: LineStyleSchema.default('SOLID'),
   weight_mm: z.number().positive().default(0.3),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1565c0'),
-  role: z.enum(['BASE', 'MID', 'TOP', 'MARGIN']).optional(),
-});
+  role: z.enum(['BASE', 'MID', 'TOP', 'MARGIN', 'GUIDE']).optional(),
+};
+/** A horizontal guide line (notebook ruling). */
+export const HorizontalLineSchema = z.object({ y: mm, x1: mm, x2: mm, ...lineLook });
+/** A vertical guide line (Phase 6b″: the masu columns and cross-guides of a Japanese kokugo page). */
+export const VerticalLineSchema = z.object({ x: mm, y1: mm, y2: mm, ...lineLook });
+export const LineSchema = z.union([HorizontalLineSchema, VerticalLineSchema]);
 export type Line = z.infer<typeof LineSchema>;
+export const isVerticalLine = (l: Line): l is z.infer<typeof VerticalLineSchema> => 'x' in l;
 
 export const LetterCellSchema = z.object({
   box_id: z.number().int(),
@@ -104,7 +107,13 @@ export const ScoringProfileSchema = z
   });
 export type ScoringProfile = z.infer<typeof ScoringProfileSchema>;
 
-export type FillDirection = 'RTL_ROWS' | 'LTR_ROWS';
+/**
+ * RTL_ROWS / LTR_ROWS: rows top to bottom, boxes right to left / left to right. TTB_RTL_COLUMNS (Phase 6b″,
+ * Japanese tategaki): a box's `row` is its writing line, and on a vertical canvas a line is a column, numbered
+ * from the right; its `col` is the place along the line, from the top. Columns are then filled right to left
+ * and each one top to bottom.
+ */
+export type FillDirection = 'RTL_ROWS' | 'LTR_ROWS' | 'TTB_RTL_COLUMNS';
 
 /** Fill order generated from a language's fill direction, for canvases without a recorded sample (DDD §7.2). */
 export function fillOrderFor(boxes: readonly Box[], direction: FillDirection): number[] {

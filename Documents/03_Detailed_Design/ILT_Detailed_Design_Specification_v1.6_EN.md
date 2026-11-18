@@ -261,7 +261,7 @@ Per-canvas factors (dot order, per-dot radius and weight, expected pen lifts, fi
 | `language.L.ilt_canvas` | string (canvas code) | `ILT_3X5_HE` / `ILT_3X5_EN` |
 | `language.L.notebook_canvas` | string | `NOTEBOOK_HE` / `NOTEBOOK_EN` |
 | `language.L.letter_set` | uuid / null | Hebrew letter set / null |
-| `language.L.fill_direction` | enum `RTL_ROWS`/`LTR_ROWS` | `RTL_ROWS` / `LTR_ROWS` |
+| `language.L.fill_direction` | enum `RTL_ROWS`/`LTR_ROWS`/`TTB_RTL_COLUMNS` | `RTL_ROWS` / `LTR_ROWS` / `TTB_RTL_COLUMNS` (Japanese, Phase 6b″) |
 | `language.L.mirrored` | boolean | false / false |
 
 **Governance, privacy, device** (override scope `NONE`)
@@ -297,7 +297,8 @@ Per-canvas factors (dot order, per-dot radius and weight, expected pen lifts, fi
 ```
 
 - `dots` at the top level are **relative to each box** and repeat in every box (ILT). Intervention sheets instead list dots per box inside `letters`.
-- `lines`: `{ "y": mm, "x1": mm, "x2": mm, "style": "SOLID|DASHED|DOTTED", "weight_mm": 0.3, "color": "#1565c0", "role": "BASE|MID|TOP|MARGIN" }`.
+- `lines`: `{ "y": mm, "x1": mm, "x2": mm, "style": "SOLID|DASHED|DOTTED", "weight_mm": 0.3, "color": "#1565c0", "role": "BASE|MID|TOP|MARGIN|GUIDE" }`. *Phase 6b″:* a line can also be vertical, `{ "x": mm, "y1": mm, "y2": mm, … }` (the masu columns and cross-guides of the kokugo page).
+- *Phase 6b″, vertical writing:* a box's `row` is its **writing line** and `col` its place along the line. On a tategaki canvas a line is a column, numbered from the right, and `col` counts from the top, so forward-only locking, the end of the page and the notebook's lock per line work unchanged.
 - `letters` (intervention): `{ "box_id": 0, "row_type": "TRACE_MODEL|START_DOT|FREEHAND", "letter": "ט", "dots": [{ "id": "1", "x":, "y":, "role": "START" }], "model_path": [[x,y],…], "allow_internal_lifts": false }`.
   - *Phase 5a* adds three fields:
     - `model_strokes`: the centre line per pen stroke, in writing order.
@@ -329,7 +330,9 @@ Per-canvas factors (dot order, per-dot radius and weight, expected pen lifts, fi
 
 Constraints: weights total 100; `radius_mm` 0.0–5.0 (neighbouring ILT dots are 11.4 mm apart); `dot_order` lists existing dot ids; `fill_order` is a permutation of box ids.
 
-Effective profile for a domain = `canvases.default_scoring_profile` deep-merged with `canvas_scoring_overrides.profile_patch` for that domain. Fill order for a canvas with no recorded sample is generated from the language's `fill_direction`: `RTL_ROWS` → each row from the highest column to 0, rows top to bottom; `LTR_ROWS` → columns 0 up.
+Effective profile for a domain = `canvases.default_scoring_profile` deep-merged with `canvas_scoring_overrides.profile_patch` for that domain. Fill order for a canvas with no recorded sample is generated from the language's `fill_direction`: `RTL_ROWS` → each row from the highest column to 0, rows top to bottom; `LTR_ROWS` → columns 0 up; `TTB_RTL_COLUMNS` (Japanese tategaki, Phase 6b″) → lines (columns, numbered from the right) in order, each from `col` 0 (top) down.
+
+*Phase 6b″ (Japanese):* `LANGUAGES` = he, en, ja are the session languages; `STAFF_LANGUAGES` = he, en the interface languages (a browser never keeps a session language as its staff language). The seed adds `ja` (日本語, ltr) to `languages`, the `language.ja.*` settings (ILT canvas `ILT_TATEGAKI_JA`, notebook canvas `NOTEBOOK_KOKUGO_JA`, fill direction `TTB_RTL_COLUMNS`) and both canvases as **DRAFT** (a seed canvas may carry `status`; the others stay ACTIVE). `language.enabled` stays `["he","en"]`: a Japanese session is refused (409 `LANGUAGE_DISABLED`) until `ja` is added, then needs the Active canvases (409 `NO_CANVAS`). The Japanese locale translates the tablet's child-facing texts and the code screen; every other key keeps the English text.
 
 ### 7.3 Reference recordings
 

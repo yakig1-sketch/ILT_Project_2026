@@ -4,9 +4,17 @@
 export const ROLES = ['ADMIN', 'RESEARCHER', 'EVALUATOR', 'ANALYST'] as const;
 export type Role = (typeof ROLES)[number];
 
-export const LANGUAGES = ['he', 'en'] as const;
+/**
+ * Session languages: the language a child is tested in, of its canvases and of the tablet's texts.
+ * Japanese (Phase 6b″) is off until an administrator adds it to the `language.enabled` setting.
+ */
+export const LANGUAGES = ['he', 'en', 'ja'] as const;
 export type LanguageCode = (typeof LANGUAGES)[number];
-export const LANGUAGE_DIRECTION: Record<LanguageCode, 'rtl' | 'ltr'> = { he: 'rtl', en: 'ltr' };
+/** Interface direction of the texts. A Japanese canvas is written in vertical columns (tategaki) whatever this says. */
+export const LANGUAGE_DIRECTION: Record<LanguageCode, 'rtl' | 'ltr'> = { he: 'rtl', en: 'ltr', ja: 'ltr' };
+/** Languages of the staff screens (cockpit, administration, analyst portal). */
+export const STAFF_LANGUAGES = ['he', 'en'] as const;
+export type StaffLanguage = (typeof STAFF_LANGUAGES)[number];
 
 export const SESSION_PURPOSES = ['INTERVENTION', 'RESEARCH'] as const;
 export type SessionPurpose = (typeof SESSION_PURPOSES)[number];

@@ -2,7 +2,7 @@
 // scale is the calibration, so the page appears at true physical size. Always laid out
 // left-to-right: the interface direction never flips the writing canvas.
 import type { ReactNode } from 'react';
-import type { CanvasGeometry } from '@ilt/template-schemas';
+import { isVerticalLine, type CanvasGeometry } from '@ilt/template-schemas';
 
 const dash = { SOLID: undefined, DASHED: '1.5 1', DOTTED: '0.3 0.8' } as const;
 
@@ -29,9 +29,9 @@ export function CanvasView({
         style={{ position: 'absolute', inset: 0, overflow: 'visible', background: '#fff' }}
         data-testid="ilt-canvas"
       >
-        {geometry.lines.map((l, i) => (
-          <line key={`l${i}`} x1={l.x1} x2={l.x2} y1={l.y} y2={l.y} stroke={l.color} strokeWidth={l.weight_mm} strokeDasharray={dash[l.style]} />
-        ))}
+        {geometry.lines.map((l, i) => isVerticalLine(l)
+          ? <line key={`l${i}`} x1={l.x} x2={l.x} y1={l.y1} y2={l.y2} stroke={l.color} strokeWidth={l.weight_mm} strokeDasharray={dash[l.style]} />
+          : <line key={`l${i}`} x1={l.x1} x2={l.x2} y1={l.y} y2={l.y} stroke={l.color} strokeWidth={l.weight_mm} strokeDasharray={dash[l.style]} />)}
         {geometry.boxes.map((b) => (
           <g key={b.id} transform={`translate(${b.x} ${b.y})`}>
             <rect

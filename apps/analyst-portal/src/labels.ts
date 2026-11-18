@@ -33,7 +33,7 @@ export function valueLabel(t: TFunction, language: string, options: Options | nu
     case 'gender': return t(`enum.gender.${v}`);
     case 'ses': return t(`enum.ses.${v}`);
     case 'hand': return t(`enum.hand.${v}`);
-    case 'language': return v === 'he' || v === 'en' ? t(`enum.language.${v}`) : v;
+    case 'language': return v === 'he' || v === 'en' || v === 'ja' ? t(`enum.language.${v}`) : v;
     case 'stage': return t(`enum.session_type.${v}`);
     case 'inactivity': return t('analyst.seconds_value', { n: v });
     default: return v;

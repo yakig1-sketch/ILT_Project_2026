@@ -3,7 +3,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { ControlPayloads, LANGUAGE_DIRECTION, type LanguageCode } from '@ilt/shared-types';
+import { ControlPayloads, LANGUAGE_DIRECTION, LANGUAGES, type LanguageCode } from '@ilt/shared-types';
 import {
   fillOrderFor,
   mergeProfile,
@@ -28,7 +28,7 @@ const TABLET_TOKEN_TTL = '12h';
 const CreateSession = z.object({
   participant_id: z.string().uuid(),
   session_type: z.enum(['DAY_1', 'DAY_2', 'DAY_14', 'INTERVENTION']),
-  language_code: z.enum(['he', 'en']),
+  language_code: z.enum(LANGUAGES),
   region_id: z.number().int().positive().nullable().optional(),
   /** FR-PLAN-1: RESEARCH needs the research setting, a valid research approval and research consent. */
   purpose: z.enum(['INTERVENTION', 'RESEARCH']).default('INTERVENTION'),

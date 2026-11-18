@@ -1,14 +1,15 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { DEFAULT_LANGUAGE, applyDocumentDirection, resources } from '@ilt/i18n';
-import { LANGUAGES, type LanguageCode } from '@ilt/shared-types';
+import { STAFF_LANGUAGES, type LanguageCode } from '@ilt/shared-types';
 
 const STORAGE_KEY = 'ilt.ui_language';
 
+/** The staff interface language kept in this browser. A tablet's session language (Japanese, for one) never carries over. */
 function storedLanguage(): LanguageCode {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return (LANGUAGES as readonly string[]).includes(v ?? '') ? (v as LanguageCode) : DEFAULT_LANGUAGE;
+    return (STAFF_LANGUAGES as readonly string[]).includes(v ?? '') ? (v as LanguageCode) : DEFAULT_LANGUAGE;
   } catch {
     return DEFAULT_LANGUAGE;
   }

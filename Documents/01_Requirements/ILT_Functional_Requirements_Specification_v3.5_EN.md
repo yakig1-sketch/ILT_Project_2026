@@ -131,6 +131,20 @@ The radius is measured from the dot's centre. The printed dots have a radius of 
 - **FR-CAN-13** **Mirrored block = Yes** mirrors each box's dot pattern horizontally (so ">" becomes "<"). Scoring uses the mirrored geometry. Defaults: Hebrew not mirrored, right to left; English **not mirrored**, left to right. Both options stay available (Prof. Adi-Japha: no research yet on which direction suits English writers, and some English letters such as b and p share the current form).
 - **FR-CAN-14** If a canvas has a recorded sample fill order, it is used. The language fill direction is the default when there is no sample. The setup screen warns when the two disagree.
 
+#### 5.4.1 Japanese (Phase 6b″, 2026-11-18, beta only, not yet enabled)
+
+Requested by the owner from the *ILT Japanese Canvas Proposal* (vertical writing, tategaki).
+
+- **FR-LANG-JA-1** Japanese (`ja`) is a **session language** only: the child's tablet shows its texts in Japanese; the staff screens stay in Hebrew and English. It is **off** until the System Administrator adds `ja` to *Enabled languages*; a session in Japanese also needs its canvases to be Active.
+- **FR-LANG-JA-2** **Tategaki ILT canvas** (`ILT_TATEGAKI_JA`): 3 columns × 5 square boxes, filled top to bottom, columns from right to left (fill direction *Top to bottom, column by column from the right*), forward-only locking as on the Hebrew grid. Proposal sizes: 24 × 24 mm boxes, 4 mm between boxes, 12 mm between columns (96 × 136 mm). The dot rules are the Hebrew ones (B the target).
+- **FR-LANG-JA-3** **Kokugo notebook canvas** (`NOTEBOOK_KOKUGO_JA`): a page of 8 columns of 18 mm squares (masu) with dashed cross-guides and a furigana strip; the child writes in the 3 right-hand columns, 5 squares each, locked column by column; timed only, like the Hebrew notebook page.
+- **FR-LANG-JA-4** Both canvases are seeded as **Drafts**. Open decisions for the research team before activation:
+    1. **The glyph.** The canvas carries a **placeholder** (the Hebrew chevron). The proposal's "non-kana" dots (top-right, centre-left, bottom-right) draw the shape of く, the kana it means to avoid.
+    2. **Scoring parity.** The proposal gives all three dots a 3.5 mm radius and no weights; the Hebrew rules (B 1.3 mm, 90 %) are kept until the team decides.
+    3. **Fit.** At 24 mm boxes the page is 136 mm tall; the DTH-A116 screen is 211 × 132 mm, so the page does not fit in landscape and activation refuses it. Options: the tablet in portrait for Japanese sessions (needs portrait support in the canvas check), or boxes of about 19 mm.
+    4. **Norms.** 24 mm boxes differ from the 35 × 25 mm Hebrew boxes, so Japanese results need their own norms and reference recordings.
+- **FR-LANG-JA-5** Not in this phase: Japanese instruction videos (video steps are skipped with a note), Japanese intervention letters, the proposal's 60-second notebook page cap and 50 ms pen-lift gap, and a separate "next page" label on notebook pages.
+
 ## 6. Participants, consent and session planning
 
 - **FR-PART-1** A participant is identified only by a **study code**. **No names, national ID numbers or initials** are stored. The PI keeps the code-to-child list outside the system.
