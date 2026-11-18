@@ -1,6 +1,9 @@
 # Caddy on the analytics VM, one site:
 #   /analyst/    analyst portal        /cockpit/    cockpit for administrators and researchers
-#   /analytics/* analytics service     /api/*, /ws/*  the admin gateway cell
+#   /analytics/api/v1/health  the analytics service's health check only
+#   /api/*, /ws/*  the admin gateway cell
+# The analytics service has no sign-in of its own: the gateway checks the user and calls it on the private
+# network (DDD §8.9), so its API is never published here.
 {
 	email {$ACME_EMAIL}
 }
@@ -16,7 +19,8 @@
 	handle @gateway {
 		reverse_proxy gateway-admin:8080
 	}
-	handle_path /analytics/* {
+	handle /analytics/api/v1/health {
+		uri strip_prefix /analytics
 		reverse_proxy analytics:8090
 	}
 	redir /analyst /analyst/

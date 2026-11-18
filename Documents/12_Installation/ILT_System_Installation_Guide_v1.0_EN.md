@@ -633,7 +633,7 @@ docker compose -f compose.analytics.yml up -d --wait
 | # | Check | Expected |
 |---|---|---|
 | 1 | `curl -s https://cN.ilt.example.org/api/v1/health` for every cell, and for `research.ilt.example.org` | `{"status":"ok", "db":true, "s3":true}` |
-| 2 | `curl -s https://research.ilt.example.org/analytics/api/v1/health` | `{"status":"ok"}` |
+| 2 | `curl -s https://research.ilt.example.org/analytics/api/v1/health` | `{"status":"ok"}`. Only this health check is published: the analytics API has no sign-in of its own and is reached only through the gateway. `curl -s -o /dev/null -w "%{http_code}" https://research.ilt.example.org/analytics/api/v1/exports` answers `302` (a redirect to the portal), never `405` or `200` |
 | 3 | Browser: `https://c1.ilt.example.org/cockpit/`; padlock shows a valid certificate | Login page in Hebrew |
 | 4 | Sign in as the administrator; create a test participant (code `TEST-01`) and a Day 1 session; **[Show pairing code]** | Session page and a 6-digit code |
 | 5 | On the DTH-A116: `https://c1.ilt.example.org/tablet/`, enter the code | Cockpit shows "Tablet connected" and "Direct mirror" |
