@@ -84,6 +84,11 @@ export const en: LocaleShape = {
     page_of: 'Page {{n}} of {{total}}',
     sheet_of: 'Sheet {{n}} of {{total}}',
     next_block: 'Next block',
+    // Phase 6b″: the page needs the tablet held the other way
+    rotate: {
+      PORTRAIT: 'Turn the tablet upright (portrait) to continue',
+      LANDSCAPE: 'Turn the tablet on its side (landscape) to continue',
+    },
     reference: {
       banner: 'Reference recording (not a child session)',
       waiting: 'Reference mode: waiting for the administrator',

@@ -40,3 +40,5 @@ Write corrections in the last column (or ✓).
 | 25 | `camera.frame` | Camera positioning: the whole frame should be in view | מיקום המצלמה: כל המסגרת צריכה להיראות | カメラの いちあわせ：わくが ぜんぶ うつるように してください | |
 | 26 | `app.kiosk` | Child station | עמדת הילד | こどもよう たんまつ | |
 | 27 | `common.language` | Language | שפה | ことば | |
+| 28 | `rotate.PORTRAIT` | Turn the tablet upright (portrait) to continue | סובבו את הטאבלט לאורך (עומד) כדי להמשיך | タブレットを たてむきに してください | |
+| 29 | `rotate.LANDSCAPE` | Turn the tablet on its side (landscape) to continue | סובבו את הטאבלט לרוחב (שוכב) כדי להמשיך | タブレットを よこむきに してください | |

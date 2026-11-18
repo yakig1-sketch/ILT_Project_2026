@@ -93,9 +93,8 @@ export const ILT_TATEGAKI_BOXES: Box[] = Array.from({ length: JA_COLUMNS * JA_CE
 });
 
 /**
- * OPEN DECISION: at the proposal's 24 mm boxes the page is 96 x 136 mm, taller than the DTH-A116 screen in
- * landscape (211 x 132 mm), so activation refuses it (DOES_NOT_FIT). It fits with the tablet in portrait, or with
- * boxes of about 19 mm. Only the constants above change once the research team decides.
+ * PORTRAIT (owner decision 2026-11-18): at the proposal's 24 mm boxes the page is 96 x 136 mm, taller than the
+ * DTH-A116 screen in landscape (211 x 132 mm), so Japanese sessions hold the tablet upright (132 x 211 mm).
  *
  * PLACEHOLDER GLYPH: the Hebrew ILT chevron (A, B, C) at its own size, centred in the 24 mm square box. The
  * proposal's "non-kana" glyph (top-right, centre-left, bottom-right) draws く, so the research team designs the
@@ -106,6 +105,7 @@ export const ILT_TATEGAKI_GEOMETRY: CanvasGeometry = {
   canvas_type: 'ILT_GRID',
   units: 'mm',
   size: { width: JA_WIDTH, height: JA_HEIGHT },
+  orientation: 'PORTRAIT',
   boxes: ILT_TATEGAKI_BOXES,
   box_frame: { style: 'SOLID', weight_mm: 0.3, color: '#000000' },
   dots: [
@@ -121,18 +121,21 @@ export const ILT_TATEGAKI_GEOMETRY: CanvasGeometry = {
 export const ILT_PROFILE_JA = iltProfile(fillOrderFor(ILT_TATEGAKI_BOXES, 'TTB_RTL_COLUMNS'));
 
 /**
- * Kokugo notebook page: 8 columns of 18 mm squares (masu) with dashed cross-guides and a 4.5 mm furigana strip
- * to the right of each column; the child writes in the 3 right-hand columns, 5 squares each (15, as on the
- * Hebrew notebook page). Timed only. The page's "こくご" heading is not drawn: canvases carry no text.
+ * Kokugo notebook page, upright like the tategaki ILT page so a Japanese session never turns the tablet between
+ * steps: 5 columns of 8 squares (masu, 18 mm) with dashed cross-guides and a 4.5 mm furigana strip to the right of
+ * each column. The proposal's page had 8 columns, which is 180 mm and does not fit the upright screen (132 mm).
+ * The child writes in the 3 right-hand columns, the top 5 squares each (15, as on the Hebrew notebook page).
+ * Timed only. The page's "こくご" heading is not drawn: canvases carry no text.
  */
 const KOKUGO_MASU = 18.0;
 const KOKUGO_FURIGANA = 4.5;
 const KOKUGO_COLUMN_PITCH = KOKUGO_MASU + KOKUGO_FURIGANA; // 22.5 mm
-const KOKUGO_PAGE_COLUMNS = 8;
+const KOKUGO_PAGE_COLUMNS = 5;
+const KOKUGO_PAGE_SQUARES = 8;
 const KOKUGO_ACTIVE_COLUMNS = 3;
 const KOKUGO_CELLS = 5;
-const KOKUGO_WIDTH = KOKUGO_PAGE_COLUMNS * KOKUGO_COLUMN_PITCH; // 180 mm
-const KOKUGO_HEIGHT = KOKUGO_CELLS * KOKUGO_MASU; // 90 mm
+const KOKUGO_WIDTH = KOKUGO_PAGE_COLUMNS * KOKUGO_COLUMN_PITCH; // 112.5 mm
+const KOKUGO_HEIGHT = KOKUGO_PAGE_SQUARES * KOKUGO_MASU; // 144 mm
 /** Left edge of page column k (0 = the right-hand column); its furigana strip lies to the right of the squares. */
 const kokugoLeft = (k: number) => KOKUGO_WIDTH - k * KOKUGO_COLUMN_PITCH - KOKUGO_FURIGANA - KOKUGO_MASU;
 const ruling = { style: 'SOLID' as const, weight_mm: 0.3, color: '#1565c0' };
@@ -143,6 +146,7 @@ export const NOTEBOOK_KOKUGO_GEOMETRY: CanvasGeometry = {
   canvas_type: 'NOTEBOOK',
   units: 'mm',
   size: { width: KOKUGO_WIDTH, height: KOKUGO_HEIGHT },
+  orientation: 'PORTRAIT',
   boxes: Array.from({ length: KOKUGO_ACTIVE_COLUMNS * KOKUGO_CELLS }, (_, id) => {
     const row = Math.floor(id / KOKUGO_CELLS);
     const col = id % KOKUGO_CELLS;
@@ -157,8 +161,8 @@ export const NOTEBOOK_KOKUGO_GEOMETRY: CanvasGeometry = {
       { x: x0, y1: 0, y2: KOKUGO_HEIGHT, ...ruling },
       { x: x1, y1: 0, y2: KOKUGO_HEIGHT, ...ruling },
       { x: x0 + KOKUGO_MASU / 2, y1: 0, y2: KOKUGO_HEIGHT, ...guide },
-      ...Array.from({ length: KOKUGO_CELLS + 1 }, (_, j): Line => ({ y: j * KOKUGO_MASU, x1: x0, x2: x1, ...ruling })),
-      ...Array.from({ length: KOKUGO_CELLS }, (_, j): Line => ({ y: j * KOKUGO_MASU + KOKUGO_MASU / 2, x1: x0, x2: x1, ...guide })),
+      ...Array.from({ length: KOKUGO_PAGE_SQUARES + 1 }, (_, j): Line => ({ y: j * KOKUGO_MASU, x1: x0, x2: x1, ...ruling })),
+      ...Array.from({ length: KOKUGO_PAGE_SQUARES }, (_, j): Line => ({ y: j * KOKUGO_MASU + KOKUGO_MASU / 2, x1: x0, x2: x1, ...guide })),
     ];
   }).flat(),
   letters: [],
@@ -202,12 +206,12 @@ export const SEED_CANVASES: SeedCanvas[] = [
   },
   {
     language: 'ja', status: 'DRAFT', set_type: 'ILT', set_name_he: 'ILT יפנית (כתיבה אנכית)', set_name_en: 'Japanese ILT (tategaki)',
-    code: 'ILT_TATEGAKI_JA', name_he: 'ILT אנכי 3 טורים × 5 (24×24 מ"מ), גליף זמני', name_en: 'Tategaki ILT 3 columns x 5 (24x24 mm), placeholder glyph',
+    code: 'ILT_TATEGAKI_JA', name_he: 'ILT אנכי לאורך, 3 טורים × 5 (24×24 מ"מ), גליף זמני', name_en: 'Tategaki ILT (portrait), 3 columns x 5 (24x24 mm), placeholder glyph',
     geometry: ILT_TATEGAKI_GEOMETRY, profile: ILT_PROFILE_JA,
   },
   {
     language: 'ja', status: 'DRAFT', set_type: 'NOTEBOOK', set_name_he: 'מחברת קוקוגו', set_name_en: 'Kokugo notebook',
-    code: 'NOTEBOOK_KOKUGO_JA', name_he: 'דף קוקוגו, משבצות 18 מ"מ, 3 טורים × 5', name_en: 'Kokugo page, 18 mm masu, 3 columns x 5',
+    code: 'NOTEBOOK_KOKUGO_JA', name_he: 'דף קוקוגו לאורך, משבצות 18 מ"מ, 3 טורים × 5', name_en: 'Kokugo page (portrait), 18 mm masu, 3 columns x 5',
     geometry: NOTEBOOK_KOKUGO_GEOMETRY, profile: null,
   },
 ];

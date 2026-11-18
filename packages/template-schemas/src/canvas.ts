@@ -64,6 +64,12 @@ export const CanvasGeometrySchema = z.object({
   canvas_type: z.enum(CANVAS_TYPES),
   units: z.literal('mm'),
   size: z.object({ width: z.number().positive(), height: z.number().positive() }),
+  /**
+   * How the tablet is held for this canvas (Phase 6b″). Absent = LANDSCAPE, as for every canvas before it;
+   * PORTRAIT for the Japanese tategaki pages: the fit check turns the screen upright, and the tablet asks to be
+   * turned before the page can be written.
+   */
+  orientation: z.enum(['LANDSCAPE', 'PORTRAIT']).optional(),
   boxes: z.array(BoxSchema).min(1),
   box_frame: z
     .object({ style: LineStyleSchema, weight_mm: z.number().positive(), color: z.string() })
@@ -196,10 +202,14 @@ export function validateCanvas(
   fillOrder?: readonly number[],
 ): CanvasIssue[] {
   const issues: CanvasIssue[] = [];
-  if (geometry.size.width > screen.width_mm || geometry.size.height > screen.height_mm) {
+  // `screen` is the device in landscape; a portrait canvas is checked against it turned upright.
+  const portrait = geometry.orientation === 'PORTRAIT';
+  const w = portrait ? Math.min(screen.width_mm, screen.height_mm) : screen.width_mm;
+  const h = portrait ? Math.max(screen.width_mm, screen.height_mm) : screen.height_mm;
+  if (geometry.size.width > w || geometry.size.height > h) {
     issues.push({
       code: 'DOES_NOT_FIT',
-      message: `Canvas ${geometry.size.width} x ${geometry.size.height} mm exceeds screen ${screen.width_mm} x ${screen.height_mm} mm`,
+      message: `Canvas ${geometry.size.width} x ${geometry.size.height} mm exceeds screen ${w} x ${h} mm${portrait ? ' (portrait)' : ''}`,
     });
   }
   const boxIds = new Set<number>();

@@ -90,6 +90,7 @@ const s: Record<string, CSSProperties> = {
   fullscreen: { position: 'fixed', insetBlockEnd: '0.75rem', insetInlineStart: '0.75rem', zIndex: 2, fontSize: '1.1rem', fontWeight: 600, paddingBlock: '0.6rem', paddingInline: '1.1rem', borderRadius: '0.6rem', border: '2px solid #0969da', background: '#fff', color: '#0969da' },
   banner: { position: 'fixed', insetBlockStart: 0, insetInline: 0, background: '#ffebe9', color: '#cf222e', padding: '0.4rem', textAlign: 'center', fontSize: '1rem', zIndex: 2 },
   overlay: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.85)', fontSize: '2rem', zIndex: 1 },
+  rotate: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: '#fff', fontSize: '2rem', fontWeight: 600, textAlign: 'center', padding: '2rem', zIndex: 2, touchAction: 'none' },
   countdown: { fontSize: '1.6rem', fontWeight: 600 },
   video: { position: 'fixed', inset: 0, background: '#000', display: 'grid', placeItems: 'center', zIndex: 3 },
   videoTap: { fontSize: '1.6rem', fontWeight: 600, paddingBlock: '1rem', paddingInline: '2.5rem', borderRadius: '0.8rem', border: 'none', background: '#0969da', color: '#fff' },
@@ -385,10 +386,28 @@ function blockLabel(t: (key: string, o: Record<string, unknown>) => string, step
  * Full-screen layout: task title and block position, the canvas centred, then the footer. In
  * reference mode (FR-TAB-8) the title bar is an amber "reference recording" banner instead.
  */
+/** How the screen is held now, from its shape (it follows the display's rotation in Windows). */
+function useOrientation(): 'PORTRAIT' | 'LANDSCAPE' {
+  const query = '(orientation: portrait)';
+  const [portrait, setPortrait] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const update = () => setPortrait(m.matches);
+    m.addEventListener('change', update);
+    return () => m.removeEventListener('change', update);
+  }, []);
+  return portrait ? 'PORTRAIT' : 'LANDSCAPE';
+}
+
 function BlockFrame({ step, footer, reference = false, children }: { step: Dispatch | null; footer?: ReactNode; reference?: boolean; children: ReactNode }) {
   const { t } = useTranslation();
   const label = step && !reference && blockLabel(t, step);
   const kind = step?.reference?.kind;
+  // Phase 6b″: a page made for the other orientation is not drawn until the tablet is turned (it would not fit,
+  // and part of it could take ink); the notice stands in its place. The Japanese pages are upright, every other
+  // page lies on its side.
+  const held = useOrientation();
+  const needed = step?.canvas.orientation ?? 'LANDSCAPE';
   return (
     <div style={s.frame}>
       <header style={reference ? { ...s.header, ...s.referenceBar } : s.header} data-testid={reference ? 'reference-banner' : undefined}>
@@ -396,7 +415,9 @@ function BlockFrame({ step, footer, reference = false, children }: { step: Dispa
         {label && <span style={s.blockLabel}>{label}</span>}
         {reference && kind && <span style={s.blockLabel}>{t(`kiosk.reference.kind.${kind}`)}</span>}
       </header>
-      <main style={s.main}>{children}</main>
+      <main style={s.main}>
+        {step && held !== needed ? <div style={s.rotate} role="alert" data-testid="kiosk-rotate">{t(`kiosk.rotate.${needed}`)}</div> : children}
+      </main>
       {footer && <footer style={s.footer}>{footer}</footer>}
     </div>
   );
