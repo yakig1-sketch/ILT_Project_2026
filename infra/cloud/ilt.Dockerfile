@@ -13,6 +13,9 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 # Packages and the gateway; the web apps are built below with their path prefix.
 RUN pnpm turbo run build --filter=!./apps/*
+# Beta stack only (infra/beta, Phase 6b′): "1" lets the tablet app accept touch. Empty for every other build.
+ARG VITE_ALLOW_TOUCH=
+ENV VITE_ALLOW_TOUCH=${VITE_ALLOW_TOUCH}
 RUN pnpm --filter @ilt/tablet-kiosk exec vite build --base=/tablet/ --outDir /web/tablet \
  && pnpm --filter @ilt/evaluator-cockpit exec vite build --base=/cockpit/ --outDir /web/cockpit \
  && pnpm --filter @ilt/analyst-portal exec vite build --base=/analyst/ --outDir /web/analyst

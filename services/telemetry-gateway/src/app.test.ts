@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ILT_GRID_GEOMETRY } from '@ilt/template-schemas';
 import { buildApp as build, type AppDeps } from './app.js';
+import { parseTrustProxy } from './config.js';
 
 const buildApp = (deps: Omit<AppDeps, 'jwtSecret' | 'schoolHmacKey'>) => build({ ...deps, jwtSecret: 'test-secret', schoolHmacKey: 'test-school-key' });
 
@@ -51,6 +52,29 @@ describe('gateway', () => {
     const inserts = db.queries.filter((q) => q.text.startsWith('INSERT INTO app_events'));
     expect(inserts).toHaveLength(1);
     expect(inserts[0]!.values).toContain('session.created');
+    await app.close();
+  });
+
+  it('reads TRUST_PROXY as off, true, a hop count or address names (Phase 6b′)', () => {
+    expect(parseTrustProxy(undefined)).toBe(false);
+    expect(parseTrustProxy(' ')).toBe(false);
+    expect(parseTrustProxy('false')).toBe(false);
+    expect(parseTrustProxy('true')).toBe(true);
+    expect(parseTrustProxy('1')).toBe(1);
+    expect(parseTrustProxy('uniquelocal')).toBe('uniquelocal');
+  });
+
+  it('behind a trusted proxy, locks tablet pairing per forwarded client address (Phase 6b′)', async () => {
+    const app = await buildApp({ db: fakeDb(), checkS3: async () => true, logLevel: 'silent', trustProxy: 'uniquelocal' });
+    const pair = (client: string) => app.inject({
+      method: 'POST', url: '/api/v1/sessions/pair', remoteAddress: '172.18.0.5',
+      headers: { 'x-forwarded-for': client },
+      payload: { pin: '000000', css_px_per_mm: 5, device_pixel_ratio: 1, screen_w_mm: 300, screen_h_mm: 200 },
+    });
+    for (let i = 0; i < 5; i++) expect((await pair('203.0.113.7')).statusCode).toBe(401);
+    expect((await pair('203.0.113.7')).statusCode).toBe(429);
+    // Another tester behind the same proxy is not locked out.
+    expect((await pair('198.51.100.9')).statusCode).toBe(401);
     await app.close();
   });
 });

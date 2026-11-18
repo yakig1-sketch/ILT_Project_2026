@@ -1,0 +1,128 @@
+# ILT beta stack (Phase 6b′): the whole system on one machine (NucBox), behind Cloudflare Tunnel and
+# Cloudflare Access at https://beta.ilt.network. Separate from the development stack (infra/docker-compose.yml):
+# its own project name, database, storage and volumes, and no port except the web front on 127.0.0.1:8088,
+# which only the cloudflared service on the same machine reaches. Run from this folder (README.md):
+#   docker compose --env-file beta.env -f compose.beta.yml build
+#   docker compose --env-file beta.env -f compose.beta.yml up -d
+#   docker compose --env-file beta.env -f compose.beta.yml run --rm ops src/migrate.ts   (install and upgrade)
+name: ilt-beta
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 20m, max-file: '5' }
+
+x-server-build: &server-build
+  context: ../..
+  dockerfile: infra/cloud/ilt.Dockerfile
+  target: server
+
+x-s3-env: &s3-env
+  S3_ENDPOINT: http://s3:8333
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-ilt-s3}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in beta.env}
+
+services:
+  db:
+    image: timescale/timescaledb:2.31.0-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ilt_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in beta.env}
+      POSTGRES_DB: ilt
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilt_owner -d ilt"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  s3:
+    image: chrislusf/seaweedfs:4.50
+    restart: unless-stopped
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-ilt-s3}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in beta.env}
+    entrypoint: ["/bin/sh", "/etc/ilt/start-s3.sh"]
+    volumes:
+      - s3-data:/data
+      - ../s3/start-s3.sh:/etc/ilt/start-s3.sh:ro
+    logging: *logging
+
+  gateway:
+    build: *server-build
+    image: ilt-beta-server:${BETA_TAG:-local}
+    restart: unless-stopped
+    environment:
+      <<: *s3-env
+      APP_DATABASE_URL: postgres://ilt_app:${ILT_APP_DB_PASSWORD:?set ILT_APP_DB_PASSWORD in beta.env}@db:5432/ilt
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in beta.env}
+      SCHOOL_CODE_HMAC_KEY: ${SCHOOL_CODE_HMAC_KEY:?set SCHOOL_CODE_HMAC_KEY in beta.env}
+      ANALYTICS_URL: http://analytics:8090
+      # Requests come through Caddy on this Docker network; Caddy puts the tester's address (from
+      # Cloudflare's CF-Connecting-IP) in X-Forwarded-For. Trust that header only from private addresses.
+      TRUST_PROXY: uniquelocal
+      LOG_LEVEL: info
+      NODE_OPTIONS: --max-old-space-size=1536
+    depends_on:
+      db: { condition: service_healthy }
+      s3: { condition: service_started }
+    logging: *logging
+
+  analytics:
+    build:
+      context: ../..
+      dockerfile: infra/cloud/ilt.Dockerfile
+      target: analytics
+    image: ilt-beta-analytics:${BETA_TAG:-local}
+    restart: unless-stopped
+    environment:
+      <<: *s3-env
+      # The analyst role on the same database (ilt_analyst reads the research views only).
+      ANALYST_DATABASE_URL: postgres://ilt_analyst:${ILT_ANALYST_DB_PASSWORD:?set ILT_ANALYST_DB_PASSWORD in beta.env}@db:5432/ilt
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *logging
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/cloud/ilt.Dockerfile
+      target: web
+      args:
+        # Beta only: the tablet app also accepts a finger or passive stylus, chosen on the tablet (Phase 6b′).
+        VITE_ALLOW_TOUCH: "1"
+    image: ilt-beta-web:${BETA_TAG:-local}
+    restart: unless-stopped
+    ports:
+      # Only the machine itself (cloudflared) reaches the beta; nothing is opened on the network.
+      - "127.0.0.1:${BETA_PORT:-8088}:80"
+    volumes:
+      - ./Caddyfile.beta:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [gateway, analytics]
+    logging: *logging
+
+  # Database tools: migrations, reference-data seed, user accounts. Run with `run --rm ops src/<tool>.ts`.
+  ops:
+    build: *server-build
+    image: ilt-beta-server:${BETA_TAG:-local}
+    profiles: [ops]
+    environment:
+      <<: *s3-env
+      DATABASE_URL: postgres://ilt_owner:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in beta.env}@db:5432/ilt
+      ILT_APP_DB_PASSWORD: ${ILT_APP_DB_PASSWORD:?set ILT_APP_DB_PASSWORD in beta.env}
+      ILT_ANALYST_DB_PASSWORD: ${ILT_ANALYST_DB_PASSWORD:?set ILT_ANALYST_DB_PASSWORD in beta.env}
+    working_dir: /app/infra/db
+    entrypoint: ["/app/infra/db/node_modules/.bin/tsx"]
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  db-data:
+  s3-data:
+  caddy-data:
+  caddy-config:

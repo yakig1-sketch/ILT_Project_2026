@@ -6,7 +6,10 @@ import os
 from pathlib import Path
 from urllib.parse import quote, urlsplit, urlunsplit
 
-ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+# The repository root in development (services/analytics/ilt_analytics/config.py). In the container image the
+# package sits higher up (/srv/ilt_analytics), there is no .env and the settings come from the environment.
+_PARENTS = Path(__file__).resolve().parents
+ENV_FILE = _PARENTS[3] / ".env" if len(_PARENTS) > 3 else Path("/nonexistent/.env")
 
 
 def load_env(path: Path = ENV_FILE) -> None:

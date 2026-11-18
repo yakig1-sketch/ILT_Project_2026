@@ -15,3 +15,6 @@ __pycache__/
 # Cloud install secrets (infra/cloud)
 infra/cloud/ilt.env
 infra/cloud/ops.env
+
+# Beta stack secrets (infra/beta)
+infra/beta/beta.env

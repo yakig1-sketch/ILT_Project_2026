@@ -1,0 +1,59 @@
+# Caddy for the beta stack (Phase 6b′): one plain-HTTP site. Cloudflare provides HTTPS and Cloudflare
+# Access the sign-in check in front of it; cloudflared reaches this site on 127.0.0.1:8088 only.
+#   /tablet/   tablet kiosk        /cockpit/   evaluator cockpit and administration
+#   /analyst/  analyst portal      /api/*, /ws/*   the gateway
+# The analytics service has no sign-in of its own (the gateway checks the user, DDD §8.9), so it is not
+# published here; only its health check is.
+{
+	auto_https off
+	servers {
+		# The tester's own address: cloudflared sets CF-Connecting-IP, and its connection reaches Caddy
+		# from a private address (Docker's port forwarding). Anything else falls back to the peer address.
+		trusted_proxies static private_ranges
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+:80 {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+	}
+	@assets path /tablet/assets/* /cockpit/assets/* /analyst/assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	@gateway path /api/* /ws/*
+	handle @gateway {
+		reverse_proxy gateway:8080 {
+			# The gateway trusts this header from Caddy only (TRUST_PROXY): PIN lockout and log per tester.
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+	handle /analytics/api/v1/health {
+		uri strip_prefix /analytics
+		reverse_proxy analytics:8090
+	}
+	redir /tablet /tablet/
+	redir /cockpit /cockpit/
+	redir /analyst /analyst/
+	handle_path /tablet/* {
+		root * /srv/tablet
+		try_files {path} /index.html
+		file_server
+	}
+	handle_path /cockpit/* {
+		root * /srv/cockpit
+		try_files {path} /index.html
+		file_server
+	}
+	handle_path /analyst/* {
+		root * /srv/analyst
+		try_files {path} /index.html
+		file_server
+	}
+	handle {
+		redir * /cockpit/
+	}
+}

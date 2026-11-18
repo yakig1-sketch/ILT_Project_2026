@@ -28,6 +28,7 @@ const app = await buildApp({
     onvif: (deviceUrl, account) => new OnvifCamera(deviceUrl, account),
   } : undefined,
   logLevel: config.logLevel,
+  trustProxy: config.trustProxy,
   analytics: async (path, body, timeoutMs = 20_000) => {
     const res = await fetch(`${config.analyticsUrl}/api/v1${path}`, {
       signal: AbortSignal.timeout(timeoutMs),

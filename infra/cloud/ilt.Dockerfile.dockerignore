@@ -9,7 +9,14 @@
 .env
 .env.*
 !.env.example
-# Documents are not needed in the images, except the two instruction videos the seed uploads.
+# Install secrets never go into an image.
+infra/beta/beta.env
+infra/cloud/ilt.env
+infra/cloud/ops.env
+infra/cloud/db.env
+# Documents are not needed in the images, except what the seed reads: the two instruction videos and the
+# intervention letter canvases (Phase 5a).
 Documents/**
+!Documents/05_Measures/Intervention_Letters/*.json
 !Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4
 !Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4

@@ -290,6 +290,15 @@ Sessions run at different sites, on different networks, sometimes several side b
 - **FR-VID-6** **Replay in sync** (FR-REP-3). Replay of an attempt with a clip plays it beside the canvas, following play, pause, the timeline and the speed.
 - **FR-VID-7** **Multi-student use.** Each session pairs its own camera by its own QR code; this is what a future Multi-Student Cockpit will reuse.
 
+### 14.2 Beta access (Phase 6b′, 2026-11-18)
+
+Before the pilot, invited beta testers use the system over the internet with test data only.
+
+- **FR-BETA-1** **Access.** The beta runs as its own installation at `https://beta.ilt.network`, separate from development. Cloudflare Access lets in only email addresses on the owner's invite list (one-time code by email); a Cloudflare Tunnel connects it without opening the site's router. The analytics service, cameras and development servers are not reachable from outside. No real child's data goes into the beta.
+- **FR-BETA-2** **Pen or touch.** Some testers use the DTH-A116, some a touch-screen tablet. The beta's tablet app asks **Pen** or **Touch screen** on the code screen. With Touch screen, the first finger or a passive stylus writes and taps **Next block**; other touches (a second finger, the palm) are ignored. A touch tablet is calibrated once with a bank card so the ILT page shows at true size. Pilot and research builds stay pen only.
+- **FR-BETA-3** **Touch sessions are not research data.** Every session records how it was written (pen or touch). The cockpit labels touch sessions; the analyst portal and the exports leave them out. Touch has no hover (no air time or in-air path), no pressure or tilt and a lower sample rate, so its measures are not comparable with the DTH-A116.
+- **FR-BETA-4** **Per-tester lockout.** Behind the tunnel, the system uses each tester's own address, so five wrong tablet codes lock only that tester's device for 15 minutes.
+
 ## 15. Legacy data and paper cohort
 
 - **FR-LEG-1** Import of the previous application's exports (sample files in `05_Measures/Samples`): Hand Raises → pen lifts; Segment Width → width; Total Time → total time; Writing Time and Air Time → active writing time and air time.

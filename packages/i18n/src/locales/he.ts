@@ -65,6 +65,18 @@ export const he = {
     full_screen: 'מסך מלא',
     preview_title: 'תצוגת דף ILT בגודל אמיתי',
     calibration: 'כיול: {{pxPerMm}} פיקסלים למ"מ',
+    // גרסת הבטא עם מגע בלבד (Phase 6b′)
+    input: {
+      title: 'בטאבלט הזה כותבים עם',
+      PEN: 'עט (DTH-A116 או טאבלט עט אחר)',
+      TOUCH: 'מסך מגע (אצבע או עט פשוט)',
+      calibrate: 'כיול גודל המסך',
+      calibrate_hint: 'הצמידו כרטיס אשראי למסך. לחצו − או + עד שהמסגרת הכחולה בגודל הכרטיס בדיוק, ואז לחצו שמירה.',
+      smaller: 'קטן יותר',
+      larger: 'גדול יותר',
+      save: 'שמירה',
+      cancel: 'ביטול',
+    },
     task_title: 'משימת האות המומצאת (ILT)',
     block_of: 'בלוק {{n}} מתוך {{total}}',
     warmup_of: 'חימום {{n}} מתוך {{total}}',
@@ -250,6 +262,7 @@ export const he = {
     hand: { RIGHT: 'ימין', LEFT: 'שמאל', AMBIDEXTROUS: 'שתיהן' },
     ses: { LOW: 'נמוכה', MID: 'בינונית', HIGH: 'גבוהה' },
     purpose: { INTERVENTION: 'התערבות', RESEARCH: 'מחקר' },
+    input_kind: { PEN: 'עט', TOUCH: 'מסך מגע (בטא, לא בנתוני המחקר)' },
     pause_reason: { STUDENT_FATIGUE: 'עייפות הילד', HARDWARE: 'בעיית ציוד', EVALUATOR_INTERVENTION: 'התערבות הבוחן', OTHER: 'אחר' },
   },
   legacy: {

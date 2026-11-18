@@ -43,6 +43,8 @@ export interface AppDeps {
   /** Session video (Phase 5f): camera relay, ONVIF, clip storage; absent when not configured. */
   cameras?: CameraDeps;
   logLevel?: string;
+  /** Fastify trustProxy (Phase 6b′): believe X-Forwarded-For from these proxies; off when absent. */
+  trustProxy?: boolean | number | string;
 }
 
 declare module 'fastify' {
@@ -57,6 +59,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: deps.logLevel ?? 'info' },
     genReqId: () => crypto.randomUUID(),
+    // A union does not match Fastify's overloads; any of these values is valid for trustProxy.
+    trustProxy: (deps.trustProxy ?? false) as boolean,
   });
   app.decorate('deps', deps);
   app.decorate('appLog', new AppLog(deps.db, app.log));

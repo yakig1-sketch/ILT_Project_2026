@@ -98,6 +98,8 @@ export interface SessionRow {
   /** Intervention sessions only: TRAINING or RETENTION, and the target letter. */
   intervention_kind: 'TRAINING' | 'RETENTION' | null;
   letter: { canvas_id: string; code: string; letter: string | null } | null;
+  /** Phase 6b′: how the tablet was written on (TOUCH only in the beta touch build). */
+  input_kind: 'PEN' | 'TOUCH';
 }
 
 export interface StepRow {
@@ -125,7 +127,7 @@ export async function loadSession(db: Queryable, id: string): Promise<SessionRow
     db,
     `SELECT s.id, s.session_code, s.participant_id, p.study_code, s.evaluator_id, s.domain_id, s.region_id,
             s.language_code, s.session_type, s.status, s.css_px_per_mm, s.tablet_token_id IS NOT NULL AS tablet_paired,
-            s.settings_snapshot, s.purpose, s.video_enabled, s.created_at, s.intervention_kind,
+            s.settings_snapshot, s.purpose, s.video_enabled, s.created_at, s.intervention_kind, s.input_kind,
             CASE WHEN lc.id IS NULL THEN NULL
                  ELSE json_build_object('canvas_id', lc.id, 'code', lc.code, 'letter', lc.geometry->'letters'->0->>'letter') END AS letter
        FROM sessions s JOIN participants p ON p.id = s.participant_id
@@ -436,7 +438,8 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
         pairFailures.delete(ip);
         return ref;
       }
-      const count = (lock && lock.until <= Date.now() ? 0 : (lock?.count ?? 0)) + 1;
+      // Start counting again only after a lockout has run out (until 0 = still counting, no lockout yet).
+      const count = (lock && lock.until > 0 && lock.until <= Date.now() ? 0 : (lock?.count ?? 0)) + 1;
       pairFailures.set(ip, { count: count >= PAIR_MAX_FAILURES ? 0 : count, until: count >= PAIR_MAX_FAILURES ? Date.now() + PAIR_LOCK_MS : 0 });
       // A code that was real but ran out gets its own message, so the evaluator knows to make a new one.
       // Only the latest code of an open session or station counts; nothing about the session is returned.
@@ -453,21 +456,27 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     pairFailures.delete(ip);
 
     const d = body.data;
+    // Phase 6b′: a beta tester's touch-screen tablet; every other tablet is the DTH-A116.
+    const inputKind = d.input_kind ?? 'PEN';
     // A new token id: a tablet still holding an older pairing of this session is turned away.
     const tokenId = randomUUID();
     await app.deps.db.query(
       `UPDATE sessions SET status = CASE WHEN status = 'PLANNED' THEN 'PAIRED' ELSE status END,
-              css_px_per_mm = $2, device_pixel_ratio = $3, device_model = 'DTH-A116', device_id = $4,
-              pairing_pin_hash = NULL, pairing_expires_at = NULL, tablet_token_id = $5
+              css_px_per_mm = $2, device_pixel_ratio = $3, device_model = $6, device_id = $4,
+              pairing_pin_hash = NULL, pairing_expires_at = NULL, tablet_token_id = $5, input_kind = $7
         WHERE id = $1`,
-      [sessionId, d.css_px_per_mm, d.device_pixel_ratio, d.device_id ?? null, tokenId],
+      [sessionId, d.css_px_per_mm, d.device_pixel_ratio, d.device_id ?? null, tokenId,
+        inputKind === 'TOUCH' ? 'TOUCH' : 'DTH-A116', inputKind],
     );
     const s = (await loadSession(app.deps.db, sessionId))!;
     app.appLog.write({
       severity: 'INFO', event_type: 'session.paired', session_id: s.id, domain_id: s.domain_id, region_id: s.region_id,
       client_ip: ip, entity_type: 'session', entity_id: s.id,
       message: `Tablet paired with session ${s.session_code}`,
-      details: { css_px_per_mm: d.css_px_per_mm, device_pixel_ratio: d.device_pixel_ratio, screen_w_mm: d.screen_w_mm, screen_h_mm: d.screen_h_mm },
+      details: {
+        css_px_per_mm: d.css_px_per_mm, device_pixel_ratio: d.device_pixel_ratio, screen_w_mm: d.screen_w_mm, screen_h_mm: d.screen_h_mm,
+        input_kind: inputKind, ...(inputKind === 'TOUCH' ? { user_agent: String(req.headers['user-agent'] ?? '').slice(0, 200) } : {}),
+      },
     });
     app.hub.notifyPeers(s.id);
     return {

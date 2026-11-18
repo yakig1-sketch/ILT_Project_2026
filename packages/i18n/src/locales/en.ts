@@ -66,6 +66,18 @@ export const en: LocaleShape = {
     full_screen: 'Full screen',
     preview_title: 'ILT page preview at true size',
     calibration: 'Calibration: {{pxPerMm}} px per mm',
+    // Beta touch build only (Phase 6b′)
+    input: {
+      title: 'This tablet writes with',
+      PEN: 'Pen (DTH-A116 or another pen tablet)',
+      TOUCH: 'Touch screen (finger or simple stylus)',
+      calibrate: 'Set the screen size',
+      calibrate_hint: 'Hold a bank card against the screen. Press − or + until the blue box is exactly the size of the card, then press Save.',
+      smaller: 'Smaller',
+      larger: 'Larger',
+      save: 'Save',
+      cancel: 'Cancel',
+    },
     task_title: 'Invented Letter Task (ILT)',
     block_of: 'Block {{n}} of {{total}}',
     warmup_of: 'Warm-up {{n}} of {{total}}',
@@ -251,6 +263,7 @@ export const en: LocaleShape = {
     hand: { RIGHT: 'Right', LEFT: 'Left', AMBIDEXTROUS: 'Both' },
     ses: { LOW: 'Low', MID: 'Middle', HIGH: 'High' },
     purpose: { INTERVENTION: 'Intervention', RESEARCH: 'Research' },
+    input_kind: { PEN: 'Pen', TOUCH: 'Touch screen (beta, not in research data)' },
     pause_reason: { STUDENT_FATIGUE: 'Child tired', HARDWARE: 'Equipment problem', EVALUATOR_INTERVENTION: 'Evaluator intervention', OTHER: 'Other' },
   },
   legacy: {

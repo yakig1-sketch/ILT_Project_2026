@@ -24,6 +24,8 @@ export const ControlPayloads = {
     device_pixel_ratio: z.number().positive(),
     screen_w_mm: z.number().positive(),
     screen_h_mm: z.number().positive(),
+    /** Phase 6b′: TOUCH only from the beta touch build; absent = PEN (every pilot tablet). */
+    input_kind: z.enum(['PEN', 'TOUCH']).optional(),
   }),
   PAIRING_RESPONSE: z.object({
     status: z.enum(['ACCEPTED', 'REJECTED']),

@@ -51,6 +51,26 @@ function savePairing(p: Pairing | null) {
 const pxPerMm = calibration();
 const allowMouse = import.meta.env.DEV;
 
+/**
+ * Beta stack only (VITE_ALLOW_TOUCH=1, Phase 6b′): testers with a touch-screen tablet choose "Touch screen"
+ * on the code screen; a finger or passive stylus then writes and taps [Next block]. Every other build is pen only.
+ */
+const touchBuild = import.meta.env.VITE_ALLOW_TOUCH === '1';
+const INPUT_KEY = 'ilt.kiosk.input_kind';
+type InputKind = 'PEN' | 'TOUCH';
+function loadInputKind(): InputKind {
+  if (!touchBuild) return 'PEN';
+  try {
+    return localStorage.getItem(INPUT_KEY) === 'TOUCH' ? 'TOUCH' : 'PEN';
+  } catch {
+    return 'PEN';
+  }
+}
+const inputKind = loadInputKind();
+const allowTouch = inputKind === 'TOUCH';
+/** A bank card (ISO/IEC 7810 ID-1), the ruler for the touch-tablet calibration. */
+const CARD_MM = { w: 85.6, h: 53.98 };
+
 const s: Record<string, CSSProperties> = {
   screen: { minBlockSize: '100dvh', display: 'grid', placeItems: 'center', background: '#f6f8fa', fontSize: '1.6rem', textAlign: 'center' },
   // Full-screen block frame: title bar, the true-size canvas, then the pen note and [Next block].
@@ -127,7 +147,7 @@ export function App() {
         setEnded(false);
         setPairing(null);
       }, 6000);
-    });
+    }, allowTouch);
     setSession(ks);
     return () => {
       ks.dispose();
@@ -173,6 +193,7 @@ function PinScreen({ onPaired }: { onPaired: (p: Pairing) => void }) {
           device_pixel_ratio: window.devicePixelRatio || 1,
           screen_w_mm: Math.round((screen.width / pxPerMm) * 10) / 10,
           screen_h_mm: Math.round((screen.height / pxPerMm) * 10) / 10,
+          input_kind: inputKind,
         }),
       });
       const body = (await res.json()) as { status?: string; token?: string; session_id?: string; session_code?: string; language?: string; mode?: 'SESSION' | 'REFERENCE'; error?: { message_key: string } };
@@ -211,7 +232,8 @@ function PinScreen({ onPaired }: { onPaired: (p: Pairing) => void }) {
         <button type="submit" disabled={busy} style={{ fontSize: '1.4rem', paddingInline: '2rem', paddingBlock: '0.5rem' }}>
           {t('kiosk.connect')}
         </button>
-        <p style={{ color: '#57606a', fontSize: '0.85rem' }}>{t('kiosk.calibration', { pxPerMm })}</p>
+        <p style={{ color: '#57606a', fontSize: '0.85rem' }} data-testid="kiosk-calibration">{t('kiosk.calibration', { pxPerMm })}</p>
+        {touchBuild && <InputChoice />}
       </form>
     </AppShell>
   );
@@ -381,12 +403,78 @@ function BlockFrame({ step, footer, reference = false, children }: { step: Dispa
 }
 
 /**
+ * Beta touch build only (Phase 6b′): pen or touch for this tablet, and the screen-size calibration a touch
+ * tablet needs once (the ILT page must show at true size). Both are kept in this browser; the page reloads.
+ */
+function InputChoice() {
+  const { t } = useTranslation();
+  const [calibrating, setCalibrating] = useState(false);
+  const choose = (kind: InputKind) => {
+    try {
+      localStorage.setItem(INPUT_KEY, kind);
+    } catch {
+      // Private mode: nothing is kept, so the tablet stays on the pen.
+    }
+    location.reload();
+  };
+  const option = (kind: InputKind) => (
+    <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '1.1rem' }}>
+      <input type="radio" name="input-kind" checked={inputKind === kind} onChange={() => choose(kind)} data-testid={`kiosk-input-${kind}`} />
+      {t(`kiosk.input.${kind}`)}
+    </label>
+  );
+  return (
+    <fieldset style={{ display: 'grid', gap: '0.5rem', justifyItems: 'start', border: '1px solid #d0d7de', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
+      <legend style={{ fontSize: '1rem', color: '#57606a' }}>{t('kiosk.input.title')}</legend>
+      {option('PEN')}
+      {option('TOUCH')}
+      {inputKind === 'TOUCH' && (
+        <button type="button" onClick={() => setCalibrating(true)} style={{ fontSize: '1rem' }} data-testid="kiosk-calibrate">{t('kiosk.input.calibrate')}</button>
+      )}
+      {calibrating && <CardCalibration onClose={() => setCalibrating(false)} />}
+    </fieldset>
+  );
+}
+
+/** The tester matches a drawn box to a bank card held against the screen; that sets px per mm. */
+function CardCalibration({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const [px, setPx] = useState(pxPerMm);
+  const step = (factor: number) => setPx((v) => Math.round(v * factor * 1000) / 1000);
+  const save = () => {
+    try {
+      localStorage.setItem(CALIBRATION_KEY, String(px));
+    } catch {
+      // Not kept in private mode.
+    }
+    location.reload();
+  };
+  const big = { fontSize: '1.6rem', minInlineSize: '3.5rem', paddingBlock: '0.3rem' };
+  return (
+    <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 4, background: '#fff', display: 'grid', placeItems: 'center', alignContent: 'center', gap: '1rem', padding: '1rem' }}>
+      <p style={{ margin: 0, fontSize: '1.1rem', maxInlineSize: '40rem' }}>{t('kiosk.input.calibrate_hint')}</p>
+      <div style={{ inlineSize: `${CARD_MM.w * px}px`, blockSize: `${CARD_MM.h * px}px`, border: '3px solid #0969da', borderRadius: `${3 * px}px`, background: 'rgba(9, 105, 218, 0.08)' }} data-testid="kiosk-card" />
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <button type="button" style={big} onClick={() => step(1 / 1.005)} aria-label={t('kiosk.input.smaller')} data-testid="kiosk-calibrate-smaller">−</button>
+        <span dir="ltr" data-testid="kiosk-calibrate-value">{t('kiosk.calibration', { pxPerMm: px.toFixed(3) })}</span>
+        <button type="button" style={big} onClick={() => step(1.005)} aria-label={t('kiosk.input.larger')} data-testid="kiosk-calibrate-larger">+</button>
+      </div>
+      <div style={{ display: 'flex', gap: '1rem' }}>
+        <button type="button" style={{ fontSize: '1.2rem' }} onClick={save} data-testid="kiosk-calibrate-save">{t('kiosk.input.save')}</button>
+        <button type="button" style={{ fontSize: '1.2rem' }} onClick={onClose}>{t('kiosk.input.cancel')}</button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * [Next block]: answers only a pen tap (and the mouse in development), never a finger or palm, and
- * only once the child has reached the last house.
+ * only once the child has reached the last house. In the beta touch mode the first finger counts too.
  */
 function PenButton({ label, disabled, onTap }: { label: string; disabled: boolean; onTap: () => void }) {
   const down = useRef<number | null>(null);
-  const isPen = (e: ReactPointerEvent) => e.pointerType === 'pen' || (allowMouse && e.pointerType === 'mouse');
+  const isPen = (e: ReactPointerEvent) => e.pointerType === 'pen' || (allowMouse && e.pointerType === 'mouse')
+    || (allowTouch && e.pointerType === 'touch' && e.isPrimary);
   return (
     <button
       type="button"

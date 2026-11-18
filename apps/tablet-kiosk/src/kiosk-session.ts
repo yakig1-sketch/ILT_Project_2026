@@ -96,6 +96,8 @@ export class KioskSession {
     private readonly pxPerMm: number,
     private readonly allowMouse: boolean,
     private readonly onEnded: (reason: 'COMPLETE' | 'ABORTED' | 'AUTH') => void,
+    /** Beta touch mode (Phase 6b′): a finger or passive stylus writes. */
+    private readonly allowTouch = false,
   ) {
     this.peer = new PeerLink(
       'answerer',
@@ -275,6 +277,7 @@ export class KioskSession {
       pxPerMm: this.pxPerMm,
       boxEntryMarginMm: BOX_ENTRY_MARGIN_MM,
       allowMouse: this.allowMouse,
+      allowTouch: this.allowTouch,
       freeOrder: b.step.reference?.free_order ?? false,
       onSamples: (raw) => this.onSamples(raw),
       onBoxAdvanced: (box_id, fill_position, skipped_box_ids) => {

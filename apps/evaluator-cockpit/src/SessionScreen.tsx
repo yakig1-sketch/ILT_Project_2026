@@ -70,6 +70,8 @@ interface SessionDetail {
   /** Intervention sessions (Phase 5b): what the session does with its target letter. */
   intervention_kind: 'TRAINING' | 'RETENTION' | null;
   letter: { canvas_id: string; code: string; letter: string | null } | null;
+  /** Phase 6b′: TOUCH when a beta tester paired a touch-screen tablet. */
+  input_kind?: 'PEN' | 'TOUCH';
   /** A tablet holds this session's pairing, connected or not (released tablets do not count). */
   tablet_paired: boolean;
   timers: { inactivity_sec: number; inactivity_last_box_sec: number; amber_grace_sec: number };
@@ -231,6 +233,7 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
           {' '}· {t(`enum.language.${session.language_code}`)}</span>
         <span style={pill(closed ? 'off' : 'ok')}>{t(`enum.session_status.${session.status}`)}</span>
         <span style={pill('off')} data-testid="session-purpose">{t(`enum.purpose.${session.purpose}`)}</span>
+        {session.input_kind === 'TOUCH' && <span style={pill('warn')} data-testid="session-input-touch">{t('enum.input_kind.TOUCH')}</span>}
         <span style={pill(link.tabletConnected ? 'ok' : 'off')} data-testid="tablet-status">
           {t(link.tabletConnected ? 'cockpit.pairing.tablet_connected' : 'cockpit.pairing.tablet_offline')}
         </span>

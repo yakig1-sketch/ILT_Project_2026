@@ -1,6 +1,7 @@
 // Pen capture (DDD §2). One source feeds both the live mirror and persistence: pointerrawupdate
 // (one event per hardware sample) where supported, otherwise pointermove + getCoalescedEvents().
-// Touch is ignored while a block is active (palm rejection). Lifts come only from down/up events.
+// Touch is ignored while a block is active (palm rejection), except in the beta touch mode (Phase 6b′),
+// where the first finger on the page writes and any other touch is ignored. Lifts come only from down/up events.
 // Forward-only locking (FR-TAB-4): a pen-down in a box already passed (finished or skipped) leaves
 // no ink and no contact samples; on a notebook page the locked unit is a whole row.
 import { advanceFillPosition } from '@ilt/ilt-metrics';
@@ -15,6 +16,8 @@ export interface CaptureOptions {
   boxEntryMarginMm: number;
   /** Development only: accept the mouse as a pen. */
   allowMouse: boolean;
+  /** Beta touch mode only (Phase 6b′): the primary touch writes like the pen; other touches are ignored. */
+  allowTouch?: boolean;
   /** Samples without sample_seq; the caller numbers them. */
   onSamples: (samples: Omit<PenSample, 'sample_seq'>[]) => void;
   onBoxAdvanced: (boxId: number, fillPosition: number, skippedBoxIds: number[]) => void;
@@ -86,6 +89,7 @@ export class PenCapture {
   private accepts(e: PointerEvent): boolean {
     if (!this.active) return false;
     if (e.pointerType === 'touch') {
+      if (this.o.allowTouch && e.isPrimary) return true;
       e.preventDefault();
       return false;
     }
