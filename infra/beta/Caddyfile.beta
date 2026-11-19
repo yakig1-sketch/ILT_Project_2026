@@ -56,6 +56,8 @@
 	}
 	# The landing page (apps/landing): About, Login by role, Language.
 	handle {
+		# Its file names do not change between versions, so Cloudflare and browsers must check for a newer copy.
+		header Cache-Control "no-cache"
 		root * /srv/landing
 		try_files {path} /index.html
 		file_server

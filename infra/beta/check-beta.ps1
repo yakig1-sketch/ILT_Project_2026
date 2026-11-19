@@ -25,9 +25,29 @@ function Warn([bool]$ok, [string]$what, [string]$note) {
 function Num($s) { $n = 0; [void][int]::TryParse("$s".Trim(), [ref]$n); return $n }
 function Compose { docker compose --env-file beta.env -f compose.beta.yml @args 2>$null }
 function Sql([string]$q) { (Compose exec -T db psql -U ilt_owner -d ilt -At -c $q | Out-String).Trim() }
+# One HTTP request that does not follow redirects, so a Cloudflare sign-in shows as 302. (Invoke-WebRequest
+# in Windows PowerShell 5.1 throws on a redirect it may not follow, and the status code is lost.)
 function Fetch([string]$url) {
-  try { $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop; return @{ code = [int]$r.StatusCode; body = $r.Content } }
-  catch { $resp = $_.Exception.Response; if ($resp) { return @{ code = [int]$resp.StatusCode; body = '' } } return @{ code = 0; body = '' } }
+  $resp = $null
+  $script:fetchError = ''
+  try {
+    $req = [System.Net.HttpWebRequest]::Create($url)
+    $req.AllowAutoRedirect = $false
+    $req.Timeout = 15000
+    $resp = $req.GetResponse()
+  }
+  catch {
+    # PowerShell wraps the .NET error; an HTTP error status (4xx, 5xx) still carries the response.
+    $e = $PSItem.Exception
+    while ($e -and -not ($e -is [System.Net.WebException])) { $e = $e.InnerException }
+    if ($e) { $resp = $e.Response; $script:fetchError = $e.Message } else { $script:fetchError = $PSItem.Exception.Message }
+  }
+  if (-not $resp) { return @{ code = 0; body = ''; error = $script:fetchError } }
+  $code = [int]$resp.StatusCode
+  $body = ''
+  try { $reader = New-Object System.IO.StreamReader($resp.GetResponseStream()); $body = $reader.ReadToEnd(); $reader.Close() } catch { }
+  $resp.Close()
+  return @{ code = $code; body = $body; error = '' }
 }
 
 Write-Host "`nILT beta readiness check  $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n"
@@ -80,9 +100,9 @@ $svc = Get-Service cloudflared -ErrorAction SilentlyContinue
 Check ($svc -and $svc.Status -eq 'Running') "cloudflared service: $(if ($svc) { $svc.Status } else { 'not installed' })" 'Administrator PowerShell: Start-Service cloudflared'
 Check ($svc -and $svc.StartType -eq 'Automatic') 'cloudflared starts with Windows' 'Administrator PowerShell: Set-Service cloudflared -StartupType Automatic'
 $cf = Fetch 'https://beta.ilt.network/cockpit/'
-Check ($cf.code -eq 302) "https://beta.ilt.network asks for the Cloudflare sign-in: HTTP $($cf.code)" 'Check the tunnel route and the ILT Beta Access application in Zero Trust'
+Check ($cf.code -eq 302) "https://beta.ilt.network asks for the Cloudflare sign-in: HTTP $($cf.code) $($cf.error)" 'Check the tunnel route and the ILT Beta Access application in Zero Trust'
 $cfh = Fetch 'https://beta.ilt.network/'
-Check ($cfh.code -eq 302) "The landing page (https://beta.ilt.network/) also asks for the Cloudflare sign-in: HTTP $($cfh.code)" 'The Access application must cover the whole address beta.ilt.network, with Path empty'
+Check ($cfh.code -eq 302) "The landing page (https://beta.ilt.network/) also asks for the Cloudflare sign-in: HTTP $($cfh.code) $($cfh.error)" 'The Access application must cover the whole address beta.ilt.network, with Path empty'
 
 # 5. NucBox stays awake
 $sleep = (powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE | Select-String 'Current AC Power Setting Index' | Out-String)

@@ -14,4 +14,6 @@ web image (`infra/cloud/ilt.Dockerfile`). Static files only, no build step: `ind
 - **Sponsors**: Wacom and WonderNet (with their logos in `sponsors/`) each with its website. The list is `SPONSORS` in `landing.js`.
 - **Preview ILT Stroke / Replay**: draws the 3-dot continuous stroke of the ILT letter.
 
+After a change to `landing.css` or `landing.js`, raise the `?v=` number where `index.html` loads them, so Cloudflare and browsers fetch the new file.
+
 Try it locally: `python3 -m http.server 5180 --directory apps/landing`, then open http://127.0.0.1:5180/.
