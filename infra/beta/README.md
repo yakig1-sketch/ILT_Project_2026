@@ -80,6 +80,20 @@ cd C:\Users\Yaki\Documents\GitHub\ILT_Project_2026\infra\beta
 
 The containers start again by themselves after a restart of NucBox or Docker Desktop (`restart: unless-stopped`).
 
+## Add the landing page to a running beta
+
+The landing page is on the branch `landing-page` (the beta branch plus the landing page; no database change). Only the web front is rebuilt:
+
+```powershell
+git fetch origin
+git checkout landing-page
+git pull
+docker compose --env-file beta.env -f compose.beta.yml build web
+docker compose --env-file beta.env -f compose.beta.yml up -d web
+```
+
+Back to the previous front page: `git checkout phase-6b-prime-beta`, then the same `build web` and `up -d web`.
+
 ## Upgrade to a new release
 
 ```powershell
@@ -121,7 +135,7 @@ curl.exe -s http://127.0.0.1:8088/analytics/api/v1/health
 
 Both answer with `"status":"ok"`. Then from **another device** (not NucBox), through Cloudflare:
 
-1. `https://beta.ilt.network/cockpit/`: Cloudflare email code, then the ILT sign-in. Create a made-up participant (`BETA-001`) and a session.
+1. `https://beta.ilt.network/`: Cloudflare email code, then the landing page. **Login → Evaluator** opens the ILT sign-in of the cockpit. Create a made-up participant (`BETA-001`) and a session.
 2. `https://beta.ilt.network/tablet/` on a DTH-A116 (choose **Pen**) and on a touch tablet (choose **Touch screen**, then **Set the screen size** once with a bank card). Pair with the session code and write one block.
 3. The touch session shows the "Touch screen" label in the cockpit; `https://beta.ilt.network/analyst/` loads and lists only pen sessions.
 4. Five wrong tablet codes from one device lock that device for 15 minutes; another tester's device can still pair.

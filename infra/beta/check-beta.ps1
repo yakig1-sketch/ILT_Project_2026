@@ -81,6 +81,8 @@ Check ($svc -and $svc.Status -eq 'Running') "cloudflared service: $(if ($svc) { 
 Check ($svc -and $svc.StartType -eq 'Automatic') 'cloudflared starts with Windows' 'Administrator PowerShell: Set-Service cloudflared -StartupType Automatic'
 $cf = Fetch 'https://beta.ilt.network/cockpit/'
 Check ($cf.code -eq 302) "https://beta.ilt.network asks for the Cloudflare sign-in: HTTP $($cf.code)" 'Check the tunnel route and the ILT Beta Access application in Zero Trust'
+$cfh = Fetch 'https://beta.ilt.network/'
+Check ($cfh.code -eq 302) "The landing page (https://beta.ilt.network/) also asks for the Cloudflare sign-in: HTTP $($cfh.code)" 'The Access application must cover the whole address beta.ilt.network, with Path empty'
 
 # 5. NucBox stays awake
 $sleep = (powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE | Select-String 'Current AC Power Setting Index' | Out-String)
