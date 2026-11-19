@@ -52,6 +52,17 @@
       previewTitle: 'ILT 3-Dot Continuous Stroke', previewSub: 'Learning (Day 1) → Automaticity (Week 2)', replay: 'Replay',
       advisoryHeading: 'Academic Research and Clinical Advisory',
       advisorySubheading: 'Empirical neurocognitive research & clinical leadership',
+      sponsorsHeading: 'Sponsorship & Research Partners',
+      sponsorsSubheading: 'Click any partner logo to view sponsorship details',
+      visitWebsite: 'Visit website ↗',
+      'sp.wacom': 'Pen tablets and digital pen technology for recording children\'s handwriting.',
+      'sp.wondernet': 'Technology and development partner of the ILT system.',
+      'sp.penflow': 'Core open-source architecture & 240Hz digital ink engineering sponsorship.',
+      'sp.kaku': 'Donates EMR stylus tablets and classroom pilot hardware kits.',
+      'sp.literacy': 'Funds cross-linguistic screening studies in underserved elementary schools.',
+      'sp.neuro': 'Sponsors secure academic cloud hosting and de-identified Parquet analytics.',
+      'sp.brightstart': 'Supports field pilot coordination across partner elementary classrooms.',
+      'sp.openink': 'Sponsors multilingual localization and accessibility testing for young learners.',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'Faculty of Education, Bar-Ilan University',
@@ -88,6 +99,17 @@
       previewTitle: 'משיכת עט רציפה ב-3 נקודות', previewSub: 'למידה (יום 1) ← אוטומטיות (שבוע 2)', replay: 'נגן שוב',
       advisoryHeading: 'מחקר אקדמי וייעוץ קליני',
       advisorySubheading: 'הובלה מדעית ומחקר נוירו-קוגניטיבי אמפירי',
+      sponsorsHeading: 'נותני חסות ושותפי מחקר',
+      sponsorsSubheading: 'לחצו על כל לוגו לצפייה בפרטי החסות ובקישור לאתר',
+      visitWebsite: 'לאתר השותף ↗',
+      'sp.wacom': 'טאבלטים ועטים דיגיטליים לתיעוד כתב היד של הילדים.',
+      'sp.wondernet': 'שותף טכנולוגי ופיתוח של מערכת ILT.',
+      'sp.penflow': 'חסות הנדסית לארכיטקטורת הקוד הפתוח וללכידת דיו דיגיטלי ב-240Hz.',
+      'sp.kaku': 'תרומת טאבלטים עם עט EMR וערכות חומרה לפיילוטים בכיתות.',
+      'sp.literacy': 'מימון מחקרי איתור רב-לשוניים בבתי ספר יסודיים מוחלשים.',
+      'sp.neuro': 'חסות לאירוח ענן מחקרי מאובטח ולניתוח נתונים מותממים.',
+      'sp.brightstart': 'סיוע בתיאום פיילוטים בשטח מול בתי ספר יסודיים שותפים.',
+      'sp.openink': 'תמיכה בהתאמת שפות ונגישות עבור תלמידים צעירים.',
       'name.yaki': 'יקי גרוסמן', 'name.adijapha': 'פרופ׳ אסתר עדי-יפה', 'name.hollander': 'ד״ר חגית הולנדר',
       'name.dorfberger': 'ד״ר שושי דורפברגר', 'name.hochhauser': 'ד״ר מיכל הוכהאוזר',
       'aff.biu_edu': 'הפקולטה לחינוך, אוניברסיטת בר-אילן',
@@ -124,6 +146,17 @@
       previewTitle: 'ILT 3点連続ストローク', previewSub: '学習期（1日目）→ 自動化期（2週間後）', replay: '再生',
       advisoryHeading: '学術研究・臨床アドバイザリー',
       advisorySubheading: '実証的神経認知研究および臨床監修チーム',
+      sponsorsHeading: 'スポンサー・研究パートナー',
+      sponsorsSubheading: 'ロゴをクリックすると協賛内容と公式サイトへのリンクが表示されます',
+      visitWebsite: '公式サイトへ ↗',
+      'sp.wacom': '子どもの筆跡を記録するペンタブレットとデジタルペン技術。',
+      'sp.wondernet': 'ILTシステムの技術・開発パートナー。',
+      'sp.penflow': 'オープンソース基盤設計および240Hzデジタルインク技術の支援。',
+      'sp.kaku': 'EMRスタイラス対応タブレットおよび小学校パイロット用機材の寄贈。',
+      'sp.literacy': '低SES地域の小学校における多言語スクリーニング研究への助成。',
+      'sp.neuro': '安全な研究用クラウド環境と匿名化Parquet分析基盤の提供。',
+      'sp.brightstart': '協力小学校でのフィールドパイロット実施・調整の支援。',
+      'sp.openink': '多言語ローカライズおよび年少児童向けアクセシビリティ検証の支援。',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'バル＝イラン大学 教育学部',
@@ -230,6 +263,71 @@
     b.innerHTML = '<span class="flag">' + flag(l) + '</span><span class="mi-label">' + T[l].langName + '</span>';
     b.addEventListener('click', function () { apply(l); closeAll(); $('lang-btn').focus(); });
     $('lang-menu').appendChild(b);
+  });
+
+  // Sponsors: a logo button each; a click opens a small card with the details and the website.
+  var SPONSORS = [
+    { id: 'wacom', label: 'Wacom', name: 'Wacom', url: 'https://www.wacom.com/en-us', real: true, color: '#16324f',
+      icon: '<rect x="3" y="8" width="19" height="15" rx="2.5"/><path d="M28.5 4.5L18.5 18.5"/><path d="M18.5 18.5L17.5 21.5L20.2 19.8"/>' },
+    { id: 'wondernet', label: 'WonderNet', name: 'WonderNet', url: 'https://www.wondernet.co.il/about/', real: true, color: '#0369a1',
+      icon: '<circle cx="16" cy="16" r="3"/><circle cx="6" cy="8" r="2.5"/><circle cx="26" cy="8" r="2.5"/><circle cx="6" cy="24" r="2.5"/><circle cx="26" cy="24" r="2.5"/><path d="M8 9.5L13.5 14M24 9.5L18.5 14M8 22.5L13.5 18M24 22.5L18.5 18"/>' },
+    { id: 'penflow', label: 'PenFlow Org', name: 'PenFlow Foundation', url: 'https://penflow.com', color: '#16324f',
+      icon: '<path d="M22 4L28 10L12 26H6V20L22 4Z"/><path d="M18 8L24 14"/>' },
+    { id: 'kaku', label: 'Kaku EduTech', name: 'Kaku EduTech', url: 'https://example.org/kaku-edutech', color: '#d97706',
+      icon: '<rect x="5" y="5" width="22" height="22" rx="4"/><line x1="16" y1="5" x2="16" y2="27" stroke-dasharray="2 2"/><line x1="5" y1="16" x2="27" y2="16" stroke-dasharray="2 2"/>' },
+    { id: 'literacy', label: 'Global Literacy', name: 'Global Literacy Fund', url: 'https://example.org/global-literacy', color: '#0369a1',
+      icon: '<circle cx="16" cy="16" r="11"/><ellipse cx="16" cy="16" rx="5" ry="11"/><line x1="5" y1="16" x2="27" y2="16"/>' },
+    { id: 'neuro', label: 'NeuroLearn Labs', name: 'NeuroLearn Labs', url: 'https://example.org/neurolearn', color: '#047857',
+      icon: '<circle cx="8" cy="16" r="3"/><circle cx="24" cy="9" r="3"/><circle cx="24" cy="23" r="3"/><line x1="11" y1="15" x2="21" y2="10"/><line x1="11" y1="17" x2="21" y2="22"/>' },
+    { id: 'brightstart', label: 'BrightStart', name: 'BrightStart Schools', url: 'https://example.org/brightstart', color: '#4338ca',
+      icon: '<path d="M4 14L16 6L28 14"/><path d="M7 13V26H25V13"/><rect x="13" y="18" width="6" height="8"/>' },
+    { id: 'openink', label: 'OpenInk', name: 'OpenInk Alliance', url: 'https://example.org/openink', color: '#be123c',
+      icon: '<path d="M16 5C10 12 8 17 8 21a8 8 0 0 0 16 0c0-4-2-9-8-16Z"/>' }
+  ];
+  function closeSponsors(except) {
+    document.querySelectorAll('.sponsor-pop').forEach(function (p) {
+      if (p === except) return;
+      p.hidden = true;
+      p.parentNode.querySelector('.sponsor-btn').setAttribute('aria-expanded', 'false');
+    });
+  }
+  SPONSORS.forEach(function (s) {
+    var item = document.createElement('div');
+    item.className = 'sponsor';
+    item.innerHTML =
+      '<button type="button" class="sponsor-btn' + (s.real ? ' real' : '') + '" aria-expanded="false" aria-controls="sp-' + s.id + '">' +
+        '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" style="color:' + s.color + '" aria-hidden="true">' + s.icon + '</svg>' +
+        '<span class="sp-label">' + s.label + '</span></button>' +
+      '<div class="sponsor-pop" id="sp-' + s.id + '" role="dialog" aria-label="' + s.name + '" hidden>' +
+        '<div class="sp-head"><span class="sp-name">' + s.name + '</span><button type="button" class="sp-x" data-t-label="close">×</button></div>' +
+        '<p class="sp-desc" data-t="sp.' + s.id + '"></p>' +
+        '<a class="sp-link" href="' + s.url + '" target="_blank" rel="noopener noreferrer" data-t="visitWebsite">Visit website ↗</a></div>';
+    var btn = item.querySelector('.sponsor-btn');
+    var pop = item.querySelector('.sponsor-pop');
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = pop.hidden;
+      closeAll();
+      closeSponsors(pop);
+      pop.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        // Open towards the side with room, so the card stays on screen.
+        var r = btn.getBoundingClientRect();
+        var rtl = document.documentElement.dir === 'rtl';
+        var roomAfter = rtl ? r.right : window.innerWidth - r.left;
+        pop.classList.toggle('at-start', roomAfter >= 272);
+        pop.classList.toggle('at-end', roomAfter < 272);
+      }
+    });
+    item.querySelector('.sp-x').addEventListener('click', function () { closeSponsors(); btn.focus(); });
+    $('sponsor-grid').appendChild(item);
+  });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.sponsor')) closeSponsors(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var open = document.querySelector('.sponsor-pop:not([hidden])');
+    if (open) { closeSponsors(); open.parentNode.querySelector('.sponsor-btn').focus(); }
   });
 
   // About
