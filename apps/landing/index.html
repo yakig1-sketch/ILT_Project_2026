@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ILT System</title>
+<meta name="description" content="Invented Letter Task (ILT) System: procedural motor skill learning, for the children of the world.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f3a5f'/%3E%3Cpath d='M11 7 L22 16 L11 25' fill='none' stroke='%23f2c14e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='11' cy='7' r='2.6' fill='%23fff'/%3E%3Ccircle cx='22' cy='16' r='2.6' fill='%23fff'/%3E%3Ccircle cx='11' cy='25' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="./" aria-label="ILT System">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--ink)"/>
+      <path d="M11 7 L22 16 L11 25" fill="none" stroke="var(--pencil)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="11" cy="7" r="2.6" fill="#fff"/><circle cx="22" cy="16" r="2.6" fill="#fff"/><circle cx="11" cy="25" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="brand-name">ILT</span>
+  </a>
+  <nav class="nav">
+    <button type="button" class="nav-btn" id="about-btn" data-t="nav.about">About</button>
+    <div class="menu">
+      <button type="button" class="nav-btn primary" id="login-btn" aria-haspopup="true" aria-expanded="false" aria-controls="login-menu"><span data-t="nav.login">Login</span> <span class="caret" aria-hidden="true">▾</span></button>
+      <div class="menu-list" id="login-menu" role="menu" hidden>
+        <p class="menu-head" data-t="login.head">Sign in as</p>
+        <a role="menuitem" href="/cockpit/" data-role="evaluator"><span class="dot" style="--c:var(--coral)"></span><span data-t="role.evaluator">Evaluator</span></a>
+        <a role="menuitem" href="/cockpit/" data-role="researcher"><span class="dot" style="--c:var(--leaf)"></span><span data-t="role.researcher">Researcher</span></a>
+        <a role="menuitem" href="/analyst/" data-role="analyst"><span class="dot" style="--c:var(--sky)"></span><span data-t="role.analyst">Analyst</span></a>
+        <a role="menuitem" href="/cockpit/admin" data-role="admin"><span class="dot" style="--c:var(--ink)"></span><span data-t="role.admin">System administrator</span></a>
+        <hr>
+        <a role="menuitem" href="/tablet/" class="quiet"><span class="dot" style="--c:var(--pencil)"></span><span data-t="role.tablet">Child tablet</span></a>
+      </div>
+    </div>
+    <div class="menu">
+      <button type="button" class="nav-btn lang-btn" id="lang-btn" aria-haspopup="true" aria-expanded="false" aria-controls="lang-menu">
+        <span class="flag" id="lang-flag"></span><span class="sr" data-t="nav.language">Language</span> <span class="caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="menu-list" id="lang-menu" role="menu" hidden></div>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-text">
+      <h1 data-t="hero.title">Invented Letter Task (ILT) System</h1>
+      <p class="sub" data-t="hero.subtitle">Procedural motor skill learning</p>
+      <p class="tagline"><span data-t="hero.tagline">For the children of the world</span></p>
+      <p class="lead" data-t="hero.lead"></p>
+      <div class="cta">
+        <button type="button" class="btn primary" id="cta-login" data-t="cta.login">Sign in</button>
+        <button type="button" class="btn ghost" id="cta-about" data-t="cta.about">About the system</button>
+      </div>
+    </div>
+
+    <figure class="art" aria-hidden="true">
+      <svg viewBox="0 0 520 440" role="img">
+        <defs>
+          <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde7b0"/><stop offset="1" stop-color="#fbd38a"/></linearGradient>
+          <linearGradient id="sweater" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ee8b6f"/><stop offset="1" stop-color="#d9674c"/></linearGradient>
+          <pattern id="rule" width="24" height="16" patternUnits="userSpaceOnUse"><path d="M0 15.5 H24" stroke="#cfe0f2" stroke-width="1"/></pattern>
+        </defs>
+        <!-- the world behind the child -->
+        <circle cx="270" cy="190" r="165" fill="url(#sun)"/>
+        <g class="globe" fill="none" stroke="#f3b85c" stroke-width="2" opacity=".7">
+          <ellipse cx="270" cy="190" rx="165" ry="62"/><ellipse cx="270" cy="190" rx="70" ry="165"/><path d="M105 190 H435"/>
+        </g>
+        <!-- letters of the world, floating -->
+        <g class="float" font-family="var(--font)" font-weight="700">
+          <text x="78" y="96" fill="var(--sky)" font-size="34">A</text>
+          <text x="438" y="78" fill="var(--coral)" font-size="34">א</text>
+          <text x="462" y="232" fill="var(--leaf)" font-size="30">あ</text>
+          <text x="52" y="250" fill="var(--pencil-dark)" font-size="28">ب</text>
+          <text x="400" y="330" fill="var(--sky)" font-size="24" opacity=".8">字</text>
+        </g>
+        <!-- the child -->
+        <g class="child">
+          <path d="M190 330 C190 250 214 214 262 212 C310 214 334 250 334 330 Z" fill="url(#sweater)"/>
+          <path d="M238 214 Q262 236 286 214" fill="none" stroke="#c4553c" stroke-width="3" stroke-linecap="round"/>
+          <rect x="250" y="190" width="24" height="26" rx="8" fill="#f2c4a2"/>
+          <circle cx="262" cy="150" r="52" fill="#f6cfaf"/>
+          <path d="M210 148 C206 98 238 86 262 88 C298 88 322 108 316 152 C306 126 292 118 276 124 C262 112 238 112 226 132 C220 138 214 144 210 148 Z" fill="#4a2f22"/>
+          <circle cx="212" cy="156" r="10" fill="#f2c4a2"/>
+          <circle cx="245" cy="156" r="5" fill="#2b2b2b"/><circle cx="282" cy="156" r="5" fill="#2b2b2b"/>
+          <circle cx="247" cy="154" r="1.6" fill="#fff"/><circle cx="284" cy="154" r="1.6" fill="#fff"/>
+          <circle cx="234" cy="174" r="8" fill="#f4a3a0" opacity=".55"/><circle cx="294" cy="174" r="8" fill="#f4a3a0" opacity=".55"/>
+          <path d="M252 178 Q264 188 276 178" fill="none" stroke="#9b4a3a" stroke-width="3" stroke-linecap="round"/>
+          <path d="M214 250 C206 290 214 318 246 328" fill="none" stroke="#d9674c" stroke-width="26" stroke-linecap="round"/>
+        </g>
+        <!-- the desk -->
+        <rect x="40" y="322" width="460" height="20" rx="6" fill="#b9825a"/>
+        <rect x="40" y="338" width="460" height="10" rx="4" fill="#9c6a47"/>
+        <!-- the notebook with the ILT boxes -->
+        <g transform="rotate(-4 300 300)">
+          <rect x="128" y="262" width="330" height="66" rx="6" fill="#fff" stroke="#d7dde6" stroke-width="2"/>
+          <rect x="128" y="262" width="330" height="66" rx="6" fill="url(#rule)" opacity=".7"/>
+          <path d="M293 262 V328" stroke="#d7dde6" stroke-width="2"/>
+          <g fill="none" stroke="#24364f" stroke-width="1.4">
+            <rect x="146" y="274" width="40" height="42"/><rect x="190" y="274" width="40" height="42"/><rect x="234" y="274" width="40" height="42"/>
+            <rect x="310" y="274" width="40" height="42"/><rect x="354" y="274" width="40" height="42"/><rect x="398" y="274" width="40" height="42"/>
+          </g>
+          <g fill="#24364f">
+            <circle cx="160" cy="280" r="2.4"/><circle cx="176" cy="295" r="2.4"/><circle cx="160" cy="310" r="2.4"/>
+            <circle cx="204" cy="280" r="2.4"/><circle cx="220" cy="295" r="2.4"/><circle cx="204" cy="310" r="2.4"/>
+            <circle cx="248" cy="280" r="2.4"/><circle cx="264" cy="295" r="2.4"/><circle cx="248" cy="310" r="2.4"/>
+            <circle cx="324" cy="280" r="2.4"/><circle cx="340" cy="295" r="2.4"/><circle cx="324" cy="310" r="2.4"/>
+            <circle cx="368" cy="280" r="2.4"/><circle cx="384" cy="295" r="2.4"/><circle cx="368" cy="310" r="2.4"/>
+            <circle cx="412" cy="280" r="2.4"/><circle cx="428" cy="295" r="2.4"/><circle cx="412" cy="310" r="2.4"/>
+          </g>
+          <g fill="none" stroke="#2f6fb3" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M160 280 L177 296 L159 311"/><path d="M204 280 L219 295 L205 310"/><path d="M248 281 L265 294 L247 311"/>
+            <path d="M324 280 L341 296 L325 310"/>
+            <path class="writing" d="M368 280 L384 295 L368 310"/>
+          </g>
+        </g>
+        <!-- the writing hand and the pencil -->
+        <g class="hand">
+          <path d="M300 250 C330 262 350 276 362 292" fill="none" stroke="#d9674c" stroke-width="26" stroke-linecap="round"/>
+          <g class="pencil">
+            <path d="M352 238 L392 290" stroke="var(--pencil)" stroke-width="9" stroke-linecap="butt"/>
+            <path d="M352 238 L346 230" stroke="#e98fa0" stroke-width="9" stroke-linecap="round"/>
+            <path d="M389 286 L398 299 L392 290 Z" fill="#3a3a3a" stroke="#3a3a3a" stroke-width="3" stroke-linejoin="round"/>
+          </g>
+          <circle cx="368" cy="290" r="14" fill="#f6cfaf"/>
+        </g>
+      </svg>
+    </figure>
+  </section>
+
+  <section class="roles" aria-labelledby="roles-title">
+    <h2 id="roles-title" data-t="roles.title">One system, every role</h2>
+    <div class="cards">
+      <a class="card" href="/cockpit/" style="--c:var(--coral)">
+        <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 12l3-4 3 3 4-5"/></svg></span>
+        <h3 data-t="role.evaluator">Evaluator</h3><p data-t="desc.evaluator"></p><span class="go" data-t="card.go">Sign in</span>
+      </a>
+      <a class="card" href="/cockpit/" style="--c:var(--leaf)">
+        <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5 20 20M7.5 10h5M10 7.5v5"/></svg></span>
+        <h3 data-t="role.researcher">Researcher</h3><p data-t="desc.researcher"></p><span class="go" data-t="card.go">Sign in</span>
+      </a>
+      <a class="card" href="/analyst/" style="--c:var(--sky)">
+        <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+        <h3 data-t="role.analyst">Analyst</h3><p data-t="desc.analyst"></p><span class="go" data-t="card.go">Sign in</span>
+      </a>
+      <a class="card" href="/cockpit/admin" style="--c:var(--ink)">
+        <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></span>
+        <h3 data-t="role.admin">System administrator</h3><p data-t="desc.admin"></p><span class="go" data-t="card.go">Sign in</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="team" aria-labelledby="team-title">
+    <h2 id="team-title" class="sr" data-t="team.title">Team</h2>
+    <div class="creator">
+      <p class="label" data-t="team.creator">Designed and created by</p>
+      <p class="person"><a href="https://www.linkedin.com/in/yakigrossman/" target="_blank" rel="noopener" data-t="name.yaki">Yaki Grossman</a><span class="via">LinkedIn</span></p>
+    </div>
+    <p class="label" data-t="team.advisory">Academic research and clinical advisory</p>
+    <div class="advisors">
+      <article class="advisor">
+        <h3><a href="https://scholar.google.com/citations?user=5rl8i9YAAAAJ&amp;hl=en" target="_blank" rel="noopener" data-t="name.adijapha">Prof. Esther Adi-Japha</a></h3>
+        <p data-t="aff.biu_edu"></p><p data-t="aff.gonda"></p><span class="via">Google Scholar</span>
+      </article>
+      <article class="advisor">
+        <h3><a href="https://www.linkedin.com/in/chagit-hollander-85455340/" target="_blank" rel="noopener" data-t="name.hollander">Dr. Chagit Hollander</a></h3>
+        <p data-t="aff.biu_edu"></p><p data-t="aff.gordon"></p><span class="via">LinkedIn</span>
+      </article>
+      <article class="advisor">
+        <h3><a href="https://scholar.google.com/citations?user=yrHhUyUAAAAJ&amp;hl=iw" target="_blank" rel="noopener" data-t="name.dorfberger">Dr. Shoshi Dorfberger</a></h3>
+        <p data-t="aff.gordon"></p><span class="via">Google Scholar</span>
+      </article>
+      <article class="advisor">
+        <h3><a href="https://scholar.google.com/citations?user=rem9j9gAAAAJ&amp;hl=en" target="_blank" rel="noopener" data-t="name.hochhauser">Dr. Michal Hochhauser</a></h3>
+        <p data-t="aff.ariel"></p><span class="via">Google Scholar</span>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p><span data-t="foot.copy"></span></p>
+  <p><span data-t="foot.support">Support:</span> <a href="mailto:yakig@penflow.com">yakig@penflow.com</a> · <a id="guides-link" href="/cockpit/help/en/index.html" data-t="foot.guides">User guides</a></p>
+</footer>
+
+<dialog id="about" aria-labelledby="about-title">
+  <div class="about-head">
+    <h2 id="about-title" data-t="about.title">About the ILT system</h2>
+    <button type="button" class="close" id="about-close" data-t-label="about.close" aria-label="Close">✕</button>
+  </div>
+  <div class="about-body" id="about-body"></div>
+</dialog>
+
+<script src="landing.js"></script>
+</body>
+</html>

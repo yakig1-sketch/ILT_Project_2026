@@ -34,6 +34,8 @@ CMD ["node", "dist/server.js"]
 # ---- web: Caddy serving the three web apps and proxying /api and /ws to the gateway cells ----
 FROM caddy:2.10-alpine AS web
 COPY --from=build /web /srv
+# The landing page: static files, no build step (served at / by the beta's Caddy).
+COPY apps/landing /srv/landing
 
 # ---- analytics: Python service ----
 FROM python:3.12-slim-bookworm AS analytics

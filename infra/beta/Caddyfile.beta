@@ -2,6 +2,7 @@
 # Access the sign-in check in front of it; cloudflared reaches this site on 127.0.0.1:8088 only.
 #   /tablet/   tablet kiosk        /cockpit/   evaluator cockpit and administration
 #   /analyst/  analyst portal      /api/*, /ws/*   the gateway
+#   /          the landing page (apps/landing)
 # The analytics service has no sign-in of its own (the gateway checks the user, DDD §8.9), so it is not
 # published here; only its health check is.
 {
@@ -53,7 +54,10 @@
 		try_files {path} /index.html
 		file_server
 	}
+	# The landing page (apps/landing): About, Login by role, Language.
 	handle {
-		redir * /cockpit/
+		root * /srv/landing
+		try_files {path} /index.html
+		file_server
 	}
 }

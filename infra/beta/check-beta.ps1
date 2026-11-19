@@ -52,6 +52,8 @@ $h = Fetch 'http://127.0.0.1:8088/api/v1/health'
 Check ($h.code -eq 200 -and $h.body -match '"db":true' -and $h.body -match '"s3":true') "API health (database and storage): HTTP $($h.code)" 'Look at the gateway logs (see above)'
 $a = Fetch 'http://127.0.0.1:8088/analytics/api/v1/health'
 Check ($a.code -eq 200) "Analytics health: HTTP $($a.code)" 'docker compose --env-file beta.env -f compose.beta.yml logs --tail 50 analytics'
+$l = Fetch 'http://127.0.0.1:8088/'
+Check ($l.code -eq 200 -and $l.body -match 'Invented Letter Task') "Landing page at /: HTTP $($l.code)" 'Rebuild the web image (it carries apps/landing), then up -d'
 foreach ($app in 'cockpit', 'tablet', 'analyst') {
   $p = Fetch "http://127.0.0.1:8088/$app/"
   Check ($p.code -eq 200) "/$app/ loads: HTTP $($p.code)" 'Rebuild: docker compose --env-file beta.env -f compose.beta.yml build, then up -d'

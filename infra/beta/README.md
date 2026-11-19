@@ -7,6 +7,7 @@ Tester's browser → Cloudflare (HTTPS + Access: invited emails only) → Cloudf
   → 127.0.0.1:8088 → Caddy (web) → /tablet/ /cockpit/ /analyst/ and /api, /ws → gateway → db, s3, analytics
 ```
 
+- **The landing page** (`apps/landing`) is the entry at `https://beta.ilt.network/`: About, Login by role and Language (Hebrew, English, Japanese).
 - **Separate from development.** Project name `ilt-beta`, its own database, storage and Docker volumes. The development stack (`infra/docker-compose.yml`, ports 5432, 8333, 1984) and the Vite servers (5173–5175) are untouched and never exposed.
 - **One port only:** the web front on `127.0.0.1:8088`. Nothing listens on the network; only `cloudflared` on the same machine reaches it.
 - **Test data only.** Beta testers create made-up participants (study codes starting `BETA-`). No real child's data goes into the beta, and no camera is connected.
