@@ -57,7 +57,6 @@
       visitWebsite: 'Visit website ↗',
       'sp.wacom': 'Pen tablets and digital pen technology for recording children\'s handwriting.',
       'sp.wondernet': 'Technology and development partner of the ILT system.',
-      'sp.penflow': 'Core open-source architecture & 240Hz digital ink engineering sponsorship.',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'Faculty of Education, Bar-Ilan University',
@@ -99,7 +98,6 @@
       visitWebsite: 'לאתר השותף ↗',
       'sp.wacom': 'טאבלטים ועטים דיגיטליים לתיעוד כתב היד של הילדים.',
       'sp.wondernet': 'שותף טכנולוגי ופיתוח של מערכת ILT.',
-      'sp.penflow': 'חסות הנדסית לארכיטקטורת הקוד הפתוח וללכידת דיו דיגיטלי ב-240Hz.',
       'name.yaki': 'יקי גרוסמן', 'name.adijapha': 'פרופ׳ אסתר עדי-יפה', 'name.hollander': 'ד״ר חגית הולנדר',
       'name.dorfberger': 'ד״ר שושי דורפברגר', 'name.hochhauser': 'ד״ר מיכל הוכהאוזר',
       'aff.biu_edu': 'הפקולטה לחינוך, אוניברסיטת בר-אילן',
@@ -141,7 +139,6 @@
       visitWebsite: '公式サイトへ ↗',
       'sp.wacom': '子どもの筆跡を記録するペンタブレットとデジタルペン技術。',
       'sp.wondernet': 'ILTシステムの技術・開発パートナー。',
-      'sp.penflow': 'オープンソース基盤設計および240Hzデジタルインク技術の支援。',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'バル＝イラン大学 教育学部',
@@ -255,9 +252,7 @@
     { id: 'wacom', label: 'Wacom', name: 'Wacom', url: 'https://www.wacom.com/en-us', real: true, logo: 'sponsors/wacom.png', w: 242, h: 38, color: '#16324f',
       icon: '<rect x="3" y="8" width="19" height="15" rx="2.5"/><path d="M28.5 4.5L18.5 18.5"/><path d="M18.5 18.5L17.5 21.5L20.2 19.8"/>' },
     { id: 'wondernet', label: 'WonderNet', name: 'WonderNet', url: 'https://www.wondernet.co.il/about/', real: true, logo: 'sponsors/wondernet.png', w: 480, h: 164, color: '#0369a1',
-      icon: '<circle cx="16" cy="16" r="3"/><circle cx="6" cy="8" r="2.5"/><circle cx="26" cy="8" r="2.5"/><circle cx="6" cy="24" r="2.5"/><circle cx="26" cy="24" r="2.5"/><path d="M8 9.5L13.5 14M24 9.5L18.5 14M8 22.5L13.5 18M24 22.5L18.5 18"/>' },
-    { id: 'penflow', label: 'PenFlow Org', name: 'PenFlow Foundation', url: 'https://penflow.com', color: '#16324f',
-      icon: '<path d="M22 4L28 10L12 26H6V20L22 4Z"/><path d="M18 8L24 14"/>' }
+      icon: '<circle cx="16" cy="16" r="3"/><circle cx="6" cy="8" r="2.5"/><circle cx="26" cy="8" r="2.5"/><circle cx="6" cy="24" r="2.5"/><circle cx="26" cy="24" r="2.5"/><path d="M8 9.5L13.5 14M24 9.5L18.5 14M8 22.5L13.5 18M24 22.5L18.5 18"/>' }
   ];
   function closeSponsors(except) {
     document.querySelectorAll('.sponsor-pop').forEach(function (p) {
