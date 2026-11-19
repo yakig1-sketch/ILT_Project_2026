@@ -123,7 +123,8 @@ export const ILT_PROFILE_JA = iltProfile(fillOrderFor(ILT_TATEGAKI_BOXES, 'TTB_R
 /**
  * Kokugo notebook page, upright like the tategaki ILT page so a Japanese session never turns the tablet between
  * steps: 5 columns of 8 squares (masu, 18 mm) with dashed cross-guides and a 4.5 mm furigana strip to the right of
- * each column. The proposal's page had 8 columns, which is 180 mm and does not fit the upright screen (132 mm).
+ * each column (approved by the owner 2026-11-19). The proposal's page had 8 columns, which is 180 mm and does not
+ * fit the upright screen (132 mm).
  * The child writes in the 3 right-hand columns, the top 5 squares each (15, as on the Hebrew notebook page).
  * Timed only. The page's "こくご" heading is not drawn: canvases carry no text.
  */

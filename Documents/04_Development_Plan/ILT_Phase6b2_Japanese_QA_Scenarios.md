@@ -7,7 +7,7 @@
 
 **What was built:**
 - **Japanese as a session language** (`ja`): the child's tablet speaks Japanese; staff screens stay in Hebrew and English. **Off by default**: a Japanese session is refused until the System Administrator adds Japanese to *Enabled languages*, and still refused while its canvases are Drafts.
-- **Two Draft canvases** in the canvas library, set *Japanese*, both **upright (portrait)**: `ILT_TATEGAKI_JA` (3 columns × 5 boxes of 24 mm, filled down each column, columns from the right; **placeholder glyph**) and `NOTEBOOK_KOKUGO_JA` (5 columns of 8 masu of 18 mm with dashed cross-guides; the top 5 of the 3 right-hand columns are written, locked column by column).
+- **Two Draft canvases** in the canvas library, set *Japanese*, both **upright (portrait)**: `ILT_TATEGAKI_JA` (3 columns × 5 boxes of 24 mm, filled down each column, columns from the right; **placeholder glyph**) and `NOTEBOOK_KOKUGO_JA` (5 columns of 8 masu of 18 mm with dashed cross-guides, approved by the owner 2026-11-19; the top 5 of the 3 right-hand columns are written, locked column by column).
 - **Tablet upright for Japanese sessions** (owner decision 2026-11-18): a canvas carries its orientation; the tablet shows "turn the tablet upright / on its side" in the session language instead of a page held the wrong way, and the activation check uses the screen upright for a portrait canvas.
 - **Vertical guide lines** in the canvas format, and the fill direction *Top to bottom, column by column from the right*.
 - **Japanese tablet texts** (draft for review): `ILT_Phase6b2_Japanese_Tablet_Texts_Review.md`.
