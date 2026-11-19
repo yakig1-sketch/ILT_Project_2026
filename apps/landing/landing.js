@@ -267,9 +267,9 @@
 
   // Sponsors: a logo button each; a click opens a small card with the details and the website.
   var SPONSORS = [
-    { id: 'wacom', label: 'Wacom', name: 'Wacom', url: 'https://www.wacom.com/en-us', real: true, color: '#16324f',
+    { id: 'wacom', label: 'Wacom', name: 'Wacom', url: 'https://www.wacom.com/en-us', real: true, logo: 'sponsors/wacom.png', w: 242, h: 38, color: '#16324f',
       icon: '<rect x="3" y="8" width="19" height="15" rx="2.5"/><path d="M28.5 4.5L18.5 18.5"/><path d="M18.5 18.5L17.5 21.5L20.2 19.8"/>' },
-    { id: 'wondernet', label: 'WonderNet', name: 'WonderNet', url: 'https://www.wondernet.co.il/about/', real: true, color: '#0369a1',
+    { id: 'wondernet', label: 'WonderNet', name: 'WonderNet', url: 'https://www.wondernet.co.il/about/', real: true, logo: 'sponsors/wondernet.png', w: 480, h: 164, color: '#0369a1',
       icon: '<circle cx="16" cy="16" r="3"/><circle cx="6" cy="8" r="2.5"/><circle cx="26" cy="8" r="2.5"/><circle cx="6" cy="24" r="2.5"/><circle cx="26" cy="24" r="2.5"/><path d="M8 9.5L13.5 14M24 9.5L18.5 14M8 22.5L13.5 18M24 22.5L18.5 18"/>' },
     { id: 'penflow', label: 'PenFlow Org', name: 'PenFlow Foundation', url: 'https://penflow.com', color: '#16324f',
       icon: '<path d="M22 4L28 10L12 26H6V20L22 4Z"/><path d="M18 8L24 14"/>' },
@@ -296,8 +296,10 @@
     item.className = 'sponsor';
     item.innerHTML =
       '<button type="button" class="sponsor-btn' + (s.real ? ' real' : '') + '" aria-expanded="false" aria-controls="sp-' + s.id + '">' +
-        '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" style="color:' + s.color + '" aria-hidden="true">' + s.icon + '</svg>' +
-        '<span class="sp-label">' + s.label + '</span></button>' +
+        (s.logo
+          ? '<img class="sp-logo" src="' + s.logo + '" width="' + s.w + '" height="' + s.h + '" alt="' + s.name + '">'
+          : '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" style="color:' + s.color + '" aria-hidden="true">' + s.icon + '</svg>' +
+            '<span class="sp-label">' + s.label + '</span>') + '</button>' +
       '<div class="sponsor-pop" id="sp-' + s.id + '" role="dialog" aria-label="' + s.name + '" hidden>' +
         '<div class="sp-head"><span class="sp-name">' + s.name + '</span><button type="button" class="sp-x" data-t-label="close">×</button></div>' +
         '<p class="sp-desc" data-t="sp.' + s.id + '"></p>' +

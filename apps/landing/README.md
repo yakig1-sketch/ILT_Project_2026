@@ -11,7 +11,7 @@ web image (`infra/cloud/ilt.Dockerfile`). Static files only, no build step: `ind
 - **Language**: English, Hebrew (right to left) or Japanese, with SVG flags (flag emoji do not show on Windows).
   The choice is kept in the browser (`ilt.landing_language`); Hebrew and English are also passed to the staff
   apps (`ilt.ui_language`). `?lang=he|en|ja` in the address chooses a language too.
-- **Sponsors**: Wacom and WonderNet (real, with their websites) and the six partners of the Google Site design; the five made-up ones (example.org links) are placeholders until real partners replace them. The list is `SPONSORS` in `landing.js`.
+- **Sponsors**: Wacom and WonderNet (real, with their logos in `sponsors/` and their websites) and the six partners of the Google Site design; the five made-up ones (example.org links) are placeholders until real partners replace them. The list is `SPONSORS` in `landing.js`.
 - **Preview ILT Stroke / Replay**: draws the 3-dot continuous stroke of the ILT letter.
 
 Try it locally: `python3 -m http.server 5180 --directory apps/landing`, then open http://127.0.0.1:5180/.
