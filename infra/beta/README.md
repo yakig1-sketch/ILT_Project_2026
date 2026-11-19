@@ -105,7 +105,13 @@ Then repeat *First install* from step 5.
 
 ## Checks
 
-On NucBox:
+**One command checks everything on NucBox** (it only reads, and changes nothing): Docker and the five containers, the health checks, the three apps, the database (migrations, reference data, videos, accounts, no development accounts, no Japanese), the `cloudflared` service and the Cloudflare sign-in, and that NucBox does not sleep. Every line says PASS, WARN or FAIL, with what to do for each FAIL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Yaki\Documents\GitHub\ILT_Project_2026\infra\beta\check-beta.ps1
+```
+
+The same checks by hand, on NucBox:
 
 ```powershell
 curl.exe -s http://127.0.0.1:8088/api/v1/health
