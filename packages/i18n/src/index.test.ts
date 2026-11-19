@@ -14,9 +14,11 @@ describe('translations', () => {
       'page_of', 'sheet_of', 'next_block', 'next_page', 'pen_down_note', 'video_loading', 'video_failed', 'tap_to_play', 'enter_pin', 'connect'] as const;
     for (const k of childFacing) expect(resources.ja.translation.kiosk[k], k).not.toBe(resources.en.translation.kiosk[k]);
     expect(resources.ja.translation.kiosk.next_page).toBe('つぎのページ');
-    // Hebrew and English notebook pages keep their Next block label.
-    expect(resources.he.translation.kiosk.next_page).toBe(resources.he.translation.kiosk.next_block);
-    expect(resources.en.translation.kiosk.next_page).toBe(resources.en.translation.kiosk.next_block);
+    // A notebook page's button says "next page" in every language (owner review 2026-11-19).
+    expect(resources.he.translation.kiosk.next_page).toBe('לדף הבא');
+    expect(resources.en.translation.kiosk.next_page).toBe('Next page');
+    // No blaming words in the lockout message for the child (owner review).
+    expect(resources.ja.translation.kiosk.pin_locked).not.toContain('まちがい');
     // The staff screens stay in English for a Japanese key.
     expect(resources.ja.translation.auth).toEqual(resources.en.translation.auth);
   });
