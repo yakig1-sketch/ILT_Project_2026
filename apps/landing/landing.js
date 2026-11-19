@@ -1,10 +1,11 @@
-// ILT System landing page: texts in Hebrew, English and Japanese, the language and login menus, and About.
-// Plain script, no build step. The chosen language is kept in this browser; Hebrew and English are also
-// passed on to the staff apps (same key as packages/ui), so the cockpit and portal open in that language.
+// ILT System landing page: texts in English, Hebrew and Japanese, the Login and Language menus, About,
+// and the 3-dot stroke preview. Plain script, no build step. The chosen language is kept in this browser;
+// Hebrew and English are also passed on to the staff apps (same key as packages/ui), so the cockpit and
+// the analyst portal open in that language.
 (function () {
   'use strict';
 
-  var LANGS = ['he', 'en', 'ja'];
+  var LANGS = ['en', 'he', 'ja'];
   var STORE = 'ilt.landing_language';
   var STAFF_STORE = 'ilt.ui_language';
   var uid = 0;
@@ -30,133 +31,112 @@
 
   var T = {
     en: {
-      name: 'English', dir: 'ltr', title: 'ILT System',
-      'nav.about': 'About', 'nav.login': 'Login', 'nav.language': 'Language',
-      'login.head': 'Sign in as',
-      'role.evaluator': 'Evaluator', 'role.researcher': 'Researcher', 'role.analyst': 'Analyst', 'role.admin': 'System administrator', 'role.tablet': 'Child tablet',
-      'hero.title': 'Invented Letter Task (ILT) System',
-      'hero.subtitle': 'Procedural motor skill learning',
-      'hero.tagline': 'For the children of the world',
-      'hero.lead': 'The ILT system is a non-commercial, open-source platform for early screening and support of handwriting and learning difficulties. A child writes an invented letter again and again on a pen tablet, and the system measures how the new motor skill is learned and kept, in speed, accuracy and pen lifts, from Day 1 to Day 14. It also supports a follow-up intervention program with real letters.',
-      'cta.login': 'Sign in', 'cta.about': 'About the system',
-      'roles.title': 'One system, every role',
-      'desc.evaluator': 'Runs sessions with the child on the tablet and watches the writing live.',
-      'desc.researcher': 'Plans participants and sessions, and reviews results and summaries.',
-      'desc.analyst': 'Works with de-identified research data: dashboards, replay and exports.',
-      'desc.admin': 'Manages settings, canvases, users and the action log.',
-      'card.go': 'Sign in',
-      'team.title': 'Team', 'team.creator': 'Designed and created by', 'team.advisory': 'Academic research and clinical advisory',
+      langName: 'English', dir: 'ltr', guides: 'en',
+      title: 'Invented Letter Task (ILT) System',
+      skip: 'Skip to content',
+      brandTitle: 'ILT System', brandSub: 'Open-Source Research Platform',
+      about: 'About', login: 'Login', language: 'Language', loginHeader: 'Select User Portal',
+      'role.evaluator': 'Evaluator', 'role.analyst': 'Analyst', 'role.researcher': 'Researcher', 'role.admin': 'Sys. Admin', 'role.tablet': "Child's tablet",
+      'desc.evaluator': 'Conduct live 1:1 or small-group student tablet sessions and clinical scoring.',
+      'desc.analyst': 'Inspect de-identified 240Hz kinematic replays and longitudinal cohort slices.',
+      'desc.researcher': 'Configure protocol timers, canonical letter models, and study governance.',
+      'desc.admin': 'Manage system users, districts, templates, and infrastructure health.',
+      'desc.tablet': 'The pen tablet the child writes on, paired with a session code.',
+      heroBadge: 'For the children of the world',
+      heroTitle: 'Invented Letter Task (ILT) System',
+      heroSubtitle: 'Procedural motor skill learning',
+      heroDesc: 'The ILT system is a non-commercial open-source platform designed for early screening and remediation of literacy and graphomotor difficulties in elementary school children. Grounded in over a decade of neurocognitive research on the Procedural Learning System (PLS), it transforms the validated Invented Letter Task into a precise 240Hz digital assessment accessible across languages and socioeconomic backgrounds.',
+      heroAboutBtn: 'Read About the Research', heroDemoBtn: 'Preview ILT Stroke',
+      creditLabel: 'Designed and created by:',
+      photoAlt: 'A child writing in a notebook',
+      previewTitle: 'ILT 3-Dot Continuous Stroke', previewSub: 'Learning (Day 1) → Automaticity (Week 2)', replay: 'Replay',
+      advisoryHeading: 'Academic Research and Clinical Advisory',
+      advisorySubheading: 'Empirical neurocognitive research & clinical leadership',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'Faculty of Education, Bar-Ilan University',
       'aff.gonda': 'Gonda (Goldschmied) Multidisciplinary Brain Research Center, Bar-Ilan University',
       'aff.gordon': 'Gordon College of Education',
-      'aff.ariel': 'Department of Occupational Therapy, Faculty of Health Sciences, Ariel University',
-      'foot.copy': '© 2026 ILT System · Open source and non-commercial',
-      'foot.support': 'Support:', 'foot.guides': 'User guides', guides: 'en',
-      'about.title': 'About the ILT system', 'about.close': 'Close',
-      about:
-        '<h3>The Invented Letter Task</h3>' +
-        '<p>In the Invented Letter Task (ILT), a child learns to write a letter that belongs to no alphabet: a simple shape that joins three dots. The child writes it again and again on a page of 15 boxes, in short blocks over three sessions (Day 1, Day 2 and Day 14). Because the letter is new to every child, it shows how quickly a new motor skill is learned and how well it is kept. This procedural learning is closely linked to learning to read and write.</p>' +
-        '<h3>What the system measures</h3>' +
-        '<p>The child writes with a pen on a tablet, and every pen sample is recorded. Each block is scored for speed, accuracy (passing through the dots in order) and pen lifts, with a combined score and the learning curve across the days. A replay shows exactly how each letter was written.</p>' +
-        '<h3>Who uses it</h3>' +
-        '<ul><li><b>Evaluators</b> run the sessions with the child and watch the writing live.</li>' +
-        '<li><b>Researchers</b> plan participants and sessions and review the results.</li>' +
-        '<li><b>Analysts</b> work with de-identified research data and export it for analysis.</li>' +
-        '<li><b>System administrators</b> manage settings, canvases and users.</li></ul>' +
-        '<h3>Intervention</h3>' +
-        '<p>After screening, the system supports an intervention program with real letters, with suggested marks that the evaluator confirms.</p>' +
-        '<h3>Privacy and ethics</h3>' +
-        '<p>Research use requires a valid ethics approval and parental consent. Analysts see only de-identified data, and school names are never stored.</p>' +
-        '<h3>Open and non-commercial</h3>' +
-        '<p>The ILT system is open source and non-commercial, made for schools, clinics and researchers, with a focus on children from low socio-economic backgrounds. It works in Hebrew and English; Japanese is in preparation.</p>'
+      'aff.ariel': 'Dept. of Occupational Therapy, Faculty of Health Sciences, Ariel University',
+      footerCopyright: '© 2026 Invented Letter Task (ILT) Open-Source Initiative. Non-Commercial Educational Research Platform.',
+      footerSupport: 'Support & Collaboration:', footerGuides: 'User guides',
+      aboutTitle: 'About the Invented Letter Task (ILT) System', close: 'Close',
+      aboutHtml:
+        '<p><strong>What the Research Examined:</strong> Grounded in longitudinal research by Dr. Chagit Hollander, Prof. Esther Adi-Japha, Dr. Shoshi Dorfberger, and Dr. Michal Hochhauser (2025), the Invented Letter Task (ILT) isolates pure <em>procedural motor skill learning</em>—the ability to acquire and stabilize a novel writing movement across time.</p>' +
+        '<p><strong>Key Scientific Findings:</strong> Across 124 second-grade students from low-SES schools, Day 1 skill acquisition (<em>Learning phase</em>) and 2-week post-training retention (<em>Automaticity phase</em>) significantly predicted end-of-year reading comprehension (R² = 36%) and written expression (R² = 49%), as well as early risk for literacy impairments.</p>' +
+        '<p><strong>Digital Ecological Validity:</strong> Built as an open-source, non-commercial platform, the ILT system captures 240Hz digital ink kinematics while preserving authentic classroom notebook layouts across Hebrew, English, and Japanese.</p>'
     },
     he: {
-      name: 'עברית', dir: 'rtl', title: 'מערכת ILT',
-      'nav.about': 'אודות', 'nav.login': 'כניסה', 'nav.language': 'שפה',
-      'login.head': 'כניסה בתור',
-      'role.evaluator': 'בוחן/ת', 'role.researcher': 'חוקר/ת', 'role.analyst': 'אנליסט/ית', 'role.admin': 'מנהל/ת מערכת', 'role.tablet': 'טאבלט הילד/ה',
-      'hero.title': 'מערכת משימת האות המומצאת (ILT)',
-      'hero.subtitle': 'למידה של מיומנות מוטורית פרוצדורלית',
-      'hero.tagline': 'לילדי העולם',
-      'hero.lead': 'מערכת ILT היא פלטפורמה ללא מטרות רווח ובקוד פתוח, לאיתור מוקדם ולתמיכה בקשיי כתיבה ולמידה. הילד/ה כותב/ת שוב ושוב אות מומצאת בעט על טאבלט, והמערכת מודדת איך המיומנות המוטורית החדשה נלמדת ונשמרת, במהירות, בדיוק ובהרמות העט, מיום 1 ועד יום 14. היא תומכת גם בתוכנית התערבות עם אותיות אמיתיות.',
-      'cta.login': 'כניסה', 'cta.about': 'אודות המערכת',
-      'roles.title': 'מערכת אחת, לכל תפקיד',
-      'desc.evaluator': 'מנהל/ת מפגשים עם הילד/ה בטאבלט וצופה בכתיבה בזמן אמת.',
-      'desc.researcher': 'מתכנן/ת משתתפים ומפגשים, וסוקר/ת תוצאות וסיכומים.',
-      'desc.analyst': 'עובד/ת עם נתוני מחקר ללא פרטים מזהים: סקירה, הצגה חוזרת וייצוא.',
-      'desc.admin': 'מנהל/ת הגדרות, קנבסים, משתמשים ויומן פעולות.',
-      'card.go': 'כניסה',
-      'team.title': 'הצוות', 'team.creator': 'תכנון ופיתוח', 'team.advisory': 'ייעוץ אקדמי, מחקרי וקליני',
+      langName: 'עברית', dir: 'rtl', guides: 'he',
+      title: 'מערכת Invented Letter Task (ILT)',
+      skip: 'דילוג לתוכן',
+      brandTitle: 'מערכת ILT', brandSub: 'פלטפורמת מחקר בקוד פתוח',
+      about: 'אודות', login: 'התחברות', language: 'שפה', loginHeader: 'בחירת עמדת משתמש',
+      'role.evaluator': 'בוחן / מאבחן', 'role.analyst': 'אנליסט מחקר', 'role.researcher': 'חוקר ראשי', 'role.admin': 'מנהל מערכת', 'role.tablet': 'טאבלט הילד/ה',
+      'desc.evaluator': 'ניהול מפגשי אבחון חיים בטאבלט (1:1 או קבוצה קטנה) ומילוי קריטריונים.',
+      'desc.analyst': 'שחזור קינמטי מלא של כתיבה ב-240Hz וניתוח חיתוכי נתונים מותממים.',
+      'desc.researcher': 'הגדרת פרוטוקולי מחקר, טיימרים, מודלי אותיות ומשילות מערכת.',
+      'desc.admin': 'ניהול משתמשים, מחוזות, תבניות כתיבה ותשתית המערכת.',
+      'desc.tablet': 'הטאבלט שעליו הילד/ה כותב/ת בעט, מצומד למפגש בקוד.',
+      heroBadge: 'למען ילדי העולם',
+      heroTitle: 'מערכת Invented Letter Task (ILT)',
+      heroSubtitle: 'למידה פרוצדורלית של מיומנות מוטורית',
+      heroDesc: 'מערכת ILT היא פלטפורמה אקדמית לא-מסחרית בקוד פתוח, המיועדת לאיתור מוקדם ולמניעת לקויות קריאה וכתיבה בקרב ילדי בית הספר היסודי. המערכת מבוססת על למעלה מעשור של מחקר נוירו-קוגניטיבי על מערכת הלמידה הפרוצדורלית (PLS), וממירה את משימת האות המומצאת לאבחון דיגיטלי מדויק בקצב 240Hz הנגיש במגוון שפות ורקעים.',
+      heroAboutBtn: 'קראו עוד על המחקר', heroDemoBtn: 'הדגמת משיכת ILT',
+      creditLabel: 'אפיון, עיצוב ופיתוח:',
+      photoAlt: 'ילד כותב במחברת',
+      previewTitle: 'משיכת עט רציפה ב-3 נקודות', previewSub: 'למידה (יום 1) ← אוטומטיות (שבוע 2)', replay: 'נגן שוב',
+      advisoryHeading: 'מחקר אקדמי וייעוץ קליני',
+      advisorySubheading: 'הובלה מדעית ומחקר נוירו-קוגניטיבי אמפירי',
       'name.yaki': 'יקי גרוסמן', 'name.adijapha': 'פרופ׳ אסתר עדי-יפה', 'name.hollander': 'ד״ר חגית הולנדר',
       'name.dorfberger': 'ד״ר שושי דורפברגר', 'name.hochhauser': 'ד״ר מיכל הוכהאוזר',
       'aff.biu_edu': 'הפקולטה לחינוך, אוניברסיטת בר-אילן',
       'aff.gonda': 'המרכז הרב-תחומי לחקר המוח ע״ש גונדה (גולדשמיד), אוניברסיטת בר-אילן',
       'aff.gordon': 'המכללה האקדמית לחינוך גורדון',
       'aff.ariel': 'המחלקה לריפוי בעיסוק, הפקולטה למדעי הבריאות, אוניברסיטת אריאל',
-      'foot.copy': '© 2026 מערכת ILT · קוד פתוח, ללא מטרות רווח',
-      'foot.support': 'תמיכה:', 'foot.guides': 'מדריכים למשתמש', guides: 'he',
-      'about.title': 'אודות מערכת ILT', 'about.close': 'סגירה',
-      about:
-        '<h3>משימת האות המומצאת</h3>' +
-        '<p>במשימת האות המומצאת (ILT) הילד/ה לומד/ת לכתוב אות שאינה שייכת לשום אלפבית: צורה פשוטה המחברת שלוש נקודות. הילד/ה כותב/ת אותה שוב ושוב בדף של 15 בתים, בבלוקים קצרים לאורך שלושה מפגשים (יום 1, יום 2 ויום 14). מכיוון שהאות חדשה לכל ילד/ה, היא מראה כמה מהר נלמדת מיומנות מוטורית חדשה וכמה טוב היא נשמרת. למידה פרוצדורלית זו קשורה הדוקות ללמידת הקריאה והכתיבה.</p>' +
-        '<h3>מה המערכת מודדת</h3>' +
-        '<p>הילד/ה כותב/ת בעט על טאבלט, וכל דגימה של העט נשמרת. כל בלוק מקבל ציון למהירות, לדיוק (מעבר בנקודות לפי הסדר) ולהרמות העט, עם ציון משוקלל ועקומת למידה לאורך הימים. הצגה חוזרת מראה בדיוק איך נכתבה כל אות.</p>' +
-        '<h3>מי משתמש במערכת</h3>' +
-        '<ul><li><b>בוחנים</b> מנהלים את המפגשים עם הילד/ה וצופים בכתיבה בזמן אמת.</li>' +
-        '<li><b>חוקרים</b> מתכננים משתתפים ומפגשים וסוקרים את התוצאות.</li>' +
-        '<li><b>אנליסטים</b> עובדים עם נתוני מחקר ללא פרטים מזהים ומייצאים אותם לניתוח.</li>' +
-        '<li><b>מנהלי מערכת</b> מנהלים הגדרות, קנבסים ומשתמשים.</li></ul>' +
-        '<h3>התערבות</h3>' +
-        '<p>אחרי האיתור, המערכת תומכת בתוכנית התערבות עם אותיות אמיתיות, עם סימונים מוצעים שהבוחן/ת מאשר/ת.</p>' +
-        '<h3>פרטיות ואתיקה</h3>' +
-        '<p>שימוש מחקרי מחייב אישור אתיקה בתוקף והסכמת הורים. אנליסטים רואים רק נתונים ללא פרטים מזהים, ושמות בתי ספר לעולם אינם נשמרים.</p>' +
-        '<h3>פתוחה וללא מטרות רווח</h3>' +
-        '<p>מערכת ILT היא בקוד פתוח וללא מטרות רווח, ונבנתה לבתי ספר, למרפאות ולחוקרים, עם דגש על ילדים מרקע חברתי-כלכלי נמוך. היא פועלת בעברית ובאנגלית; יפנית בהכנה.</p>'
+      footerCopyright: '© 2026 יוזמת הקוד הפתוח ILT. פלטפורמת מחקר חינוכית לא-מסחרית.',
+      footerSupport: 'תמיכה ושיתופי פעולה:', footerGuides: 'מדריכים למשתמש',
+      aboutTitle: 'אודות מערכת ILT והמחקר המדעי', close: 'סגירה',
+      aboutHtml:
+        '<p><strong>מה בחן המחקר:</strong> בהסתמך על מחקר האורך של ד"ר חגית הולנדר, פרופ\' אסתר עדי-יפה, ד"ר שושי דורפברגר וד"ר מיכל הוכהאוזר (2025), משימת האות המומצאת (ILT) מבודדת <em>למידה מוטורית פרוצדורלית</em> נקייה — היכולת לרכוש ולייצב מיומנות כתיבה חדשה לאורך זמן.</p>' +
+        '<p><strong>ממצאים מרכזיים:</strong> במעקב אחר 124 תלמידי כיתה ב\' מרקע סוציו-אקונומי נמוך, הישגי היום הראשון (<em>שלב הלמידה</em>) והביצוע לאחר שבועיים (<em>שלב האוטומטיות</em>) ניבאו באופן מובהק את הבנת הנקרא (R² = 36%) וההבעה בכתב (R² = 49%) בסוף השנה, וכן סיכון מוקדם ללקויות אוריינות.</p>' +
+        '<p><strong>תקפות אקולוגית דיגיטלית:</strong> כפלטפורמת קוד פתוח לא-מסחרית, המערכת דוגמת תנועות עט בקצב 240Hz תוך שמירה על תבניות מחברת אותנטיות בעברית, באנגלית וביפנית.</p>'
     },
     ja: {
-      name: '日本語', dir: 'ltr', title: 'ILTシステム',
-      'nav.about': '概要', 'nav.login': 'ログイン', 'nav.language': '言語',
-      'login.head': 'ログインする立場',
-      'role.evaluator': '評価者', 'role.researcher': '研究者', 'role.analyst': 'アナリスト', 'role.admin': 'システム管理者', 'role.tablet': '子ども用タブレット',
-      'hero.title': 'つくった文字の課題（ILT）システム',
-      'hero.subtitle': '手続き的な運動スキルの学習',
-      'hero.tagline': '世界の子どもたちのために',
-      'hero.lead': 'ILTシステムは、書字と学習のつまずきを早期に見つけ、支援するための非営利・オープンソースのプラットフォームです。子どもはペンタブレットで「つくった文字」をくり返し書き、システムは新しい運動スキルがどのように身につき、保たれるかを、速さ・正確さ・ペンの持ち上げ回数で、1日目から14日目まで測定します。実際の文字を使った支援プログラムにも対応しています。',
-      'cta.login': 'ログイン', 'cta.about': 'システムの概要',
-      'roles.title': 'ひとつのシステム、それぞれの役割',
-      'desc.evaluator': 'タブレットで子どもとのセッションを行い、書く様子をリアルタイムで見守ります。',
-      'desc.researcher': '参加者とセッションを計画し、結果とまとめを確認します。',
-      'desc.analyst': '個人を特定できない研究データを扱います：概要、再生、エクスポート。',
-      'desc.admin': '設定、キャンバス、ユーザー、操作ログを管理します。',
-      'card.go': 'ログイン',
-      'team.title': 'チーム', 'team.creator': '設計・開発', 'team.advisory': '学術研究・臨床アドバイザー',
+      langName: '日本語', dir: 'ltr', guides: 'en',
+      title: 'Invented Letter Task (ILT) システム',
+      skip: '本文へ移動',
+      brandTitle: 'ILT システム', brandSub: 'オープンソース研究プラットフォーム',
+      about: 'システムについて', login: 'ログイン', language: '言語', loginHeader: 'ユーザーポータルを選択',
+      'role.evaluator': '検査者 (Evaluator)', 'role.analyst': '分析者 (Analyst)', 'role.researcher': '研究者 (Researcher)', 'role.admin': 'システム管理者', 'role.tablet': '子ども用タブレット',
+      'desc.evaluator': '1対1または少人数でのタブレット検査と行動チェックリストを管理します。',
+      'desc.analyst': '匿名化された240Hz筆跡データの再生とコホート分析を行います。',
+      'desc.researcher': 'タイマー設定、基準文字モデル、研究ガバナンスを管理します。',
+      'desc.admin': 'ユーザー権限、地域ドメイン、テンプレート設定を管理します。',
+      'desc.tablet': '子どもがペンで書くタブレット（セッションコードで接続）。',
+      heroBadge: '世界の子どもたちのために',
+      heroTitle: 'Invented Letter Task (ILT) システム',
+      heroSubtitle: '手続き的運動スキル学習（Procedural motor skill learning）',
+      heroDesc: 'ILTシステムは、小学生の読み書き・書字運動の困難を早期に発見し支援するための、非営利・オープンソースの教育研究プラットフォームです。手続き的学習システム（PLS）に関する10年以上の神経認知研究に基づき、新奇文字課題（ILT）を240Hzの高精度デジタルインク評価として実現しました。',
+      heroAboutBtn: '研究の背景を読む', heroDemoBtn: 'ILTストロークを見る',
+      creditLabel: '設計・開発:',
+      photoAlt: 'ノートに字を書く子ども',
+      previewTitle: 'ILT 3点連続ストローク', previewSub: '学習期（1日目）→ 自動化期（2週間後）', replay: '再生',
+      advisoryHeading: '学術研究・臨床アドバイザリー',
+      advisorySubheading: '実証的神経認知研究および臨床監修チーム',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
       'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
       'aff.biu_edu': 'バル＝イラン大学 教育学部',
       'aff.gonda': 'バル＝イラン大学 ゴンダ（ゴールドシュミット）学際的脳研究センター',
       'aff.gordon': 'ゴードン教育大学',
       'aff.ariel': 'アリエル大学 健康科学部 作業療法学科',
-      'foot.copy': '© 2026 ILTシステム・オープンソース、非営利',
-      'foot.support': 'サポート：', 'foot.guides': '利用ガイド（英語）', guides: 'en',
-      'about.title': 'ILTシステムの概要', 'about.close': '閉じる',
-      about:
-        '<h3>つくった文字の課題（ILT）</h3>' +
-        '<p>ILTでは、子どもはどのアルファベットにも属さない文字、つまり3つの点を結ぶシンプルな形を書くことを学びます。子どもは15のマスがあるページにこの文字をくり返し書き、短いブロックに分けて3回のセッション（1日目、2日目、14日目）で取り組みます。どの子どもにとっても新しい文字なので、新しい運動スキルがどれだけ早く身につき、どれだけ保たれるかがわかります。この手続き的な学習は、読み書きの習得と深く関わっています。</p>' +
-        '<h3>システムが測定すること</h3>' +
-        '<p>子どもはタブレットにペンで書き、ペンのすべてのデータが記録されます。各ブロックは、速さ、正確さ（点を順番に通ること）、ペンの持ち上げ回数で採点され、総合スコアと日ごとの学習曲線が示されます。再生機能で、それぞれの文字がどのように書かれたかを正確に確認できます。</p>' +
-        '<h3>利用者</h3>' +
-        '<ul><li><b>評価者</b>：子どもとのセッションを行い、書く様子をリアルタイムで見守ります。</li>' +
-        '<li><b>研究者</b>：参加者とセッションを計画し、結果を確認します。</li>' +
-        '<li><b>アナリスト</b>：個人を特定できない研究データを扱い、分析のためにエクスポートします。</li>' +
-        '<li><b>システム管理者</b>：設定、キャンバス、ユーザーを管理します。</li></ul>' +
-        '<h3>支援プログラム</h3>' +
-        '<p>スクリーニングの後、実際の文字を使った支援プログラムに対応し、評価者が確認する採点の提案を行います。</p>' +
-        '<h3>プライバシーと倫理</h3>' +
-        '<p>研究での利用には、有効な倫理審査の承認と保護者の同意が必要です。アナリストが見るのは個人を特定できないデータだけで、学校名は保存されません。</p>' +
-        '<h3>オープンで非営利</h3>' +
-        '<p>ILTシステムはオープンソースかつ非営利で、学校、クリニック、研究者のためにつくられ、社会経済的に恵まれない家庭の子どもたちに重点を置いています。現在はヘブライ語と英語に対応し、日本語は準備中です。</p>'
+      footerCopyright: '© 2026 Invented Letter Task (ILT) オープンソース・イニシアチブ（非営利教育研究基盤）',
+      footerSupport: 'お問い合わせ・サポート:', footerGuides: '利用ガイド（英語）',
+      aboutTitle: 'ILTシステムと背景研究について', close: '閉じる',
+      aboutHtml:
+        '<p><strong>研究の目的:</strong> Hollander, Adi-Japha, Dorfberger, Hochhauser (2025) の縦断研究に基づき、新奇文字課題（ILT）は既存の文字知識に左右されない純粋な<em>手続き的運動スキル学習</em>（新しい書字運動の獲得と定着）を測定します。</p>' +
+        '<p><strong>主な研究成果:</strong> 低SES地域の小学2年生124名を対象とした研究では、1日目の学習達成度（<em>学習期</em>）と2週間後の保持（<em>自動化期</em>）が、学年末の読解力（R² = 36%）および作文表現力（R² = 49%）と読み書き困難のリスクを有意に予測しました。</p>' +
+        '<p><strong>生態学的妥当性の確保:</strong> 非営利のオープンソース基盤として、ヘブライ語・英語・日本語（縦書き・国語マス目）の自然なノート形式を保ちながら、240Hzのペン軌跡データを記録します。</p>'
     }
   };
 
@@ -164,11 +144,12 @@
   function read(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
 
   function initialLang() {
-    var saved = read(STORE);
-    if (LANGS.indexOf(saved) >= 0) return saved;
-    var nav = (navigator.language || 'en').toLowerCase();
-    if (nav.indexOf('he') === 0 || nav.indexOf('iw') === 0) return 'he';
-    if (nav.indexOf('ja') === 0) return 'ja';
+    var q = (location.search.match(/[?&]lang=(he|en|ja)\b/) || [])[1];
+    if (q) return q;
+    var s = read(STORE);
+    if (s && T[s]) return s;
+    var nav = (navigator.languages || [navigator.language || 'en']).map(function (l) { return String(l).slice(0, 2).toLowerCase(); });
+    for (var i = 0; i < nav.length; i++) { if (nav[i] === 'iw') return 'he'; if (T[nav[i]]) return nav[i]; }
     return 'en';
   }
 
@@ -176,31 +157,33 @@
   var current = 'en';
 
   function apply(lang) {
-    var t = T[lang];
-    current = lang;
-    document.documentElement.lang = lang;
+    var t = T[lang] || T.en;
+    current = T[lang] ? lang : 'en';
+    document.documentElement.lang = current;
     document.documentElement.dir = t.dir;
     document.title = t.title;
     document.querySelectorAll('[data-t]').forEach(function (el) {
       var v = t[el.getAttribute('data-t')];
-      if (v !== undefined) el.textContent = v;
+      if (v != null) el.textContent = v;
     });
-    document.querySelectorAll('[data-t-label]').forEach(function (el) {
-      el.setAttribute('aria-label', t[el.getAttribute('data-t-label')]);
-    });
-    $('about-body').innerHTML = t.about;
-    $('lang-flag').innerHTML = flag(lang);
-    $('lang-btn').setAttribute('aria-label', t['nav.language'] + ': ' + t.name);
+    document.querySelectorAll('[data-t-label]').forEach(function (el) { el.setAttribute('aria-label', t[el.getAttribute('data-t-label')]); });
+    document.querySelectorAll('[data-t-alt]').forEach(function (el) { el.setAttribute('alt', t[el.getAttribute('data-t-alt')]); });
+    document.querySelectorAll('#login-menu [data-role]').forEach(function (a) { a.title = t['desc.' + a.getAttribute('data-role')]; });
+    document.querySelector('#login-menu .mi-tablet').title = t['desc.tablet'];
+    $('lang-flag').innerHTML = flag(current);
+    $('lang-name').textContent = t.langName;
+    $('lang-btn').setAttribute('aria-label', t.language + ': ' + t.langName);
+    $('about-body').innerHTML = t.aboutHtml;
     $('guides-link').href = '/cockpit/help/' + t.guides + '/index.html';
     document.querySelectorAll('#lang-menu button').forEach(function (b) {
-      b.setAttribute('aria-checked', String(b.getAttribute('data-lang') === lang));
+      b.setAttribute('aria-current', b.getAttribute('data-lang') === current ? 'true' : 'false');
     });
-    store(STORE, lang);
-    // The staff apps speak Hebrew and English: pass the choice on (same origin, packages/ui key).
-    if (lang === 'he' || lang === 'en') store(STAFF_STORE, lang);
+    store(STORE, current);
+    // The staff apps speak Hebrew and English only; Japanese leaves their language as it was.
+    if (current === 'he' || current === 'en') store(STAFF_STORE, current);
   }
 
-  // ----- menus -----
+  // Menus: Login and Language. Click or Enter opens; Escape, a click outside or Tab away closes.
   function closeAll(except) {
     document.querySelectorAll('.menu-list').forEach(function (m) {
       if (m === except) return;
@@ -209,13 +192,14 @@
       if (b) b.setAttribute('aria-expanded', 'false');
     });
   }
+  function items(menu) { return Array.prototype.slice.call(menu.querySelectorAll('a, button')); }
   function toggle(btn, focusFirst) {
     var menu = $(btn.getAttribute('aria-controls'));
     var open = menu.hidden;
     closeAll(menu);
     menu.hidden = !open;
-    btn.setAttribute('aria-expanded', String(open));
-    if (open && focusFirst) { var first = menu.querySelector('a, button'); if (first) first.focus(); }
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open && focusFirst) items(menu)[0].focus();
   }
   ['login-btn', 'lang-btn'].forEach(function (id) {
     $(id).addEventListener('click', function (e) { e.stopPropagation(); toggle($(id), e.detail === 0); });
@@ -224,44 +208,96 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     var open = document.querySelector('.menu-list:not([hidden])');
-    if (open) { closeAll(); var b = document.querySelector('[aria-controls="' + open.id + '"]'); if (b) b.focus(); }
+    if (open) { closeAll(); document.querySelector('[aria-controls="' + open.id + '"]').focus(); }
   });
   document.querySelectorAll('.menu-list').forEach(function (menu) {
     menu.addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       e.preventDefault();
-      var items = Array.prototype.slice.call(menu.querySelectorAll('a, button'));
-      var i = items.indexOf(document.activeElement);
-      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+      var list = items(menu);
+      var i = list.indexOf(document.activeElement);
+      list[(i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length].focus();
     });
+    menu.addEventListener('focusout', function (e) { if (!menu.parentNode.contains(e.relatedTarget)) closeAll(); });
   });
 
-  var langMenu = $('lang-menu');
   LANGS.forEach(function (l) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.setAttribute('role', 'menuitemradio');
+    b.setAttribute('role', 'menuitem');
     b.setAttribute('data-lang', l);
     b.setAttribute('lang', l);
-    b.innerHTML = '<span class="flag">' + flag(l) + '</span><span>' + T[l].name + '</span>';
+    b.innerHTML = '<span class="flag">' + flag(l) + '</span><span class="mi-label">' + T[l].langName + '</span>';
     b.addEventListener('click', function () { apply(l); closeAll(); $('lang-btn').focus(); });
-    langMenu.appendChild(b);
+    $('lang-menu').appendChild(b);
   });
 
-  $('cta-login').addEventListener('click', function (e) {
-    e.stopPropagation();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if ($('login-menu').hidden) toggle($('login-btn'), true);
-  });
-
-  // ----- About -----
+  // About
   var dlg = $('about');
-  function openAbout() { closeAll(); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); $('about-body').scrollTop = 0; }
+  function openAbout() {
+    closeAll();
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    $('about-body').scrollTop = 0;
+  }
+  function closeAbout() { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
   $('about-btn').addEventListener('click', openAbout);
   $('cta-about').addEventListener('click', openAbout);
-  $('about-close').addEventListener('click', function () { dlg.close(); });
-  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
-  dlg.addEventListener('close', function () { if (location.hash === '#about') history.replaceState(null, '', location.pathname); });
+  $('about-x').addEventListener('click', closeAbout);
+  $('about-close').addEventListener('click', closeAbout);
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) closeAbout(); });
+
+  // The 3-dot stroke preview: one continuous stroke through the three dots of the ILT letter.
+  var canvas = $('stroke-canvas');
+  var ctx = canvas.getContext && canvas.getContext('2d');
+  var pts = [{ x: 58, y: 14 }, { x: 24, y: 34 }, { x: 58, y: 54 }];
+  var anim = null;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function setupCanvas() {
+    var r = window.devicePixelRatio || 1;
+    canvas.width = 84 * r; canvas.height = 68 * r;
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+  }
+  function drawBase() {
+    ctx.clearRect(0, 0, 84, 68);
+    pts.forEach(function (p) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2); ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fillStyle = '#16324f'; ctx.fill();
+    });
+  }
+  function drawStroke(progress) {
+    drawBase();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    var a = progress <= 0.5 ? 0 : 1;
+    var k = progress <= 0.5 ? progress / 0.5 : (progress - 0.5) / 0.5;
+    if (a === 1) ctx.lineTo(pts[1].x, pts[1].y);
+    ctx.lineTo(pts[a].x + (pts[a + 1].x - pts[a].x) * k, pts[a].y + (pts[a + 1].y - pts[a].y) * k);
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+  function play() {
+    if (!ctx) return;
+    if (anim) cancelAnimationFrame(anim);
+    if (reduced) { drawStroke(1); return; }
+    var progress = 0;
+    (function step() {
+      progress = Math.min(1, progress + 0.025);
+      drawStroke(progress);
+      anim = progress < 1 ? requestAnimationFrame(step) : null;
+    })();
+  }
+  if (ctx) { setupCanvas(); drawBase(); setTimeout(play, 400); }
+  $('replay').addEventListener('click', play);
+  $('cta-stroke').addEventListener('click', function () {
+    var card = $('stroke-card');
+    var r = card.getBoundingClientRect();
+    if (r.top < 64 || r.bottom > window.innerHeight) card.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    card.classList.remove('flash');
+    void card.offsetWidth;
+    card.classList.add('flash');
+    setTimeout(function () { card.classList.remove('flash'); }, 1600);
+    play();
+  });
 
   apply(initialLang());
   if (location.hash === '#about') openAbout();
