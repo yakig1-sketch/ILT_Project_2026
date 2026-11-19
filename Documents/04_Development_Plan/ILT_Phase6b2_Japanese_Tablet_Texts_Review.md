@@ -4,7 +4,7 @@
 
 Only the texts the child sees on the tablet (and the code screen it returns to after a Japanese session) are translated; staff screens stay in Hebrew and English. Hiragana with spaces between phrases (分かち書き), ください always spaced, no kanji (no furigana on the tablet), no adult jargon (ほぞん, サーバー, けた, タップ, たんまつ), and no blaming words in the lockout message.
 
-Changes in draft 3 (14 texts): rows 4, 6, 8 (あたらしい もじ chosen of the two proposals), 15, 18, 19, 21–23, 25–26, 27–29; the notebook-page button now says *Next page* / *לדף הבא* in English and Hebrew too (and the evaluator guide says so). Optional suggestions for rows 1, 3, 16 and the notes on rows 7 and 27–28 were left as they are, apart from the spacing.
+Changes in draft 3 (14 texts): rows 4, 6, 8 (つくった もじ, the owner's choice of the two proposals), 15, 18, 19, 21–23, 25–26, 27–29; the notebook-page button now says *Next page* / *לדף הבא* in English and Hebrew too (and the evaluator guide says so). Rows 27–28 speak to the child (たてに してね / よこに してね, owner 2026-11-19). Row 7 stays: the evaluator taps it. Optional suggestions for rows 1, 3, 16 were left as they are.
 
 | # | Key (`kiosk.` unless shown) | English | Hebrew | Japanese | Previous Japanese (if changed) |
 |---|---|---|---|---|---|
@@ -15,7 +15,7 @@ Changes in draft 3 (14 texts): rows 4, 6, 8 (あたらしい もじ chosen of th
 | 5 | `session_done` | All done! Well done | סיימנו! כל הכבוד | おわり！ よく がんばったね |  |
 | 6 | `connection_lost` | No connection to the server. Writing is kept on the tablet | אין חיבור לשרת. הכתיבה נשמרת בטאבלט | いま つながっていません。かいたものは だいじょうぶです | サーバーに つながっていません。かいたものは タブレットに のこっています |
 | 7 | `full_screen` | Full screen | מסך מלא | ぜんがめん |  |
-| 8 | `task_title` | Invented Letter Task (ILT) | משימת האות המומצאת (ILT) | あたらしい もじ（ILT） | つくりもじの かだい（ILT） |
+| 8 | `task_title` | Invented Letter Task (ILT) | משימת האות המומצאת (ILT) | つくった もじ（ILT） | つくりもじの かだい（ILT） |
 | 9 | `block_of` | Block {{n}} of {{total}} | בלוק {{n}} מתוך {{total}} | ブロック {{n}} / {{total}} |  |
 | 10 | `warmup_of` | Warm-up {{n}} of {{total}} | חימום {{n}} מתוך {{total}} | れんしゅう {{n}} / {{total}} |  |
 | 11 | `page_of` | Page {{n}} of {{total}} | עמוד {{n}} מתוך {{total}} | ページ {{n}} / {{total}} |  |
@@ -34,7 +34,7 @@ Changes in draft 3 (14 texts): rows 4, 6, 8 (あたらしい もじ chosen of th
 | 24 | `camera.code` | Camera pairing | צימוד מצלמה | カメラの せつぞく |  |
 | 25 | `camera.code_help` | Point the camera at this screen | כוונו את המצלמה אל המסך הזה | カメラを この がめんに むけて ください | カメラを この がめんに むけてください |
 | 26 | `camera.frame` | Camera positioning: the whole frame should be in view | מיקום המצלמה: כל המסגרת צריכה להיראות | カメラの いちあわせ：わくが ぜんぶ うつるように して ください | カメラの いちあわせ：わくが ぜんぶ うつるように してください |
-| 27 | `rotate.PORTRAIT` | Turn the tablet upright (portrait) to continue | סובבו את הטאבלט לאורך (עומד) כדי להמשיך | タブレットを たてむきに して ください | タブレットを たてむきに してください |
-| 28 | `rotate.LANDSCAPE` | Turn the tablet on its side (landscape) to continue | סובבו את הטאבלט לרוחב (שוכב) כדי להמשיך | タブレットを よこむきに して ください | タブレットを よこむきに してください |
+| 27 | `rotate.PORTRAIT` | Turn the tablet upright (portrait) to continue | סובבו את הטאבלט לאורך (עומד) כדי להמשיך | タブレットを たてに してね | タブレットを たてむきに してください |
+| 28 | `rotate.LANDSCAPE` | Turn the tablet on its side (landscape) to continue | סובבו את הטאבלט לרוחב (שוכב) כדי להמשיך | タブレットを よこに してね | タブレットを よこむきに してください |
 | 29 | `app.kiosk` | Child station | עמדת הילד | こどもよう タブレット | こどもよう たんまつ |
 | 30 | `common.language` | Language | שפה | ことば |  |

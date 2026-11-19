@@ -31,10 +31,10 @@ Only when the owner decides to deploy this branch to the beta (`infra/beta/READM
 | J2 | Plan a session for a participant with language Japanese | Not offered (Japanese is not in *Enabled languages*) |
 | J3 | Admin → Settings: the Japanese group | ILT canvas `ILT_TATEGAKI_JA`, notebook canvas `NOTEBOOK_KOKUGO_JA`, fill direction *Top to bottom, column by column from the right* |
 | J4 | Open `NOTEBOOK_KOKUGO_JA`, preview it on the reference tablet held **upright** | 5 columns of 8 masu with dashed cross-guides, a furigana strip right of each column, true size (check with a ruler: 18 mm squares) |
-| J5 | Preview either Japanese canvas with the tablet **on its side** | Only "タブレットを たてむきに してください"; no page. Turn the tablet: the page appears |
+| J5 | Preview either Japanese canvas with the tablet **on its side** | Only "タブレットを たてに してね"; no page. Turn the tablet: the page appears |
 | J6 | Add Japanese to *Enabled languages*, activate `NOTEBOOK_KOKUGO_JA` only, plan a Japanese Day 1 | Refused (no Active ILT canvas) |
 | J6a | **Activate** `ILT_TATEGAKI_JA` (placeholder glyph: for testing only) | Accepted: it fits the screen upright |
-| J7 | Tablet upright: run a Japanese Day 1 on the DTH-A116 | Header あたらしい もじ（ILT） and ブロック n / 8; countdown じゅんびしてね…; boxes fill down the right-hand column first; a passed box is locked; つぎへ after the last box; the notebook pages use the kokugo page, locked per column, and their button reads **つぎのページ**; no turning between steps |
+| J7 | Tablet upright: run a Japanese Day 1 on the DTH-A116 | Header つくった もじ（ILT） and ブロック n / 8; countdown じゅんびしてね…; boxes fill down the right-hand column first; a passed box is locked; つぎへ after the last box; the notebook pages use the kokugo page, locked per column, and their button reads **つぎのページ**; no turning between steps |
 | J7a | A Hebrew session with the tablet still **upright** | "סובבו את הטאבלט לרוחב (שוכב) כדי להמשיך" instead of the page; on its side the session runs as before |
 | J8 | Switch the cockpit to Hebrew/English on the same computer as a Japanese tablet | The cockpit stays in Hebrew or English (a tablet's Japanese is never kept as the staff language) |
 | J9 | Remove Japanese from *Enabled languages* | No new Japanese sessions; existing ones keep their data |
