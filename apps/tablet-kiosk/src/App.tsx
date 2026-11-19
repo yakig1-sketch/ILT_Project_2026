@@ -325,7 +325,7 @@ function SessionScreen({ session, ended }: { session: KioskSession; ended: boole
         ) : (
           <>
             <p style={s.note}>{t('kiosk.pen_down_note')}</p>
-            <PenButton label={t('kiosk.next_block')} disabled={state.name !== 'WRITING' || !session.endReached} onTap={() => session.nextBlock()} />
+            <PenButton label={t(state.step.step_type === 'NOTEBOOK_PAGE' ? 'kiosk.next_page' : 'kiosk.next_block')} disabled={state.name !== 'WRITING' || !session.endReached} onTap={() => session.nextBlock()} />
           </>
         )
       }

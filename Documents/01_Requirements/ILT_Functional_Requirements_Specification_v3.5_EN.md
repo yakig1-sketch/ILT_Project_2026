@@ -144,7 +144,7 @@ Requested by the owner from the *ILT Japanese Canvas Proposal* (vertical writing
     2. **Scoring parity.** The proposal gives all three dots a 3.5 mm radius and no weights; the Hebrew rules (B 1.3 mm, 90 %) are kept until the team decides.
     3. ~~**Fit.**~~ *Decided 2026-11-18: the tablet upright (FR-LANG-JA-3a).* At 24 mm boxes the page is 136 mm tall, more than the 132 mm screen in landscape; upright it fits.
     4. **Norms.** 24 mm boxes differ from the 35 × 25 mm Hebrew boxes, so Japanese results need their own norms and reference recordings.
-- **FR-LANG-JA-5** Not in this phase: Japanese instruction videos (video steps are skipped with a note), Japanese intervention letters, the proposal's 60-second notebook page cap and 50 ms pen-lift gap, and a separate "next page" label on notebook pages.
+- **FR-LANG-JA-5** Not in this phase: Japanese instruction videos (video steps are skipped with a note), Japanese intervention letters, and the proposal's 60-second notebook page cap and 50 ms pen-lift gap. *Added 2026-11-19 (owner):* on a Japanese notebook page the button reads つぎのページ (つぎへ stays on the ILT page); Hebrew and English keep their *Next block* label on both.
 
 ## 6. Participants, consent and session planning
 

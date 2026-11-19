@@ -11,8 +11,12 @@ describe('translations', () => {
   it('Japanese has the same keys, and translates every text the child sees on the tablet (Phase 6b″)', () => {
     expect(flattenKeys(resources.ja.translation).sort()).toEqual(flattenKeys(resources.he.translation).sort());
     const childFacing = ['waiting', 'get_ready', 'paused', 'uploading', 'session_done', 'task_title', 'block_of', 'warmup_of',
-      'page_of', 'sheet_of', 'next_block', 'pen_down_note', 'video_loading', 'video_failed', 'tap_to_play', 'enter_pin', 'connect'] as const;
+      'page_of', 'sheet_of', 'next_block', 'next_page', 'pen_down_note', 'video_loading', 'video_failed', 'tap_to_play', 'enter_pin', 'connect'] as const;
     for (const k of childFacing) expect(resources.ja.translation.kiosk[k], k).not.toBe(resources.en.translation.kiosk[k]);
+    expect(resources.ja.translation.kiosk.next_page).toBe('つぎのページ');
+    // Hebrew and English notebook pages keep their Next block label.
+    expect(resources.he.translation.kiosk.next_page).toBe(resources.he.translation.kiosk.next_block);
+    expect(resources.en.translation.kiosk.next_page).toBe(resources.en.translation.kiosk.next_block);
     // The staff screens stay in English for a Japanese key.
     expect(resources.ja.translation.auth).toEqual(resources.en.translation.auth);
   });

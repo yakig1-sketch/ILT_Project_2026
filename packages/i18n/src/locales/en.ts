@@ -84,6 +84,8 @@ export const en: LocaleShape = {
     page_of: 'Page {{n}} of {{total}}',
     sheet_of: 'Sheet {{n}} of {{total}}',
     next_block: 'Next block',
+    /** On a notebook page (Phase 6b″). Hebrew and English keep the Next block label; Japanese says つぎのページ. */
+    next_page: 'Next block',
     // Phase 6b″: the page needs the tablet held the other way
     rotate: {
       PORTRAIT: 'Turn the tablet upright (portrait) to continue',

@@ -83,6 +83,7 @@ export const he = {
     page_of: 'עמוד {{n}} מתוך {{total}}',
     sheet_of: 'דף {{n}} מתוך {{total}}',
     next_block: 'לבלוק הבא',
+    next_page: 'לבלוק הבא',
     // Phase 6b″: הדף דורש להחזיק את הטאבלט בכיוון השני
     rotate: {
       PORTRAIT: 'סובבו את הטאבלט לאורך (עומד) כדי להמשיך',

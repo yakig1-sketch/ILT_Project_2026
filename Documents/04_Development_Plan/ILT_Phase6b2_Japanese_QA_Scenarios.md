@@ -34,7 +34,7 @@ Only when the owner decides to deploy this branch to the beta (`infra/beta/READM
 | J5 | Preview either Japanese canvas with the tablet **on its side** | Only "タブレットを たてむきに してください"; no page. Turn the tablet: the page appears |
 | J6 | Add Japanese to *Enabled languages*, activate `NOTEBOOK_KOKUGO_JA` only, plan a Japanese Day 1 | Refused (no Active ILT canvas) |
 | J6a | **Activate** `ILT_TATEGAKI_JA` (placeholder glyph: for testing only) | Accepted: it fits the screen upright |
-| J7 | Tablet upright: run a Japanese Day 1 on the DTH-A116 | Header つくりもじの かだい and ブロック n / 8; countdown じゅんびしてね…; boxes fill down the right-hand column first; a passed box is locked; つぎへ after the last box; the notebook pages use the kokugo page, locked per column; no turning between steps |
+| J7 | Tablet upright: run a Japanese Day 1 on the DTH-A116 | Header つくりもじの かだい and ブロック n / 8; countdown じゅんびしてね…; boxes fill down the right-hand column first; a passed box is locked; つぎへ after the last box; the notebook pages use the kokugo page, locked per column, and their button reads **つぎのページ**; no turning between steps |
 | J7a | A Hebrew session with the tablet still **upright** | "סובבו את הטאבלט לרוחב (שוכב) כדי להמשיך" instead of the page; on its side the session runs as before |
 | J8 | Switch the cockpit to Hebrew/English on the same computer as a Japanese tablet | The cockpit stays in Hebrew or English (a tablet's Japanese is never kept as the staff language) |
 | J9 | Remove Japanese from *Enabled languages* | No new Japanese sessions; existing ones keep their data |

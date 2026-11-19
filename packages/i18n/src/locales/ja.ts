@@ -33,6 +33,7 @@ export const ja: LocaleShape = {
     page_of: 'ページ {{n}} / {{total}}',
     sheet_of: 'シート {{n}} / {{total}}',
     next_block: 'つぎへ',
+    next_page: 'つぎのページ',
     rotate: {
       PORTRAIT: 'タブレットを たてむきに してください',
       LANDSCAPE: 'タブレットを よこむきに してください',
