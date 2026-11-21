@@ -26,12 +26,13 @@ const LETTERS_DIR = 'Documents/05_Measures/Intervention_Letters';
 const LETTER_ORDER = ['LETTER_HE_HE.json', 'LETTER_HE_QOF.json', 'LETTER_HE_HET.json', 'LETTER_HE_TAV.json'];
 
 const VIDEOS = [
+  // Version 2 (beta request): adds that the 3 dots may also be joined with an arc (the v7 file; v1 was v6).
   {
-    key: 'intro', lang: 'he', file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4',
+    key: 'intro', lang: 'he', version: 2, file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4',
     title_he: 'סרטון פתיחה והדרכה ל-ILT', title_en: 'ILT introduction and guidance',
   },
   {
-    key: 'notebook_demo', lang: 'he', file: 'Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4',
+    key: 'notebook_demo', lang: 'he', version: 1, file: 'Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4',
     title_he: 'הדגמת כתיבה במחברת', title_en: 'Notebook demo',
   },
 ];
@@ -139,20 +140,29 @@ async function seedVideos(): Promise<void> {
     await s3.send(new CreateBucketCommand({ Bucket: BUCKET }));
   }
   for (const v of VIDEOS) {
-    const exists = await client.query('SELECT 1 FROM instruction_videos WHERE video_key = $1 AND language_code = $2 AND version = 1', [v.key, v.lang]);
+    // Each version is added once; a newer one replaces the Active video and the older is kept as Retired.
+    const exists = await client.query('SELECT 1 FROM instruction_videos WHERE video_key = $1 AND language_code = $2 AND version >= $3', [v.key, v.lang, v.version]);
     if (exists.rowCount) continue;
     const body = readFileSync(`${REPO_ROOT}${v.file}`);
     if (body.subarray(0, 40).toString('utf8').startsWith('version https://git-lfs')) {
       throw new Error(`${v.file} is a Git LFS pointer; run "git lfs pull" first`);
     }
-    const objectKey = `videos/${v.key}/${v.lang}/v1.mp4`;
+    const objectKey = `videos/${v.key}/${v.lang}/v${v.version}.mp4`;
     await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: objectKey, Body: body, ContentType: 'video/mp4' }));
-    await client.query(
-      `INSERT INTO instruction_videos (video_key, language_code, version, status, title_he, title_en, object_key, source_name, sha256)
-       VALUES ($1, $2, 1, 'ACTIVE', $3, $4, $5, $6, $7)`,
-      [v.key, v.lang, v.title_he, v.title_en, objectKey, v.file.split('/').pop(), createHash('sha256').update(body).digest('hex')],
-    );
-    console.log(`Uploaded ${v.key}/${v.lang} (${(body.length / 1e6).toFixed(1)} MB)`);
+    await client.query('BEGIN');
+    try {
+      await client.query("UPDATE instruction_videos SET status = 'RETIRED' WHERE video_key = $1 AND language_code = $2 AND status = 'ACTIVE'", [v.key, v.lang]);
+      await client.query(
+        `INSERT INTO instruction_videos (video_key, language_code, version, status, title_he, title_en, object_key, source_name, sha256)
+         VALUES ($1, $2, $3, 'ACTIVE', $4, $5, $6, $7, $8)`,
+        [v.key, v.lang, v.version, v.title_he, v.title_en, objectKey, v.file.split('/').pop(), createHash('sha256').update(body).digest('hex')],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
+    console.log(`Uploaded ${v.key}/${v.lang} version ${v.version} (${(body.length / 1e6).toFixed(1)} MB)`);
   }
 }
 

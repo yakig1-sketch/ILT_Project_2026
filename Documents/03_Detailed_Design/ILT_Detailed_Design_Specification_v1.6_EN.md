@@ -1073,7 +1073,7 @@ The seed is a TypeScript script, not literal SQL hashes:
   - They are activated after the team checks them on a tablet.
   - א has no sheet yet. en: `ILT_3X5_EN` (same geometry, LTR fill order `[0..14]`), `NOTEBOOK_EN` |
 | Protocol templates | `DAY_1`, `DAY_2`, `DAY_14`, `INTERVENTION` as in FRS §6. *Phase 5b:* an intervention session's steps are built from its target letter: TRAINING = a `VIDEO` step (`letter_` + the canvas code in lower case, e.g. `letter_he_he`; skipped with a note when the library has no such video) then `ilt.intervention.training_sheets` × `INTERVENTION_SHEET` (block numbers 1…n); RETENTION = one `INTERVENTION_SHEET`. The template supplies the sheet step's label and scoring flag |
-| Instruction videos | `intro` / `he` v1 ACTIVE: uploaded to S3 storage from `Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4` (1:19, Hebrew female voice-over), SHA-256 computed at seed time. `notebook_demo` / `he` v1 ACTIVE: from `Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4` (0:31). No English videos yet (FRS FR-PLAN-8 applies) |
+| Instruction videos | `intro` / `he` v2 ACTIVE: uploaded to S3 storage from `Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4` (1:39, Hebrew female voice-over; adds the arc), SHA-256 computed at seed time. Each video in the seed has a version: a newer version is added once, becomes ACTIVE, and the previous one is kept as RETIRED (v1 was `ILT_Instruction_Demo_v6_No_Avatar_Hebrew_Female_VO.mp4`, 1:19). `notebook_demo` / `he` v1 ACTIVE: from `Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4` (0:31). No English videos yet (FRS FR-PLAN-8 applies) |
 
 Day 1 template steps:
 

@@ -94,6 +94,22 @@ docker compose --env-file beta.env -f compose.beta.yml up -d web
 
 Back to the previous front page: `git checkout phase-6b-prime-beta`, then the same `build web` and `up -d web`.
 
+## Update the running beta to the branch `beta`
+
+The branch `beta` carries the changes asked for during the beta (for now: **Show again** for the intro video, and the intro video version 2 with the arc). No database migration; the seed adds the new video version and keeps the old one as Retired:
+
+```powershell
+git fetch origin
+git checkout beta
+git pull
+git lfs pull
+docker compose --env-file beta.env -f compose.beta.yml build
+docker compose --env-file beta.env -f compose.beta.yml up -d
+docker compose --env-file beta.env -f compose.beta.yml run --rm ops src/seed.ts
+```
+
+The seed prints `Uploaded intro/he version 2`. Sessions planned from then on, and video steps not yet played, show the new video.
+
 ## Upgrade to a new release
 
 ```powershell
