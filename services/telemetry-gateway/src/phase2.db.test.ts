@@ -157,6 +157,14 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     tablet.send(controlMessage('VIDEO_ENDED', { step_index: 0, reason: 'ENDED' }));
     await cockpit.next(isEvent('VIDEO_ENDED'));
     expect((await call<Detail>(`/sessions/${sessionId}`, { auth: token })).body.steps[0]!.status).toBe('DONE');
+    // The finished video can be shown again, as often as needed; the step stays DONE.
+    for (let i = 0; i < 2; i++) {
+      cockpit.send(controlMessage('VIDEO_PLAY', { step_index: 0 }));
+      expect(((await tablet.next(isEvent('VIDEO_PLAY'))).payload as { video_key: string }).video_key).toBe('intro');
+      tablet.send(controlMessage('VIDEO_ENDED', { step_index: 0, reason: 'ENDED' }));
+      await cockpit.next(isEvent('VIDEO_ENDED'));
+    }
+    expect((await call<Detail>(`/sessions/${sessionId}`, { auth: token })).body.steps[0]!.status).toBe('DONE');
 
     /** Runs one writing step on the tablet and returns BLOCK_SCORED. */
     const runBlock = async (stepIndex: number, stepType: string, samples: PenSample[], expectAttempt = 1) => {
@@ -300,7 +308,7 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
     expect(replay.body.canvas.boxes).toHaveLength(15);
 
     // Some rows are written just after their response: wait (briefly) until they are all in.
-    const expected = ['session.video.played', 'session.video.ended', 'session.block.scored', 'session.block.repeated', 'session.inactivity.amber', 'data.replay.opened'];
+    const expected = ['session.video.played', 'session.video.replayed', 'session.video.ended', 'session.block.scored', 'session.block.repeated', 'session.inactivity.amber', 'data.replay.opened'];
     let logged: string[] = [];
     for (let i = 0; i < 30 && !expected.every((e) => logged.includes(e)); i++) {
       await app.appLog.flush();

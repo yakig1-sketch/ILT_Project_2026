@@ -416,13 +416,16 @@ function LiveSession({ link, session, reload, onBack, onSummary, onReplay, onCon
                     {open && writing && (
                       <button style={ui.primary} disabled={!link.tabletConnected || busy} onClick={() => dispatch(s)}>{t('cockpit.dispatch')}</button>
                     )}
-                    {open && s.step_type === 'VIDEO' && (playing ? (
+                    {!closed && s.step_type === 'VIDEO' && (open || s.status === 'DONE') && (playing ? (
                       <button style={ui.button} onClick={() => link.command('VIDEO_ENDED', { step_index: s.step_index, reason: 'STOPPED' })}>{t('cockpit.stop_video')}</button>
-                    ) : (
+                    ) : open ? (
                       <span style={{ display: 'inline-flex', gap: '0.5rem' }}>
                         <button style={ui.primary} disabled={!link.tabletConnected || busy || videoMissing(s)} onClick={() => play(s)}>{t('cockpit.play_video')}</button>
                         <button style={ui.button} disabled={playing} onClick={() => void skip(s.step_index)}>{t('cockpit.skip')}</button>
                       </span>
+                    ) : (
+                      // A finished video can be shown again as often as needed; the evaluator then moves on (beta request).
+                      <button style={ui.button} data-testid={`show-again-${s.step_index}`} disabled={!link.tabletConnected || busy || !!link.video || videoMissing(s)} onClick={() => play(s)}>{t('cockpit.show_again')}</button>
                     ))}
                     {open && s.step_type === 'PAPER_NOTEBOOK_PAGE' && (
                       <PaperTimer onSave={(ms, notes) => call(() => api(`/sessions/${sessionId}/steps/${s.step_index}/paper`, { method: 'POST', body: { duration_ms: ms, notes } }))} />

@@ -42,6 +42,7 @@ export const LOG_EVENT_TYPES = [
   'session.block.scored',
   'session.paper_page.timed',
   'session.video.played',
+  'session.video.replayed',
   'session.video.ended',
   'session.completed',
   'session.aborted',

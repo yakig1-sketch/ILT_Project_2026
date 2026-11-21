@@ -630,21 +630,27 @@ export class Hub {
     if (r.activeBlock) return { code: 'BLOCK_ACTIVE', message: 'A block is running' };
     const step = (await loadSteps(this.db, sessionId)).find((s) => s.step_index === stepIndex);
     if (!step || step.step_type !== 'VIDEO' || !step.video_key) return { code: 'NOT_A_VIDEO', message: 'This step is not a video' };
-    if (step.status === 'DONE' || step.status === 'SKIPPED') return { code: 'STEP_DONE', message: 'This step is already finished' };
+    if (step.status === 'SKIPPED') return { code: 'STEP_DONE', message: 'This step is already finished' };
+    if (r.activeVideo) return { code: 'VIDEO_PLAYING', message: 'A video is playing on the tablet' };
+    // A finished video can be shown again, as often as the evaluator wants (beta request): the step stays DONE.
+    const replay = step.status === 'DONE';
     const video = await this.db.query(
       "SELECT id FROM instruction_videos WHERE video_key = $1 AND language_code = $2 AND status = 'ACTIVE'",
       [step.video_key, session.language_code],
     ) as { rows: { id: string }[] };
     const v = video.rows[0];
     if (!v) return { code: 'NO_VIDEO', message: `No ${session.language_code} version of video ${step.video_key}` };
-    await this.db.query("UPDATE session_steps SET status = 'ACTIVE', started_at = coalesce(started_at, now()) WHERE id = $1", [step.id]);
+    if (!replay) await this.db.query("UPDATE session_steps SET status = 'ACTIVE', started_at = coalesce(started_at, now()) WHERE id = $1", [step.id]);
     await this.db.query(
       "UPDATE sessions SET status = 'IN_PROGRESS', started_at = coalesce(started_at, now()) WHERE id = $1 AND status IN ('PAIRED', 'IN_PROGRESS', 'PAUSED')",
       [sessionId],
     );
     const forward = { ...base, payload: { step_index: stepIndex, video_key: step.video_key, language: session.language_code, url: videoUrl(v.id) } };
     r.activeVideo = forward;
-    this.log({ severity: 'INFO', event_type: 'session.video.played', session_id: sessionId, entity_type: 'session_step', entity_id: step.id, message: `Video ${step.video_key} (${session.language_code}) playing, step ${stepIndex}`, details: { step_index: stepIndex, video_id: v.id } });
+    this.log({
+      severity: 'INFO', event_type: replay ? 'session.video.replayed' : 'session.video.played', session_id: sessionId, entity_type: 'session_step', entity_id: step.id,
+      message: `Video ${step.video_key} (${session.language_code}) ${replay ? 'shown again' : 'playing'}, step ${stepIndex}`, details: { step_index: stepIndex, video_id: v.id, replay },
+    });
     return forward;
   }
 
