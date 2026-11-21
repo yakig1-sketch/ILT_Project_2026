@@ -24,6 +24,12 @@
 	}
 	@assets path /tablet/assets/* /cockpit/assets/* /analyst/assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
+	# The apps' pages name new asset files after each release: browsers must check for a newer page.
+	@app_pages {
+		path /tablet/* /cockpit/* /analyst/*
+		not path /tablet/assets/* /cockpit/assets/* /analyst/assets/*
+	}
+	header @app_pages Cache-Control "no-cache"
 
 	@gateway path /api/* /ws/*
 	handle @gateway {
