@@ -58,18 +58,14 @@
       'sp.wacom': 'Pen tablets and digital pen technology for recording children\'s handwriting.',
       'sp.wondernet': 'Technology and development partner of the ILT system.',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
-      'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
+      'name.dorfberger': 'Dr. Shoshi Dorfberger',
       'aff.biu_edu': 'Faculty of Education, Bar-Ilan University',
       'aff.gonda': 'Gonda (Goldschmied) Multidisciplinary Brain Research Center, Bar-Ilan University',
       'aff.gordon': 'Gordon College of Education',
-      'aff.ariel': 'Dept. of Occupational Therapy, Faculty of Health Sciences, Ariel University',
       footerCopyright: '© 2026 Invented Letter Task (ILT) Open-Source Initiative. Non-Commercial Educational Research Platform.',
       footerSupport: 'Support & Collaboration:', footerGuides: 'User guides',
       aboutTitle: 'About the Invented Letter Task (ILT) System', close: 'Close',
-      aboutHtml:
-        '<p><strong>What the Research Examined:</strong> Grounded in longitudinal research by Dr. Chagit Hollander, Prof. Esther Adi-Japha, Dr. Shoshi Dorfberger, and Dr. Michal Hochhauser (2025), the Invented Letter Task (ILT) isolates pure <em>procedural motor skill learning</em>—the ability to acquire and stabilize a novel writing movement across time.</p>' +
-        '<p><strong>Key Scientific Findings:</strong> Across 124 second-grade students from low-SES schools, Day 1 skill acquisition (<em>Learning phase</em>) and 2-week post-training retention (<em>Automaticity phase</em>) significantly predicted end-of-year reading comprehension (R² = 36%) and written expression (R² = 49%), as well as early risk for literacy impairments.</p>' +
-        '<p><strong>Digital Ecological Validity:</strong> Built as an open-source, non-commercial platform, the ILT system captures 240Hz digital ink kinematics while preserving authentic classroom notebook layouts across Hebrew, English, and Japanese.</p>'
+      aboutHtml: "<h3>What the study examined</h3><p>Whether children's ability to learn a new motor-writing skill at the start of second grade predicts their reading and writing achievement later in the year, especially among children from low socioeconomic backgrounds.</p><h3>How the study was done</h3><ul><li>124 second-grade students from low-SES schools in Israel took part.</li><li>The children practised the Invented Letter Task (ILT): a grapho-motor learning task of writing an “invented letter”.</li><li>Measured: initial learning of the skill; automaticity after two weeks; phonological awareness, working memory, vocabulary and fine motor skills; reading fluency, spelling and writing; and reading comprehension and written expression at the end of the year.</li></ul><h3>Key findings</h3><ol><li><strong>Skill learning predicted literacy.</strong> Children who learned the ILT more efficiently achieved better reading comprehension and written expression later in the year.</li><li><strong>Automaticity mattered especially for writing.</strong> Performing the task quickly and accurately after a retention period contributed directly to written expression, and indirectly through spelling and reading fluency.</li><li><strong>Reading comprehension was influenced mainly through mediating factors:</strong> reading fluency, working memory, phonological awareness and fine motor skills.</li><li><strong>The models explained</strong> about 36% of the variance in reading comprehension and about 49% of the variance in written expression.</li></ol><h3>Main conclusion</h3><p>Procedural learning and skill automatization are important foundations of literacy development, alongside the language and cognitive abilities more traditionally studied. Children who struggle to acquire and automate basic skills may be at greater risk for reading and writing difficulties.</p><h3>Educational implications</h3><p>Simple skill-learning tasks such as the Invented Letter Task could help educators identify children at risk for literacy difficulties early, in kindergarten or at the start of elementary school, enabling targeted intervention before significant academic gaps emerge.</p><p class=\"bottom\"><strong>Bottom line:</strong> A child's capacity to learn and automate a new writing-related skill is a strong predictor of future reading and writing success, particularly among students from disadvantaged socioeconomic backgrounds.</p><h3>The ILT System</h3><p>An open-source, non-commercial platform that turns the task into a digital tool: it captures 240Hz pen kinematics while preserving authentic classroom notebook layouts in Hebrew, English and Japanese.</p><p class=\"cite\">Study: Hollander, Adi-Japha, Dorfberger &amp; Hochhauser (2025). <em>Skill learning as a predictor of literacy abilities and related impairments among second-graders from low-SES.</em> ScienceDirect.</p>"
     },
     he: {
       langName: 'עברית', dir: 'rtl', guides: 'he',
@@ -99,18 +95,14 @@
       'sp.wacom': 'טאבלטים ועטים דיגיטליים לתיעוד כתב היד של הילדים.',
       'sp.wondernet': 'שותף טכנולוגי ופיתוח של מערכת ILT.',
       'name.yaki': 'יקי גרוסמן', 'name.adijapha': 'פרופ׳ אסתר עדי-יפה', 'name.hollander': 'ד״ר חגית הולנדר',
-      'name.dorfberger': 'ד״ר שושי דורפברגר', 'name.hochhauser': 'ד״ר מיכל הוכהאוזר',
+      'name.dorfberger': 'ד״ר שושי דורפברגר',
       'aff.biu_edu': 'הפקולטה לחינוך, אוניברסיטת בר-אילן',
       'aff.gonda': 'המרכז הרב-תחומי לחקר המוח ע״ש גונדה (גולדשמיד), אוניברסיטת בר-אילן',
       'aff.gordon': 'המכללה האקדמית לחינוך גורדון',
-      'aff.ariel': 'המחלקה לריפוי בעיסוק, הפקולטה למדעי הבריאות, אוניברסיטת אריאל',
       footerCopyright: '© 2026 יוזמת הקוד הפתוח ILT. פלטפורמת מחקר חינוכית לא-מסחרית.',
       footerSupport: 'תמיכה ושיתופי פעולה:', footerGuides: 'מדריכים למשתמש',
       aboutTitle: 'אודות מערכת ILT והמחקר המדעי', close: 'סגירה',
-      aboutHtml:
-        '<p><strong>מה בחן המחקר:</strong> בהסתמך על מחקר האורך של ד"ר חגית הולנדר, פרופ\' אסתר עדי-יפה, ד"ר שושי דורפברגר וד"ר מיכל הוכהאוזר (2025), משימת האות המומצאת (ILT) מבודדת <em>למידה מוטורית פרוצדורלית</em> נקייה — היכולת לרכוש ולייצב מיומנות כתיבה חדשה לאורך זמן.</p>' +
-        '<p><strong>ממצאים מרכזיים:</strong> במעקב אחר 124 תלמידי כיתה ב\' מרקע סוציו-אקונומי נמוך, הישגי היום הראשון (<em>שלב הלמידה</em>) והביצוע לאחר שבועיים (<em>שלב האוטומטיות</em>) ניבאו באופן מובהק את הבנת הנקרא (R² = 36%) וההבעה בכתב (R² = 49%) בסוף השנה, וכן סיכון מוקדם ללקויות אוריינות.</p>' +
-        '<p><strong>תקפות אקולוגית דיגיטלית:</strong> כפלטפורמת קוד פתוח לא-מסחרית, המערכת דוגמת תנועות עט בקצב 240Hz תוך שמירה על תבניות מחברת אותנטיות בעברית, באנגלית וביפנית.</p>'
+      aboutHtml: "<h3>מה בדק המחקר</h3><p>המחקר בחן אם היכולת ללמוד מיומנות מוטורית חדשה בתחילת כיתה ב׳ מנבאת את רמת הקריאה והכתיבה של הילדים בהמשך השנה, במיוחד בקרב ילדים מרקע סוציו-אקונומי נמוך.</p><h3>איך נערך המחקר</h3><ul><li>השתתפו 124 תלמידי כיתה ב׳ מבתי ספר במעמד סוציו-אקונומי נמוך בישראל.</li><li>הילדים ביצעו את משימת האות המומצאת (Invented Letter Task, ILT): מטלת למידה גרפו-מוטורית שבה מתאמנים בכתיבת ״אות מומצאת״.</li><li>נבדקו: הלמידה הראשונית של המיומנות; רמת האוטומטיות אחרי שבועיים; מודעות פונולוגית, זיכרון עבודה, אוצר מילים ומוטוריקה עדינה; שטף קריאה, איות וכתיבה; והבנת הנקרא וההבעה בכתב בסוף השנה.</li></ul><h3>ממצאים עיקריים</h3><ol><li><strong>למידת המיומנות ניבאה הישגים באוריינות.</strong> ילדים שלמדו טוב יותר במשימת ה-ILT השיגו ציונים גבוהים יותר בהבנת הנקרא ובהבעה בכתב.</li><li><strong>האוטומטיות חשובה במיוחד לכתיבה.</strong> ביצוע מהיר ומדויק של המשימה אחרי תקופת שימור תרם ישירות להבעה בכתב, ובעקיפין דרך האיות ושטף הקריאה.</li><li><strong>הבנת הנקרא הושפעה בעיקר דרך גורמים מתווכים:</strong> שטף קריאה, זיכרון עבודה, מודעות פונולוגית ומוטוריקה עדינה.</li><li><strong>המודל הסטטיסטי הסביר</strong> כ-36% מהשונות בהבנת הנקרא וכ-49% מהשונות בהבעה בכתב.</li></ol><h3>מסקנה מרכזית</h3><p>למידה של מיומנויות פרוצדורליות בסיסיות והפיכתן לאוטומטיות הן מרכיב חשוב בהתפתחות הקריאה והכתיבה, מעבר לגורמים הלשוניים והקוגניטיביים המוכרים.</p><h3>השלכות חינוכיות</h3><p>החוקרים מציעים להשתמש במשימת ה-ILT ככלי לאיתור מוקדם של ילדים בסיכון לקשיים באוריינות, כבר בגן הילדים או בראשית בית הספר היסודי, כדי לאפשר התערבות מוקדמת ותרגול ממוקד.</p><p class=\"bottom\"><strong>בשורה אחת:</strong> היכולת לרכוש מיומנות כתיבה פשוטה ולהפוך אותה לאוטומטית בתחילת כיתה ב׳ מנבאת באופן משמעותי את איכות הקריאה והכתיבה של הילד בסוף השנה.</p><h3>מערכת ILT</h3><p>מערכת ILT היא פלטפורמה בקוד פתוח וללא מטרות רווח, שהופכת את המשימה לכלי דיגיטלי: היא דוגמת את תנועות העט בקצב 240Hz ושומרת על תבניות מחברת אותנטיות בעברית, באנגלית וביפנית.</p><p class=\"cite\">המחקר: <bdi>Hollander, Adi-Japha, Dorfberger &amp; Hochhauser (2025). <em>Skill learning as a predictor of literacy abilities and related impairments among second-graders from low-SES.</em> ScienceDirect.</bdi></p>"
     },
     ja: {
       langName: '日本語', dir: 'ltr', guides: 'en',
@@ -140,18 +132,14 @@
       'sp.wacom': '子どもの筆跡を記録するペンタブレットとデジタルペン技術。',
       'sp.wondernet': 'ILTシステムの技術・開発パートナー。',
       'name.yaki': 'Yaki Grossman', 'name.adijapha': 'Prof. Esther Adi-Japha', 'name.hollander': 'Dr. Chagit Hollander',
-      'name.dorfberger': 'Dr. Shoshi Dorfberger', 'name.hochhauser': 'Dr. Michal Hochhauser',
+      'name.dorfberger': 'Dr. Shoshi Dorfberger',
       'aff.biu_edu': 'バル＝イラン大学 教育学部',
       'aff.gonda': 'バル＝イラン大学 ゴンダ（ゴールドシュミット）学際的脳研究センター',
       'aff.gordon': 'ゴードン教育大学',
-      'aff.ariel': 'アリエル大学 健康科学部 作業療法学科',
       footerCopyright: '© 2026 Invented Letter Task (ILT) オープンソース・イニシアチブ（非営利教育研究基盤）',
       footerSupport: 'お問い合わせ・サポート:', footerGuides: '利用ガイド（英語）',
       aboutTitle: 'ILTシステムと背景研究について', close: '閉じる',
-      aboutHtml:
-        '<p><strong>研究の目的:</strong> Hollander, Adi-Japha, Dorfberger, Hochhauser (2025) の縦断研究に基づき、新奇文字課題（ILT）は既存の文字知識に左右されない純粋な<em>手続き的運動スキル学習</em>（新しい書字運動の獲得と定着）を測定します。</p>' +
-        '<p><strong>主な研究成果:</strong> 低SES地域の小学2年生124名を対象とした研究では、1日目の学習達成度（<em>学習期</em>）と2週間後の保持（<em>自動化期</em>）が、学年末の読解力（R² = 36%）および作文表現力（R² = 49%）と読み書き困難のリスクを有意に予測しました。</p>' +
-        '<p><strong>生態学的妥当性の確保:</strong> 非営利のオープンソース基盤として、ヘブライ語・英語・日本語（縦書き・国語マス目）の自然なノート形式を保ちながら、240Hzのペン軌跡データを記録します。</p>'
+      aboutHtml: "<h3>研究の目的</h3><p>小学2年生の始めに新しい書字運動スキルを学ぶ力が、その年の後半の読み書きの成績を予測できるかを調べました。特に社会経済的に恵まれない家庭の子どもに注目しています。</p><h3>研究の方法</h3><ul><li>イスラエルの低SES地域の小学校に通う2年生124名が参加しました。</li><li>子どもたちは新奇文字課題（Invented Letter Task, ILT）に取り組みました。「つくった文字」を書く練習をする書字運動の学習課題です。</li><li>測定項目：スキルの初期学習、2週間後の自動化の程度、音韻認識・ワーキングメモリ・語彙・微細運動、読みの流暢性・綴り・書字、学年末の読解力と作文表現力。</li></ul><h3>主な結果</h3><ol><li><strong>スキル学習は読み書きの成績を予測しました。</strong>ILTをよく学習できた子どもほど、読解力と作文表現力が高い傾向がありました。</li><li><strong>自動化は特に「書く力」に重要でした。</strong>保持期間の後に課題を速く正確に行えることは、作文表現力に直接、また綴りと読みの流暢性を通して間接的に寄与しました。</li><li><strong>読解力への影響は主に媒介要因を通したものでした：</strong>読みの流暢性、ワーキングメモリ、音韻認識、微細運動。</li><li><strong>統計モデルは</strong>読解力の分散の約36%、作文表現力の分散の約49%を説明しました。</li></ol><h3>結論</h3><p>基本的な手続き的スキルの学習とその自動化は、よく知られた言語的・認知的要因に加えて、読み書きの発達の重要な土台です。基本的なスキルの習得や自動化に苦労する子どもは、読み書きの困難を抱えるリスクが高い可能性があります。</p><h3>教育への示唆</h3><p>ILTのような簡単な課題を使えば、幼稚園や小学校入学当初の段階で読み書きに困難を抱えるリスクのある子どもを早期に見つけ、早めの支援と的を絞った練習につなげられる可能性があります。</p><p class=\"bottom\"><strong>ひとことで：</strong>小学2年生の始めに簡単な書字スキルを身につけて自動化する力は、学年末の読み書きの質を大きく予測します。</p><h3>ILTシステム</h3><p>非営利のオープンソース基盤として課題をデジタル化し、ヘブライ語・英語・日本語（縦書き・国語マス目）の自然なノート形式を保ちながら、240Hzのペン軌跡を記録します。</p><p class=\"cite\">研究：Hollander, Adi-Japha, Dorfberger &amp; Hochhauser (2025). <em>Skill learning as a predictor of literacy abilities and related impairments among second-graders from low-SES.</em> ScienceDirect.</p>"
     }
   };
 
@@ -319,7 +307,7 @@
   // The 3-dot stroke preview: one continuous stroke through the three dots of the ILT letter.
   var canvas = $('stroke-canvas');
   var ctx = canvas.getContext && canvas.getContext('2d');
-  var pts = [{ x: 58, y: 14 }, { x: 24, y: 34 }, { x: 58, y: 54 }];
+  var pts = [{ x: 26, y: 14 }, { x: 60, y: 34 }, { x: 26, y: 54 }];
   var anim = null;
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function setupCanvas() {
