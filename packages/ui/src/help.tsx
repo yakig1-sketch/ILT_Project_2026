@@ -63,9 +63,24 @@ export function guideFor(target: string): HelpGuide {
   return config.main;
 }
 
+/**
+ * The guides' language: Hebrew screens open the Hebrew guides; English screens open the Japanese guides
+ * for a reader who chose Japanese (on the landing page or in a guide, kept as ilt.help_language), else
+ * the English ones. The staff screens themselves have no Japanese.
+ */
+export function guideLanguage(language: string): 'he' | 'en' | 'ja' {
+  if (language === 'he') return 'he';
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('ilt.help_language') === 'ja') return 'ja';
+  } catch {
+    // Storage blocked: English.
+  }
+  return 'en';
+}
+
 /** The address of a guide (and a section of it) in a language. */
 export function helpUrl(guide: HelpGuide, language: string, target?: string, embed = false): string {
-  const lang = language === 'he' ? 'he' : 'en';
+  const lang = guideLanguage(language);
   const theme = typeof document === 'undefined' ? null : document.documentElement.dataset.theme;
   const q = new URLSearchParams();
   if (embed) q.set('embed', '1');

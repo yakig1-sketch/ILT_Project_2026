@@ -26,6 +26,7 @@ body {
   margin: 0; background: var(--bg); color: var(--fg); line-height: 1.6;
   font-family: "Noto Sans Hebrew", "Noto Sans", "Segoe UI", Arial, sans-serif; font-size: 16px;
 }
+html[lang="ja"] body { font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", Meiryo, "Noto Sans", sans-serif; line-height: 1.75; }
 a { color: var(--link); }
 .top {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding: 0.75rem 1rem;

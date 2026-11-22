@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>研究者ガイド · ILT研究システム</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT研究システム · 研究者ガイド</span>
+  <a data-other-language="../en/researcher.html" href="../en/researcher.html" lang="en">English</a>
+  <a data-other-language="../he/researcher.html" href="../he/researcher.html" lang="he">עברית</a>
+  <a href="index.html">すべてのガイド</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="目次">
+  <strong>目次</strong>
+  <ol>
+    <li><a href="#overview">システムでのお仕事</a></li>
+    <li><a href="#sign-in">サインイン</a></li>
+    <li><a href="#sessions">セッションと計画</a></li>
+    <li><a href="#new-participant">参加者の登録</a></li>
+    <li><a href="#participant-record">参加者記録</a></li>
+    <li><a href="#consent">同意</a></li>
+    <li><a href="#research-purpose">研究セッション</a></li>
+    <li><a href="#console">Dispatch Console</a></li>
+    <li><a href="#intervention">介入プログラムの計画</a></li>
+    <li><a href="#summary">結果：比較サマリー</a></li>
+    <li><a href="#replay">再生</a></li>
+    <li><a href="#director">研究責任者による承認</a></li>
+    <li><a href="#portal">分析ポータル</a></li>
+    <li><a href="#troubleshooting">問題が起きたとき</a></li>
+  </ol>
+</nav>
+<main>
+<h1>研究者ガイド</h1>
+<p class="lead">参加者とセッションを計画し、結果を確認する研究スタッフの方と、臨床的に管理された設定の変更を承認する研究責任者の方のためのガイドです。</p>
+
+<section id="overview">
+  <h2>システムでのお仕事</h2>
+  <p>研究者は2つのアプリケーションを使います。</p>
+  <ul>
+    <li><strong>検査者コックピット</strong>：参加者、同意、セッションの計画、Dispatch Console、比較サマリー、再生を扱います。すべての参加者の結果を見ることができます。</li>
+    <li><strong>分析ポータル</strong>：参加者全体の個人を特定できない研究データを、グラフ、フィルター、エクスポートで扱います。</li>
+  </ul>
+  <p><strong>研究責任者PIN</strong>を持つ研究者は、採点やタイマーに関わる変更の承認も行います（<a href="#director">下記を参照</a>）。</p>
+  <p>タブレットで子どもとセッションを行う方法は、<a href="evaluator.html#session">検査者ガイド</a>で説明しています。</p>
+  <p class="warn">参加者は参加者コードだけで識別します。氏名、ID番号、イニシャルは、どこにも入力しないでください。</p>
+</section>
+
+<section id="sign-in">
+  <h2>サインイン</h2>
+  <ul>
+    <li><strong>検査者コックピット：</strong>システム管理者から伝えられたアドレス（例：<code>https://&lt;server&gt;:5174</code>）を開きます。</li>
+    <li><strong>分析ポータル：</strong>専用のアドレス（例：<code>https://&lt;server&gt;:5175</code>）を開き、同じメールアドレスとパスワードでサインインします。</li>
+  </ul>
+  <p>画面はご自身の言語で開きます。<span class="ui">Language</span> の切り替えで、今回の利用中だけ表示言語を変えられます。パスワードを5回間違えると、アカウントは15分間ロックされます。ロックはシステム管理者が解除できます。どの画面にもある <strong>Help</strong> ボタンを押すと、ガイドの該当箇所が開きます。</p>
+</section>
+
+<section id="sessions">
+  <h2>セッションと計画</h2>
+  <p><span class="ui">Sessions</span> 画面には、セッションが新しい順に並びます。セッションコードや参加者コード、状態、種類、日付で絞り込むフィルターもあります。この画面では次のことができます。</p>
+  <ul>
+    <li>参加者を作成し（<span class="ui">New participant</span>）、1日目、2日目、14日目のセッションを作成します（<span class="ui">New session</span>）。参加者、セッションの種類、子どもの言語、目的を選んでください。</li>
+    <li>参加者の <span class="ui">Protocol</span>（<a href="#console">Dispatch Console</a>）または <span class="ui">Participant record</span> を開きます。</li>
+    <li>セッションを開きます（<span class="ui">Open</span>）。</li>
+  </ul>
+  <p>各セッションは、作成した時点の設定（タイマー、採点の重み、しきい値、キャンバス）を保存します。後で設定を変えても、すでにあるセッションは変わりません。</p>
+  <p class="see">詳しくは：<a href="evaluator.html#sessions">検査者ガイド · セッション</a>、<a href="evaluator.html#new-session">新しいセッション</a>。</p>
+</section>
+
+<section id="new-participant">
+  <h2>参加者の登録</h2>
+  <p><span class="ui">New participant</span> では、次の項目を入力します。参加者コード（重複不可で、後から変更できません）、学校（保護されたコードとしてのみ保存）、生まれた年と月、ドメイン、地域（任意）、学年、性別、社会経済グループ、利き手、そして <span class="ui">Group</span> です。</p>
+  <ul>
+    <li><strong>タブレット</strong>：子どもはタブレットに書きます。</li>
+    <li><strong>紙のグループ</strong>：子どもは紙に書きます。スコアは参加者記録に手で入力します。</li>
+  </ul>
+  <p>以前のアプリケーションから取り込んだ子どもは、<strong>旧アプリ</strong>の参加者（<code>LEG-…</code>）として表示されます。これらはシステム管理者が作成します。</p>
+</section>
+
+<section id="participant-record">
+  <h2>参加者記録</h2>
+  <p>参加者記録には、参加者の情報、セッション数、同意、研究セッションと手の動画が可能かどうかが表示されます。紙のグループと旧アプリの子どもについては、スコアも表示されます。情報の編集（<span class="ui">Edit</span>）、参加者の無効化（<span class="ui">Deactivate</span>：結果は残りますが、新しいセッションは作れません）、再有効化（<span class="ui">Reactivate</span>）ができます。</p>
+  <p class="see">詳しくは：<a href="evaluator.html#participant-record">検査者ガイド · 参加者記録</a>、<a href="evaluator.html#paper-scores">紙のスコア</a>。</p>
+</section>
+
+<section id="consent">
+  <h2>同意</h2>
+  <p>同意が記録されていない場合は、何も許可されません。手の動画も、研究での利用も、オープンサイエンスでの共有もできません。<span class="ui">Record consent</span> では、同意書のバージョン、署名日、署名された3つの許可内容を保存します。新しい同意は現在の同意に置き換わります。以前の同意は <span class="ui">Consent history</span> に残ります。</p>
+  <ul>
+    <li><strong>研究での利用</strong>：参加者の結果が分析ポータルとエクスポートに含まれるかどうか、また研究セッションを作成できるかどうかを決めます。この許可を外すと、その参加者の研究データは分析者からすぐに見えなくなります。</li>
+    <li><strong>手の動画</strong>：システムの設定と合わせて、これから作成するセッションで子どもの手を録画するかどうかを決めます。</li>
+  </ul>
+</section>
+
+<section id="research-purpose">
+  <h2>研究セッション</h2>
+  <p>すべてのセッションには<strong>目的</strong>があります。<strong>介入</strong>（初期設定）または<strong>研究</strong>です。分析ポータルとエクスポートに含まれるのは、研究目的のセッションで、かつ現在の同意で研究での利用が許可されている参加者のものだけです。</p>
+  <p>研究を選べるのは、次の3つがすべて満たされている場合だけです。</p>
+  <ol>
+    <li>設定 <strong>Allow research sessions (after ethics approval)</strong> がオンになっている（システム管理者、Settings）。</li>
+    <li><strong>研究</strong>の倫理承認が記録されていて、今日の時点で有効であり、取り下げられていない（システム管理者、Ethics approvals）。</li>
+    <li>参加者の現在の同意で<strong>研究での利用</strong>が許可されている。</li>
+  </ol>
+  <p>どの条件が欠けているかは、新しいセッションのフォームと参加者記録に表示されます。介入セッションも研究目的にできます（Dispatch Console の介入パネルにある <span class="ui">Purpose</span> リスト）。</p>
+</section>
+
+<section id="console">
+  <h2>Dispatch Console</h2>
+  <p>コンソールには、参加者のプロトコル全体が表示されます。1日目、2日目、14日目がステップカードのパネルとして並び（緑は完了、青は実施中、灰色はこれから実施、まだ計画されていない日は灰色の「pending」）、介入プログラムも表示されます。コンソールでは次のことができます。</p>
+  <ul>
+    <li>2日目と14日目のセッションを計画します（<span class="ui">Plan the … session</span>）。</li>
+    <li>各日の進み具合と、14日目の2ブロックの平均スコアを確認します。</li>
+    <li><span class="ui">Comparative Summary View</span> を開きます。</li>
+  </ul>
+  <p class="see">詳しくは：<a href="evaluator.html#console">検査者ガイド · Dispatch Console</a>。</p>
+</section>
+
+<section id="intervention">
+  <h2>介入プログラムの計画</h2>
+  <p>介入パネルでは、目標の文字を1つずつ扱います。<span class="ui">Video + 4 Training Sheets</span>（最初のトレーニング）、<span class="ui">Repeat Letter</span>、<span class="ui">Next Letter</span>、<span class="ui">2-Wk Retention</span>（シート1枚。最後のトレーニングから14日後以降）があります。選べるのはシステム管理者が有効にした文字だけです。また、同時に開ける介入セッションは1つだけです。</p>
+  <p class="see">詳しくは：<a href="evaluator.html#intervention">検査者ガイド · 介入プログラム</a>、<a href="evaluator.html#marks">介入シートの採点</a>。</p>
+</section>
+
+<section id="summary">
+  <h2>結果：比較サマリー</h2>
+  <p>サマリーでは、基準となるペアを比較します。1日目の最初のペア（ブロック1–2）と最後のペア（7–8）、2日目の最初のペア（1–2）と最後のペア（3–4）、そして14日目（1–2）です。各ボックスには、平均時間、ペンの持ち上げ回数、正確さ（%）、ILTの平均の速さ、速さ・正確さ・ペンの持ち上げそれぞれのスコア、総合スコア、合格／不合格（Pass/Fail）が表示されます。総合スコアは常に構成要素と並べて表示され、構成要素の代わりに表示されることはありません。</p>
+  <ul>
+    <li>適用中の重みと合格しきい値は上部に表示されます。「not configured」は、しきい値またはキャンバスの標準の速さがまだ設定されていないことを意味します。</li>
+    <li>紙のブロックには<strong>Paper</strong>のタグが付きます（速さと総合スコアはありません）。旧アプリの結果は、取り込んだままの形で専用のセクションに表示されます。</li>
+    <li>介入の表には、各介入セッションと採点済みのシートが並びます。</li>
+  </ul>
+  <p class="see">詳しくは：<a href="evaluator.html#summary">検査者ガイド · 比較サマリー</a>。</p>
+</section>
+
+<section id="replay">
+  <h2>再生</h2>
+  <p>研究者はすべてのセッションを再生できます。再生では、ブロックを再生／一時停止、タイムライン、0.25×から4×までの速さ、1サンプルずつのコマ送りで見返せます。各文字の速さはその文字の枠の下に表示され、録画がある場合は手の動画も同期して再生されます。再生を開くたびに記録が残ります。</p>
+  <p class="see">詳しくは：<a href="evaluator.html#replay">検査者ガイド · 再生</a>。</p>
+</section>
+
+<section id="director">
+  <h2>研究責任者による承認</h2>
+  <p><strong>研究責任者PIN</strong>（6桁。システム管理者が発行し、ユーザー一覧では緑色の「Research Director」バッジで示されます）を持つ研究者は、研究責任者の承認がオン（初期設定）のとき、臨床的に管理された値の変更を承認します。</p>
+  <ul>
+    <li>採点の設定：総合スコアの重み、合格しきい値、点の半径と重み、速さとペンの持ち上げのルール。</li>
+    <li>ILTの進行に関わるタイマー（無操作の時間や、切り替え時のカウントダウンなど）。</li>
+    <li>キャンバスの有効化（その採点プロファイルが使われ始めます）と、キャンバスに対するドメイン独自の採点値。</li>
+    <li>参照用の記録をドメインのプロファイルに採用すること。</li>
+    <li>研究責任者の承認をオフにすること。</li>
+  </ul>
+  <p><strong>手順：</strong>システム管理者が管理者コックピットで変更を準備します。保存するときに、確認画面で <span class="ui">Research Director email</span> と <span class="ui">Director PIN</span> の入力を求められます。その画面であなたのメールアドレスとPINを入力してください。サーバーがそれを確認します。1回の承認で、まとめて保存されたすべての変更が対象になります。変更内容は、承認者（あなた）と理由とともに、設定の履歴に保存されます。</p>
+  <p class="warn">PINは誰にも教えないでください。また、書き留めさせないでください。間違ったPINは拒否され、セキュリティイベントとして記録されます。PINが知られたかもしれないと思ったら、システム管理者に新しいPINを依頼してください。</p>
+</section>
+
+<section id="portal">
+  <h2>分析ポータル</h2>
+  <p>ポータルでは、研究への同意がある参加者の、完了した研究セッションを、参加者コードだけで見ることができます。タブは次のとおりです。</p>
+  <ul>
+    <li><span class="ui">Overview</span>：サマリーのタイル、プロトコルのブロック全体の学習曲線、グループを比較する箱ひげ図、14日目の結果を含む参加者の表。</li>
+    <li><span class="ui">Research sessions</span>：フィルター、コホートの表、セッション一覧。各セッションのブロック、再生、キネマティクスを見られます。</li>
+    <li><span class="ui">Paper and legacy</span>：紙のグループと旧アプリの結果。</li>
+    <li><span class="ui">Exports</span>：DuckDB、Python、R、Superset、Metabase 用の Parquet または CSV ファイル。各ユーザーには自分のエクスポートだけが表示されます。</li>
+  </ul>
+  <p class="see">詳しくは：<a href="analyst.html">分析者ガイド</a>。</p>
+</section>
+
+<section id="troubleshooting">
+  <h2>問題が起きたとき</h2>
+  <table>
+    <tr><th>表示される内容</th><th>対処方法</th></tr>
+    <tr><td>セッションで研究を選べない</td><td>理由はフォームに表示されます（設定、倫理承認、または同意）。<a href="#research-purpose">研究セッション</a>をご覧ください。</td></tr>
+    <tr><td>分析ポータルに参加者が表示されない</td><td>表示されるのは、完了した研究セッションで、現在の同意で研究での利用が許可されているものだけです。</td></tr>
+    <tr><td>「The director email or PIN is wrong」</td><td>メールアドレスがご自身のものか確認し、PINをもう一度入力してください。PINを忘れた場合は、システム管理者に問い合わせてください。</td></tr>
+    <tr><td>サマリーに「not configured」と表示される</td><td>合格しきい値またはキャンバスの標準の速さが設定されていません。あなたの承認を得て、システム管理者が設定します。</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

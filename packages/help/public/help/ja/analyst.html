@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分析者ガイド · ILT研究システム</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT研究システム · 分析者ガイド</span>
+  <a data-other-language="../en/analyst.html" href="../en/analyst.html" lang="en">English</a>
+  <a data-other-language="../he/analyst.html" href="../he/analyst.html" lang="he">עברית</a>
+  <a href="index.html">すべてのガイド</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="目次">
+  <strong>目次</strong>
+  <ol>
+    <li><a href="#overview">システムでのお仕事</a></li>
+    <li><a href="#sign-in">サインイン</a></li>
+    <li><a href="#privacy">見えるもの、見えないもの</a></li>
+    <li><a href="#portal-overview">Overview タブ</a></li>
+    <li><a href="#portal-sessions">研究セッション</a></li>
+    <li><a href="#portal-filters">フィルター</a></li>
+    <li><a href="#portal-cohort">コホートの表</a></li>
+    <li><a href="#portal-session">1つのセッション</a></li>
+    <li><a href="#portal-replay">再生</a></li>
+    <li><a href="#portal-kinematics">キネマティクス</a></li>
+    <li><a href="#portal-offline">紙のグループと旧アプリ</a></li>
+    <li><a href="#portal-exports">エクスポート</a></li>
+    <li><a href="#troubleshooting">問題が起きたとき</a></li>
+  </ol>
+</nav>
+<main>
+<h1>分析者ガイド</h1>
+<p class="lead">分析ポータルで個人を特定できない研究データを調べる分析者（と研究者）のためのガイドです。グラフ、コホートの比較、個々のセッション、キネマティクス、エクスポートを扱います。</p>
+
+<section id="overview">
+  <h2>システムでのお仕事</h2>
+  <p><span class="ui">Analyst portal</span> は閲覧専用です。タブは4つあります。</p>
+  <ul>
+    <li><span class="ui">Overview</span>：サマリーのタイル、学習曲線、箱ひげ図、参加者ごとに1行の表。</li>
+    <li><span class="ui">Research sessions</span>：フィルター、コホートの表、セッション一覧。各セッションのブロック、再生、キネマティクスを見られます。</li>
+    <li><span class="ui">Paper and legacy</span>：紙のグループと、以前のアプリケーションの結果。</li>
+    <li><span class="ui">Exports</span>：DuckDB、Python/Jupyter、R、Apache Superset、Metabase、表計算ソフト用のファイル。</li>
+  </ul>
+  <p>設定したフィルターはすべてのタブで共通です。ブラウザーのタブを開いている間は保持されます。</p>
+</section>
+
+<section id="sign-in">
+  <h2>サインイン</h2>
+  <p>システム管理者から伝えられた分析ポータルのアドレス（例：<code>https://&lt;server&gt;:5175</code>）を開き、サインインします。ポータルを使えるのは分析者と研究者です。検査者とシステム管理者はサインインできません。パスワードを5回間違えると、アカウントは15分間ロックされます。</p>
+  <p><span class="ui">Language</span> と <span class="ui">Theme</span> の切り替えは上部にあります。どの画面にもある <strong>Help</strong> ボタンを押すと、このガイドの該当箇所が開きます。小さな <strong>(?)</strong> ボタンを押すと、そのパネルについての説明が開きます。</p>
+</section>
+
+<section id="privacy">
+  <h2>見えるもの、見えないもの</h2>
+  <ul>
+    <li>表示されるのは<strong>完了した研究セッション</strong>だけです。介入セッションは表示されません。</li>
+    <li>表示されるのは、<strong>現在の</strong>同意で研究での利用が許可されている参加者だけです。後の同意で研究での利用が外されると、その参加者のデータはすぐに見えなくなります。</li>
+    <li>参加者は参加者コード（研究コード）だけで、学校は短いコードだけで表示されます。氏名、学校名、生年月日、ID番号は含まれません。</li>
+    <li>研究の倫理承認があり、研究セッションが実施されるまでは、ポータルは空のままです。これは仕様です。</li>
+    <li>再生やキネマティクスを開くこと、エクスポートの作成とダウンロードは記録されます。</li>
+  </ul>
+</section>
+
+<section id="portal-overview">
+  <h2>Overview タブ</h2>
+  <p>フィルターに合うセッションについて、コホートの全体像をひと目で確認できます（フィルターは Research sessions と同じです）。</p>
+  <ul>
+    <li><span class="ui">Compare by</span>：グループ分けの基準（例：SESグループ、学年、性別、学校コード）。<span class="ui">Measure</span>：時間、総合スコア、正確さ、ペンの持ち上げ、ILTの速さ、速さのスコア。</li>
+    <li><strong>タイル：</strong>参加者数、セッション数、集計対象のブロック数、平均時間、平均の正確さ、平均の総合スコア。</li>
+    <li><strong>学習曲線：</strong>プロトコルのILTブロックごとの指標の平均です。1日目はブロック1–8、2日目は1–4、14日目は1–2です。線は日と日の間で途切れます。グループ分けをすると、グループごとに1本の線になります（描かれるのは大きい順に6グループで、すべてのグループは表にあります）。ブロックにポインターを合わせると、その値とブロック数が表示されます。</li>
+    <li><strong>グループごとのばらつき（箱ひげ図）：</strong>各参加者のILTブロック全体での指標の平均です。箱は中央の半分（25パーセンタイルから75パーセンタイル）、箱の中の線は中央値、ひげは最小値と最大値を示します。n は参加者数です。</li>
+    <li>各グラフの下にある <span class="ui">Show as a table</span> を押すと、同じ数値を表で表示します。</li>
+    <li><strong>参加者：</strong>参加者ごとに1行です。属性、完了した段階、ILTブロック、14日目の総合スコア、14日目の合否（そのセッションで使われたしきい値に対して ✓ Pass または ✗ Below the threshold）、最初の14日目のブロックの <span class="ui">Replay</span> が並びます。</li>
+  </ul>
+  <p class="note">「集計対象のブロック」とは、採点される各ブロックの、最後に終了した試行のことです。曲線と箱ひげ図はILTブロックだけを使います（ウォームアップやノートのページは含みません）。</p>
+</section>
+
+<section id="portal-sessions">
+  <h2>研究セッション</h2>
+  <p>メインのタブです。<a href="#portal-filters">フィルター</a>、<a href="#portal-cohort">コホートの表</a>、条件に合う研究セッションの一覧が、新しい順に表示されます（一覧に出るのは最大500件です。ほかのセッションを見るには、フィルターで絞り込んでください）。</p>
+  <p>各行には、セッションコードと参加者コード、段階、言語、学年、性別、SES、利き手、ドメイン、地域、学校コード、完了日、集計対象のブロック数、総合スコアの平均が表示されます。セッションコードをクリックすると、<a href="#portal-session">そのセッション</a>が開きます。</p>
+</section>
+
+<section id="portal-filters">
+  <h2>フィルター</h2>
+  <p>ドメイン、地域、学校コード、学年、性別、SESグループ、利き手、言語、セッションの段階、キャンバス、無操作タイマー、そして完了日（<span class="ui">Completed from</span> ／ <span class="ui">Completed until</span>）で絞り込めます。「Not recorded」を選ぶと、値が記録されていない参加者を探せます。<span class="ui">Clear filters</span> を押すと、フィルターがリセットされます。</p>
+  <p><span class="ui">Filters</span> の横の数は、すべての研究セッションと参加者の合計です。一覧、コホートの表、Overview はフィルターに従います。</p>
+</section>
+
+<section id="portal-cohort">
+  <h2>コホートの表</h2>
+  <p><span class="ui">Group by</span> で、選んだセッションを1つの観点で分けます（分けないこともできます）。グループごとに、参加者数、セッション数、ブロック数と、総合スコア、正確さ、速さのスコア、ILTの速さ（mm/s）、ペンの持ち上げ、時間（s）の平均が表示されます。</p>
+  <p>平均は集計対象のブロックで計算します。つまり、採点される各ILTブロックの、最後に終了した試行です。ウォームアップとノートのページは含みません。</p>
+</section>
+
+<section id="portal-session">
+  <h2>1つのセッション</h2>
+  <ul>
+    <li><span class="ui">Session details</span>：言語、年齢（年と月）、学年、性別、SES、利き手、ドメイン、地域、学校コード、デバイス、開始日時と完了日時。</li>
+    <li><span class="ui">Settings used</span>：このセッションの無操作タイマー、合格しきい値、総合スコアの重み。</li>
+    <li><span class="ui">Blocks and attempts</span>：すべてのステップと試行が、キャンバス、状態、サンプル数とともに表示されます。<span class="ui">Counted</span> は集計対象の試行を示します。ウォームアップとノートのページは灰色で表示されます。サンプルのある各ブロックには <span class="ui">Replay</span> と <span class="ui">Kinematics</span> があります。</li>
+    <li>介入シートでは、各文字の採点結果。</li>
+    <li><strong>キネマティクス</strong>のセクションには、各ブロックの要約指標が並びます。</li>
+  </ul>
+  <p>上部の <span class="ui">Research sessions</span> を押すと、フィルターを保ったまま一覧に戻ります。</p>
+</section>
+
+<section id="portal-replay">
+  <h2>再生</h2>
+  <p>子どもが書いたとおりにページを再生します。<span class="ui">Play</span> ／ <span class="ui">Pause</span>、タイムライン、0.25×から4×までの速さ、1サンプルずつの前後移動ができます。各文字の速さはその文字の枠の下に表示されます。インクは筆圧（弱い、中くらい、強い）で色分けされ、ペンが紙から離れている間の軌跡は黄色で表示されます。<span class="ui">Back</span> を押すと、元の画面に戻ります。</p>
+</section>
+
+<section id="portal-kinematics">
+  <h2>キネマティクス</h2>
+  <p>1つのブロックの試行について、次の内容を表示します。</p>
+  <ul>
+    <li><span class="ui">Block summary</span>：ストローク数、書いた時間、軌跡の長さ、平均と最大の速さ、ストロークあたりの速度ピーク数、平均ジャークと正規化ジャーク、平均筆圧。</li>
+    <li><span class="ui">Speed, jerk and pressure over time</span>：1つの時間軸に沿った3つのグラフです。ストロークごとに1本の線で、ペンを持ち上げたところは途切れます。グラフにポインターを合わせると、3つのグラフの同じ時点に線が引かれ、その値が上に表示されます。</li>
+    <li><span class="ui">Highlight</span>：文字を選ぶと、グラフ上でその文字が強調されます。</li>
+    <li><span class="ui">Letters, in writing order</span>：同じ指標を文字ごとに表示します。行をクリックすると、その文字が強調されます。</li>
+    <li><span class="ui">Strokes</span>：ストロークごとに1行です。</li>
+  </ul>
+  <p>キネマティクスは、保存されているペンのサンプルから計算します。保存されているデータは何も変更されません。時間は、どの言語でも左から右に進みます。</p>
+</section>
+
+<section id="portal-offline">
+  <h2>紙のグループと旧アプリ</h2>
+  <ul>
+    <li><strong>紙のグループ：</strong>紙に書かれ、手で入力されたブロックです。基準となるペアごとの平均（比較サマリーと同じ）として、参加者数、ブロック数、時間、ペンの持ち上げ、正確に書けた文字数、正確さ（%）が表示されます。紙には点がないため、速さと総合スコアはありません。</li>
+    <li><strong>以前のアプリケーション：</strong>取り込んだ結果を、セッションのラベルごとに、取り込んだままの形で表示します。旧アプリは測定方法が異なるため、採点やタブレットの基準ペアとの比較は行いません。旧アプリのセグメント幅の単位は確認されていません。</li>
+    <li>「The blocks (n)」を押すと、行そのものが開きます。</li>
+    <li>ここで使えるのは参加者のフィルター（ドメイン、地域、学校、学年、性別、SES、利き手）だけです。セッションのフィルター（段階、言語、キャンバス、タイマー、日付）は適用されません。</li>
+    <li>タブレットのセッションと同じく、表示されるのは現在の同意で研究での利用が許可されている参加者だけです。</li>
+  </ul>
+</section>
+
+<section id="portal-exports">
+  <h2>エクスポート</h2>
+  <ol>
+    <li><span class="ui">Research sessions</span> でフィルターを設定します（または <span class="ui">Change filters</span> を押します）。Exports タブには、条件に合うセッションの数と、あわせて含まれる紙のグループと旧アプリの参加者の数が表示されます。</li>
+    <li><span class="ui">Format</span> を選びます。<strong>Parquet</strong>（コンパクトで型付き。DuckDB、Python、R、Superset、Metabase 向け）または <strong>CSV</strong>（プレーンテキスト。表計算ソフトやあらゆるツール向け）です。</li>
+    <li><span class="ui">Contents</span>：セッション、ブロック、文字、スコアのバージョンは常に含まれます（紙のグループと旧アプリのブロックも含まれます）。必要に応じて、<strong>ペンの生サンプル</strong>（サイズが大きい）や、ブロック・文字・ストロークごとの<strong>キネマティクス</strong>（時間がかかる）を追加します。</li>
+    <li><span class="ui">Create export</span> を押します。エクスポートは <span class="ui">My exports</span> に「Preparing…」と表示され、その後サイズとともに <strong>Ready</strong> と表示されます。</li>
+    <li><span class="ui">Download</span> を押すと、zipファイルが保存されます。中身は、表ごとに1つのファイル、表・単位・コードを説明する <code>README.txt</code>、フィルター・オプション・行数を記録した <code>manifest.json</code> です。</li>
+  </ol>
+  <ul>
+    <li>ダウンロードリンクは15分間有効です。新しいリンクが必要なときは、もう一度 <span class="ui">Download</span> を押してください。各ユーザーには自分のエクスポートだけが表示されます。</li>
+    <li>1回のエクスポートは最大5,000セッションです。時刻はUTCです。</li>
+    <li>ファイルには個人を特定できないデータだけが含まれます。承認された保存場所に保管してください。</li>
+  </ul>
+</section>
+
+<section id="troubleshooting">
+  <h2>問題が起きたとき</h2>
+  <table>
+    <tr><th>表示される内容</th><th>対処方法</th></tr>
+    <tr><td>「There are no research sessions yet」</td><td>研究への同意がある参加者で研究セッションが実施され、完了するまでは、この表示になります。これは仕様です。</td></tr>
+    <tr><td>参加者またはセッションが表示されなくなった</td><td>その参加者の同意が、研究での利用なしに変更されました。研究チームに問い合わせてください。</td></tr>
+    <tr><td>「The kinematics service is not answering」</td><td>しばらくしてからもう一度試すか、システム管理者に連絡してください。</td></tr>
+    <tr><td>「This download link has expired」</td><td>My exports で、もう一度 <span class="ui">Download</span> を押してください。</td></tr>
+    <tr><td>「Too many sessions for one export」</td><td>フィルターで絞り込んでください（最大5,000）。</td></tr>
+    <tr><td>総合スコアまたは速さのスコアが「—」</td><td>そのセッションは、キャンバスの標準の速さまたは重みが設定される前に採点されました。</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ja" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>検査者ガイド · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · 検査者ガイド</span>
+  <a data-other-language="../en/evaluator.html" href="../en/evaluator.html" lang="en">English</a>
+  <a data-other-language="../he/evaluator.html" href="../he/evaluator.html" lang="he">עברית</a>
+  <a href="index.html">すべてのガイド</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="目次">
+  <strong>目次</strong>
+  <ol>
+    <li><a href="#overview">システムでのあなたの仕事</a></li>
+    <li><a href="#sign-in">サインイン</a></li>
+    <li><a href="#sessions">セッション画面</a></li>
+    <li><a href="#new-participant">新しい参加者</a></li>
+    <li><a href="#new-session">新しいセッション</a></li>
+    <li><a href="#participant-record">参加者の記録</a></li>
+    <li><a href="#consent">同意</a></li>
+    <li><a href="#paper-scores">紙のスコア</a></li>
+    <li><a href="#legacy-results">旧アプリケーションの結果</a></li>
+    <li><a href="#console">ディスパッチコンソール</a></li>
+    <li><a href="#intervention">介入プログラム</a></li>
+    <li><a href="#tablet">タブレットの準備</a></li>
+    <li><a href="#pairing">タブレットのペアリング</a></li>
+    <li><a href="#session">ライブセッション画面</a></li>
+    <li><a href="#steps">ステップの実行</a></li>
+    <li><a href="#telemetry">ライブミラーと臨床テレメトリー</a></li>
+    <li><a href="#block-end">ブロックの終わり方</a></li>
+    <li><a href="#controls">一時停止、やり直し、中止、解除、終了</a></li>
+    <li><a href="#marks">介入シートの採点</a></li>
+    <li><a href="#camera">手元動画（カメラ）</a></li>
+    <li><a href="#summary">比較サマリー</a></li>
+    <li><a href="#replay">再生</a></li>
+    <li><a href="#troubleshooting">うまくいかないとき</a></li>
+  </ol>
+</nav>
+<main>
+<h1>検査者ガイド</h1>
+<p class="lead">子どもと ILT のセッションを行う検査者向けのガイドです。参加者の登録、タブレットでのセッションの計画と実行、介入シートの採点、結果の見方を説明します。</p>
+
+<section id="overview">
+  <h2>システムでのあなたの仕事</h2>
+  <p>あなたはパソコンの <span class="ui">Evaluator cockpit</span>（検査者コックピット）で作業します。子どもはタブレット（<span class="ui">Child station</span>）に書きます。コックピットには子どもが書いている内容がリアルタイムで表示され、セッションの各ステップをタブレットに送ることができます。</p>
+  <ul>
+    <li><strong>参加者</strong>は<strong>参加者コード</strong>だけで識別します。名前、ID 番号、イニシャルはどこにも入力しないでください。学校は保護されたコードとしてのみ保存され、生年月日は生まれた年と月だけが保存されます。</li>
+    <li><strong>セッション</strong>は子どもとの 1 回の面接で、プロトコルに沿って構成されます。<strong>1日目</strong>（習得）、<strong>2日目</strong>（24 時間後の保持）、<strong>14日目</strong>（2 週間後の自動化）、そして実際の文字を使う<strong>介入</strong>セッションがあります。</li>
+    <li>子どもは<strong>マス</strong>に書きます。マスは ILT のページにある枠のことです。1 つのブロックには 15 個のマスがあります。</li>
+    <li>セッションで使う設定（タイマー、採点）は、セッションを作成した時点で固定されます。あとで設定を変えても、そのセッションは変わりません。</li>
+  </ul>
+  <p>ふだんの作業の順番は次のとおりです。<a href="#new-participant">参加者を登録する</a> → <a href="#consent">同意を記録する</a> → <a href="#new-session">セッションを計画する</a> → タブレットを<a href="#tablet">準備</a>して<a href="#pairing">ペアリングする</a> → <a href="#steps">ステップを実行する</a> → <a href="#summary">結果を見る</a>。</p>
+</section>
+
+<section id="sign-in">
+  <h2>サインイン</h2>
+  <ol>
+    <li>システム管理者から伝えられた検査者コックピットのアドレスを開きます（例：<code>https://&lt;server&gt;:5174</code>）。</li>
+    <li>メールアドレスとパスワードを入力し、<span class="ui">Sign in</span> を押します。目のボタンを押すと、入力中のパスワードが表示されます。</li>
+  </ol>
+  <ul>
+    <li>画面は、管理者が設定したあなたの言語で開きます。上部の <span class="ui">Language</span> スイッチで、今回の利用中だけ言語を変えられます。<span class="ui">Theme</span> では、ライト、ダーク、パソコンの設定に合わせる、から選べます。</li>
+    <li>パスワードを 5 回間違えると、アカウントは 15 分間ロックされます。管理者はロックを解除し、新しいパスワードを発行できます。</li>
+    <li>各画面の上部にある<strong>Help</strong>（ヘルプ）ボタンを押すと、このガイドのその画面に関する部分が開きます。いくつかのパネルの横にある小さな <strong>(?)</strong> ボタンを押すと、そのパネルに関する部分が開きます。</li>
+  </ul>
+  <p class="note">システム管理者は別のアドレス（<code>…/admin</code>）でサインインします。分析者と研究者は分析ポータルも使えます。</p>
+</section>
+
+<section id="sessions">
+  <h2>セッション画面</h2>
+  <p>サインインすると、あなたのセッションが新しい順に表示されます。各行には、セッションコード、参加者コード、セッションの種類（研究セッションには「Research」）、言語、状態、作成日時が表示されます。</p>
+  <ul>
+    <li><strong>Filters</strong>（絞り込み）：<span class="ui">Search</span>（セッションコードまたは参加者コード）、状態（Planned、Paired、In progress、Paused、Completed、Aborted）、種類、日付の <span class="ui">From</span> ／ <span class="ui">To</span> で絞り込めます。<span class="ui">Clear filters</span> を押すと、すべてが再び表示されます。見つかったセッションの数は一覧の上に表示されます。</li>
+    <li><span class="ui">Open</span> を押すと、そのセッションが<a href="#session">ライブセッション画面</a>で開きます。</li>
+    <li><span class="ui">Protocol</span> または参加者コードを押すと、その参加者の<a href="#console">ディスパッチコンソール</a>が開きます。</li>
+    <li><span class="ui">New participant</span> と <span class="ui">New session</span> を押すと、以下で説明する入力フォームが開きます。</li>
+  </ul>
+</section>
+
+<section id="new-participant">
+  <h2>新しい参加者</h2>
+  <ol>
+    <li><span class="ui">Sessions</span> で <span class="ui">New participant</span> を押します。</li>
+    <li>次の項目を入力します。
+      <ul>
+        <li><span class="ui">Participant code</span>：研究責任者がシステムの外で管理している一覧にある研究コードです。あとから変更することはできません。また、ほかと重複してはいけません（大文字と小文字は同じコードとして扱われます）。</li>
+        <li><span class="ui">School</span>：一度だけ入力し、保護されたコードとしてのみ保存されます。学校名は保存されません。</li>
+        <li><span class="ui">Birth month and year</span>：セッションごとに、子どもの月齢が自動で計算されます。</li>
+        <li><span class="ui">Domain</span>（研究グループ）、<span class="ui">Region</span>（任意）、<span class="ui">Grade</span>、<span class="ui">Gender</span>、<span class="ui">Socio-economic group</span>、<span class="ui">Dominant hand</span>。</li>
+        <li><span class="ui">Group</span>：タブレットに書く子どもは <strong>Tablet</strong>、紙に書き、あなたがスコアを手で入力する子どもは <strong>Paper cohort</strong> を選びます（<a href="#paper-scores">紙のスコア</a>）。</li>
+      </ul>
+    </li>
+    <li><span class="ui">Create</span> を押します。新しい参加者が参加者欄で選ばれた状態になり、すぐにセッションを作成できます。</li>
+  </ol>
+  <p class="warn">名前、ID 番号、イニシャルは、メモ欄も含めてどの欄にも入力しないでください。</p>
+  <p>次に、<a href="#participant-record">参加者の記録</a>を開いて<a href="#consent">同意を記録</a>します。</p>
+</section>
+
+<section id="new-session">
+  <h2>新しいセッション</h2>
+  <ol>
+    <li><span class="ui">Sessions</span> で、参加者欄に参加者コードを入力し、参加者を選びます。</li>
+    <li><span class="ui">Session type</span>（1日目、2日目、14日目。介入セッションは<a href="#intervention">ディスパッチコンソール</a>で計画します）と、子どもの言語である <span class="ui">Session language</span> を選びます。この言語によって、タブレットの説明と使用するキャンバスが決まります。参加者のドメインで有効になっている言語だけが表示されます。</li>
+    <li><span class="ui">Purpose</span> を選びます。<strong>Intervention</strong>（既定）または <strong>Research</strong> です。Research を選べるのは、設定で研究セッションが有効になっていて、今日の時点で有効な研究の倫理承認があり、参加者の同意が研究での利用を認めている場合だけです。どれかが欠けているときは、フォームにその理由が表示されます。</li>
+    <li><span class="ui">Create</span> を押します。セッションにコード（例：<code>S261115-AB2C</code>）が付き、ライブセッション画面で開きます。</li>
+  </ol>
+  <p>2日目と14日目は<a href="#console">ディスパッチコンソール</a>（<span class="ui">Plan the … session</span>）から、介入セッションはその<a href="#intervention">介入パネル</a>から計画することもできます。</p>
+  <p class="note">各日のステップはプロトコルのテンプレートで決まっています。1日目：導入動画、ウォームアップブロック（採点なし）、ILT ブロック 1–4、ノートのデモ動画、タブレットでのノートのページ 1–4、ILT ブロック 5–8。2日目：ILT ブロック 1–4 と、実際の紙のノートへの 2 ページ（あなたが時間を計ります）。14日目：ILT ブロック 1–2。管理者は地域ごとにウォームアップをオフにできます。</p>
+</section>
+
+<section id="participant-record">
+  <h2>参加者の記録</h2>
+  <p><span class="ui">Sessions</span> の参加者欄の横にある <span class="ui">Participant record</span>、またはディスパッチコンソールの上部から開きます。</p>
+  <ul>
+    <li><strong>Details</strong>（詳細）：ドメイン、地域、学校（「Kept as a protected code」）、生まれた月、学年、性別、社会経済的グループ、利き手が表示されます。あわせて、セッションの数と、記録の作成日時と最終更新日時も表示されます。</li>
+    <li><span class="ui">Edit</span> で詳細を変更できます。参加者コードは変更できません。学校を変えるときは、新しい学校名を入力します。空欄のままにすると、現在の学校がそのまま残ります。</li>
+    <li><span class="ui">Deactivate</span> を押すと、その参加者は参加者の検索に出なくなり、新しいセッションを作成できなくなります。セッションと結果は残り、ディスパッチコンソールとサマリーも引き続き開けます。<span class="ui">Reactivate</span> で元に戻せます。</li>
+    <li><strong>Research sessions</strong>（研究セッション）の欄には、この参加者で研究セッションを作成できるかどうかと、できない場合はその理由が表示されます。</li>
+    <li><strong>Hand video</strong>（手元動画）の欄には、手元動画が録画されるかどうかが表示されます。録画には、システムの設定と参加者の同意の両方が必要です。</li>
+  </ul>
+  <p>上部の <span class="ui">Dispatch Console</span> を押すと、コンソールに戻ります。</p>
+</section>
+
+<section id="consent">
+  <h2>同意</h2>
+  <p>同意は参加者の記録に登録します。同意が記録されていないときは、もっともプライバシーを守る既定値が使われます。つまり、手元動画なし、研究での利用なし、オープンサイエンスでの共有なしです。</p>
+  <ol>
+    <li><span class="ui">Record consent</span>（または <span class="ui">Record a new consent</span>）を押します。</li>
+    <li><span class="ui">Consent form version</span> と、署名された日付 <span class="ui">Signed on</span> を入力します（未来の日付は入力できません）。</li>
+    <li>署名された同意書で認められている項目だけにチェックを入れます：<span class="ui">Hand video</span>、<span class="ui">Research use</span>、<span class="ui">Open-science sharing</span>。最初はどの項目にもチェックが入っていません。</li>
+    <li><span class="ui">Record consent</span> を押します。</li>
+  </ol>
+  <p>新しい同意は現在の同意に置き換わります。それ以前の同意は、記録した人の名前とともに <span class="ui">Consent history</span> に残ります。</p>
+  <p class="note">研究での利用を含まない同意を記録すると、その参加者の研究結果はすぐに分析ポータルから外されます。セッションで手元動画を録画するかどうかは、セッションの作成時に決まります。</p>
+</section>
+
+<section id="paper-scores">
+  <h2>紙のスコア</h2>
+  <p><strong>Paper cohort</strong> の参加者の記録には、<span class="ui">Paper scores</span> の表があります：1日目 ILT 1–8、2日目 ILT 1–4、14日目 ILT 1–2。</p>
+  <ul>
+    <li>紙に書いた各ブロックについて、ペンの持ち上げの回数（0–200）、正確に書けた文字の数（0–15）、秒単位の時間、必要ならメモを入力し、その行の <span class="ui">Save</span> を押します。</li>
+    <li>書かなかったブロックは空欄のままにします。保存済みのブロックを空にして保存すると、そのブロックは削除されます。</li>
+    <li>保存のたびに、変更前と変更後の値が記録に残ります。</li>
+  </ul>
+  <p>紙のブロックは<a href="#summary">比較サマリー</a>に <strong>Paper</strong> のタグ付きで表示されます。紙には速さのデータがないため、速さのスコアと総合スコアはありません。</p>
+</section>
+
+<section id="legacy-results">
+  <h2>旧アプリケーションの結果</h2>
+  <p>以前のアプリケーションから取り込んだ子どもには、「Legacy (old application)」のタグと以前の番号が付いています。その記録には <span class="ui">Results from the old application</span> が表示されます。ブロックごとに、ペンの持ち上げ、セグメント幅、合計、書字時間、空中時間が、取り込んだときのまま表示されます。これらは閲覧のみで、編集できません。取り込んだファイルには学年、性別、学校の情報がないため、<span class="ui">Edit</span> で記録を補うまでは「Not recorded」と表示されます。</p>
+</section>
+
+<section id="console">
+  <h2>ディスパッチコンソール</h2>
+  <p><span class="ui">ILT Evaluator Control &amp; Dispatch Console</span> には、1 人の参加者のプロトコル全体が 1 ページに表示されます。セッション画面またはセッション内の <span class="ui">Protocol</span> から開きます。</p>
+  <ul>
+    <li><strong>1日目</strong>、<strong>2日目</strong>、<strong>14日目</strong>は、ステップのカードが並んだパネルです。同じ種類のブロックやページが続くときは、1 枚のカードにまとめられます。例：「ILT 4 Blocks · Blocks 1–4 (Scored)」。</li>
+    <li>カードの色：<strong>緑</strong>は <span class="ui">COMPLETED</span>、<strong>青</strong>は <span class="ui">ACTIVE</span>（ステップのうちいくつ終わったかを表示）、灰色は <span class="ui">DISPATCH</span>（これから実行）、薄い灰色は <span class="ui">SKIPPED</span>、灰色の <span class="ui">PENDING Day N</span> は、その日のセッションがまだ計画されていないことを示します。</li>
+    <li>カードをクリックすると、そのセッションがライブセッション画面で開きます。そこでステップをタブレットに送ります。</li>
+    <li><span class="ui">Plan the Day 2 session</span> ／ <span class="ui">Plan the Day 14 session</span> で、その日のセッションを作成します。</li>
+    <li>14日目のパネルには、2 つのブロックの両方が採点されると、その平均スコアが表示されます。<span class="ui">Comparative Summary View</span> を押すと<a href="#summary">サマリー</a>が開きます。</li>
+    <li>下部のステータスバーには、タブレットで実行中のステップ、適用中のタイマーの方針、ウォームアップの設定が表示されます。<span class="ui">OPEN LIVE COCKPIT</span> を押すと、進行中のセッション（または最初に計画されたセッション）が開きます。</li>
+    <li>ほかの検査者が実行しているセッションは状態だけが表示され、カードはクリックできません（「Another evaluator runs this session.」）。</li>
+  </ul>
+</section>
+
+<section id="intervention">
+  <h2>介入プログラム</h2>
+  <p>ディスパッチコンソールの緑色の <span class="ui">Intervention program</span> パネルでは、介入セッションを、目標の文字 1 つずつ計画します。管理者が有効にした文字だけが表示されます。</p>
+  <ul>
+    <li>文字をクリックすると、その文字が <span class="ui">Target letter</span> になります。各文字には状態が表示されます：未練習、1 回練習済み、<em>日付</em>から保持テスト可、保持テストの時期、保持テスト済み。</li>
+    <li><span class="ui">Video + 4 Training Sheets</span>：その文字の最初の練習です。まず文字の動画（ライブラリに動画がない場合は、メモを付けてスキップされます）、次に 4 枚の文字シートを行います。</li>
+    <li><span class="ui">Repeat Letter</span>：同じ文字をもう一度練習します。</li>
+    <li><span class="ui">Next Letter</span>：まだ練習していない次の文字の練習を始めます。</li>
+    <li><span class="ui">2-Wk Retention</span>：シート 1 枚です。その文字の最後に完了した練習から 14 日後に表示されます（日数は設定で変えられます）。</li>
+    <li><span class="ui">Purpose</span>：Intervention、または研究が認められている場合は Research です（<a href="#new-session">新しいセッション</a>を参照）。</li>
+  </ul>
+  <p>同時に開けておける介入セッションは 1 つだけです。次のセッションを計画する前に、いまのセッションを終了（または中止）してください。計画したセッションは <span class="ui">Intervention sessions</span> の下にカードとして表示されます。クリックすると開きます。カードには、終わったシートの数、スコア（採点済みシートの総合スコアの平均）、またはまだ付けていない採点の数が表示されます。</p>
+</section>
+
+<section id="tablet">
+  <h2>タブレットの準備</h2>
+  <ol>
+    <li>タブレットを充電し、ペンと一緒に子どもの前に置きます。</li>
+    <li>タブレットで Child station のアドレスを開きます（例：<code>https://&lt;server&gt;:5173</code>）。<span class="ui">Type the 6-digit code</span> と表示されます。</li>
+    <li>ページは画面いっぱいに表示されるはずです。ブラウザのバーが表示されているときは、タイトルバーか、書字ページの外側をタップします。タブレットがスリープから復帰したあとは、隅に <span class="ui">⛶ Full screen</span> ボタンが表示されます。</li>
+  </ol>
+  <ul>
+    <li>キャンバスは実寸で表示されます。タブレットは<strong>ペンにだけ</strong>反応し、手で触れても無視されます。</li>
+    <li>ネットワークが切れても、タブレットは書いた内容を保持し、再接続したときに送信します（「No connection to the server. Writing is kept on the tablet」）。</li>
+    <li>タブレットのメッセージはセッションの言語で表示されます。</li>
+  </ul>
+</section>
+
+<section id="pairing">
+  <h2>タブレットのペアリング</h2>
+  <ol>
+    <li>ライブセッション画面の <span class="ui">Tablet pairing</span> の下で、<span class="ui">Show pairing code</span> を押します。6 桁のコードが表示され、10 分間有効です（<span class="ui">New code</span> で別のコードを出せます）。</li>
+    <li>タブレットでコードを入力し、<span class="ui">Connect</span> を押します。コックピットに <span class="ui">Tablet connected</span> と表示され、タブレットには「Waiting for the evaluator to start」と表示されます。</li>
+  </ol>
+  <ul>
+    <li>1 台のタブレットが同時に担当できるセッションは 1 つです。</li>
+    <li>タブレットは、セッションが終了するか、中止されるか、タブレットが解除されるまで、そのセッションに結び付いたままです。再読み込み、ネットワークの切断、ブラウザのデータ消去があっても変わりません。これは子どもの書いた内容を守るためです。そのため、古いセッションに結び付いたままのタブレットは新しいコードを受け付けません。先に解除してください。</li>
+    <li><strong>終わっていないセッションから離れるとき：</strong>タブレットが接続された状態で <span class="ui">Back</span> を押すと、<span class="ui">Release tablet and go back</span>、<span class="ui">Go back without releasing</span>、<span class="ui">Stay in this session</span> のどれにするかを聞かれます。</li>
+    <li><span class="ui">Release tablet</span>（<span class="ui">Abort session</span> の横）は、セッションの中から同じことを行います。タブレットの電源が切れているときや、通信範囲外にあるときも使えます。タブレットはコード入力画面に戻ります。セッションは開いたままです。もう一度開いて新しいコードを表示し、ペアリングすれば、止まったところから続けられます。</li>
+    <li>タブレットでブロックや動画が実行中のときは、タブレットを解除できません。先に終了するか停止してください。</li>
+    <li>セッションが終了または中止されたあとにタブレットが再接続すると、終了画面が表示され、自動でコード入力画面に戻ります。</li>
+    <li>コードが間違っているか期限切れのときは、タブレットにそのように表示されます。新しいコードを出してください。間違ったコードを何度も入力すると、タブレットは 15 分間待機します。</li>
+  </ul>
+</section>
+
+<section id="session">
+  <h2>ライブセッション画面</h2>
+  <p>見出しには、参加者、セッションの種類、目的、言語が表示されます。画面には次のものがあります。</p>
+  <ul>
+    <li><strong>Tablet pairing</strong>（タブレットのペアリング）と、カメラが設定されている場合は<strong>Hand video</strong>（手元動画）（<a href="#camera">カメラ</a>）。</li>
+    <li>タブレットのページの<strong>ライブミラー</strong>と、<strong>Clinical telemetry</strong>（臨床テレメトリー）パネル（<a href="#telemetry">下記参照</a>）。</li>
+    <li><strong>Session steps</strong>（セッションのステップ）：セッションのすべてのステップが、順番に、状態と結果とともに表示されます（<a href="#steps">ステップの実行</a>）。</li>
+    <li>セッションの操作ボタン：<span class="ui">Pause</span>、<span class="ui">Finish block manually</span>、<span class="ui">Repeat block</span>、<span class="ui">Abort session</span>、<span class="ui">Release tablet</span>、<span class="ui">Finish session</span>（<a href="#controls">下記参照</a>）。</li>
+    <li><span class="ui">Comparative summary</span> と <span class="ui">Protocol</span>（ディスパッチコンソール）。</li>
+  </ul>
+</section>
+
+<section id="steps">
+  <h2>ステップの実行</h2>
+  <p>大きな <span class="ui">Next step: …</span> ボタンを押すと、種類にかかわらず、まだ終わっていない最初のステップが実行されます。<span class="ui">Session steps</span> で、各ステップを個別に操作することもできます。</p>
+  <h3>動画</h3>
+  <ul>
+    <li><span class="ui">Play on tablet</span> を押すと、タブレットで動画がセッションの言語で全画面再生されます。コックピットには「Playing on the tablet」と表示されます。動画が終わるか、<span class="ui">Stop video</span> を押すと、ステップは完了します。</li>
+    <li>動画が終わったあと、<span class="ui">Show again</span> を押すと、タブレットでもう一度再生されます。必要なだけ何度でも再生できます。子どもの準備ができたら、<span class="ui">Next step</span> または <span class="ui">Send to tablet</span> で次のステップ（導入ブロック）に進みます。</li>
+    <li>ブラウザが音声をブロックした場合、タブレットに <span class="ui">Tap to play the video</span> と表示されます。そこをタップしてください。</li>
+    <li>セッションの言語の動画がない場合は、「No video in the session language: skip it and explain verbally」と表示されます。<span class="ui">Skip</span> を押し、あなたが子どもに口頭で説明してください。</li>
+  </ul>
+  <h3>書字のステップ（ウォームアップ、ILT ブロック、ノートのページ、文字シート）</h3>
+  <ul>
+    <li><span class="ui">Send to tablet</span> を押すと、ステップが送られます。タブレットはカウントダウン（「Get ready…」）のあと、ページを表示します。例：「Block 1 of 8」。</li>
+    <li>子どもはマスに順番に書きます。書き終えたマスや飛ばしたマスには、もう書き込めません（前に進むだけです）。ノートのページでは、子どもが次の行に移ると、それまでの行はロックされます。</li>
+    <li><strong>ウォームアップ</strong>は 1 ブロック分を丸ごと行います。測定はしますが、採点はしません。口頭での手助けをしてかまいません。</li>
+    <li><strong>Notebook pages</strong>（ノートのページ）は同じ文字を 5 個ずつ 3 行書きます。時間だけを計ります。</li>
+  </ul>
+  <h3>紙のノートのページ（2日目）</h3>
+  <ul>
+    <li>子どもは実際の紙のノートに書きます。子どもが書き始めたら <span class="ui">Start</span> を、書き終えたら <span class="ui">Stop</span> を押します。<span class="ui">Continue</span> を押すとタイマーが再開します。</li>
+    <li>必要なら <span class="ui">Notes</span> を入力し、<span class="ui">Save page</span> を押します。ステップには時間とメモが表示されます。</li>
+  </ul>
+  <h3>スキップ</h3>
+  <p><span class="ui">Skip</span> を押すと、そのステップを実行せずにスキップ済みにします。スキップは記録に残ります。</p>
+</section>
+
+<section id="telemetry">
+  <h2>ライブミラーと臨床テレメトリー</h2>
+  <p>ミラーには、子どものページが書かれていく様子がそのまま表示されます。インクは筆圧（弱い、中くらい、強い）によって色分けされ、ページの上の空中でのペンの動きは黄色で描かれます。</p>
+  <p><span class="ui">Clinical telemetry</span> パネルは約 1 秒ごとに更新されます。</p>
+  <table>
+    <tr><th>項目</th><th>意味</th></tr>
+    <tr><td><span class="ui">Active house</span></td><td>書いている最中のマス。例：15 個中 6 個目</td></tr>
+    <tr><td><span class="ui">Block time</span></td><td>最初のマスで最初にペンを置いたときからの時間</td></tr>
+    <tr><td><span class="ui">Inactivity</span></td><td>書いていない時間（しきい値と比べて表示）</td></tr>
+    <tr><td><span class="ui">Pen lifts in block</span></td><td>ブロックの終わりの基準は 15 回です</td></tr>
+    <tr><td><span class="ui">Pen lifts inside letters</span></td><td>文字の途中でのペンの持ち上げ（マスの番号付き）</td></tr>
+    <tr><td><span class="ui">Width outside band</span></td><td>幅が 9–13 mm の範囲外の文字（記録のみで、採点しません）</td></tr>
+    <tr><td><span class="ui">Dot B hit</span></td><td>中央の目標点 B に触れた文字の数</td></tr>
+    <tr><td><span class="ui">Skipped houses</span></td><td>空欄のまま残されたマス</td></tr>
+    <tr><td><span class="ui">Average ILT speed</span></td><td>mm/s 単位</td></tr>
+  </table>
+  <p>文字シートでは、時間、書いていない時間、ペンの持ち上げ、飛ばしたマスだけが表示されます。採点はその下に表示されます（<a href="#marks">介入シートの採点</a>）。</p>
+  <h3>書いていない時間</h3>
+  <p>20 秒間書かない状態が続くと（最後のマスのあとは 30 秒）、タブレットのページのまわりがやわらかく光ります。さらに 10 秒たつと、テレメトリーパネルが黄色に変わり（「No writing: check the child」）、認められている場合は <span class="ui">Finish block manually</span> が黄色で点滅します。これらの時間は設定で変えられます。</p>
+</section>
+
+<section id="block-end">
+  <h2>ブロックの終わり方</h2>
+  <ul>
+    <li><strong>Next block on the tablet</strong>（タブレットでの次のブロック）：最後のマスを書き終えると、タブレットに <span class="ui">Next block</span> が表示されます。このボタンはペンでのタップにだけ反応し、最後のマスのあとでしか反応しません。押すとブロックが終わり、カウントダウンなしで、すぐに次の書字ブロックが始まります（コックピットから送ったステップには、これまでどおりカウントダウンがあります）。ノートのページでは、最後の行で 5 画以上書いたあとに表示されます。</li>
+    <li><strong>Finish block manually</strong>（ブロックの手動終了）：子どもが最後のマスに書き（ノートのページでは最後の行に達し）、<strong>かつ</strong>ペンがページに触れないまま 30 秒たつまでは、ボタンは薄く表示されたままです。条件を満たすと黄色で点滅します。子どもが最後のマスの前でやめてしまった場合は、手動終了ではブロックを終えられません。<span class="ui">Pause</span> または <span class="ui">Abort session</span> を使ってください。</li>
+    <li>ブロックが保存されると、コックピットに「Block saved」と、サンプル数と整合性チェックの結果が表示されます。あわせて<strong>結果カード</strong>が表示されます：時間、ペンの持ち上げ、正確さ、平均の速さ、速さ・正確さ・ペンの持ち上げのスコア、総合スコア。ウォームアップには「measured, not scored」、ノートのページには「timed only」と表示されます。</li>
+    <li>キャンバスの標準の速さが記録されるまでは、速さのスコアと総合スコアに「not configured」と表示されます。合格のしきい値が設定されるまでは、合否も同様です。これらは管理者が設定します。</li>
+    <li>ブロックが終わると、タブレットは子どもに、ペンをタブレットの横の机に置くように伝えます。</li>
+  </ul>
+</section>
+
+<section id="controls">
+  <h2>一時停止、やり直し、中止、解除、終了</h2>
+  <ul>
+    <li><span class="ui">Pause</span>（<span class="ui">Pause reason</span> を選びます）を押すと、タブレットに「Short break」と表示されます。<span class="ui">Resume</span> で再開します。</li>
+    <li><span class="ui">Repeat block</span>：終わったブロックが何かで妨げられた場合に使います。<span class="ui">Repeat reason</span> を選んで確定します。終わった試行は監査用に保存され、ブロックがもう一度送られます。ステップには「1 earlier attempt(s) repeated」と表示されます。結果として使われるのは、最後に終わった試行です。</li>
+    <li><span class="ui">Abort session</span> はセッションを途中で終わらせます。それまでに集めたデータは保存されます。</li>
+    <li><span class="ui">Release tablet</span>：タブレットを解放します。セッションは開いたままです（<a href="#pairing">ペアリング</a>を参照）。</li>
+    <li><span class="ui">Finish session</span>：すべてのステップが完了またはスキップされたときに使います。タブレットに「All done! Well done」と表示され、コード入力画面に戻ります。終了したセッションは、カメラも解放します。</li>
+    <li>ブロックの途中でタブレットが再起動すると、そのブロックは停止します（「The tablet restarted during the block…」）。もう一度タブレットに送ってください。</li>
+  </ul>
+</section>
+
+<section id="marks">
+  <h2>介入シートの採点</h2>
+  <p>文字シートには、5 文字ずつ 3 行あります。</p>
+  <table>
+    <tr><th>行</th><th>子どもが行うこと</th><th>正しいとする条件</th><th>判断する人</th></tr>
+    <tr><td>1</td><td>点をたどって手本をなぞる</td><td>すべての点に順番に触れ、文字の途中でペンを持ち上げないこと（ה ק ח ת א は、画と画の間で 1 回ペンを持ち上げてもかまいません）</td><td>システムが判定案を示す</td></tr>
+    <tr><td>2</td><td>始点だけを手がかりに書く</td><td>始点から書き始め、<strong>かつ</strong>形が正しいこと</td><td>システムが書き始めを確認し、あなたが形を確認する</td></tr>
+    <tr><td>3</td><td>手本なしで書く</td><td>その文字だとわかり、画の向きが正しく、2 行目とほぼ同じ位置から書き始めていること</td><td>あなた</td></tr>
+  </table>
+  <ul>
+    <li>採点パネルには、子どもが次の行に移るとすぐに、その行が表示されます。文字はシートと同じ並びで表示されます（ヘブライ語では右から左）。</li>
+    <li>1 行目と 2 行目には、システムの判定案（✓ ／ ✗、「system」）が付いています。同意できないところだけを変えてください。あなたが付けた採点には「evaluator」と表示されます。自分で選んだものをもう一度押すと、システムの判定案に戻ります。</li>
+    <li>3 行目は空欄から始まり、「to set」の点線の枠が表示されます。各文字には<strong>類似度</strong>のヒント（0–100）が表示されます。これはヒントにすぎず、スコアには使われません。</li>
+    <li>採点はシートの実行中でも、あとからでも付けられます。<span class="ui">Session steps</span> のシートにある <span class="ui">Marks</span> を押すと、そのシートの採点がもう一度開きます。</li>
+    <li><strong>すべての採点が付く</strong>と、シートのスコアが計算されます：正確さ（正しい採点の数 ÷ 15）、ペンの持ち上げと速さのスコア、総合スコア。それまでは、残りの採点の数が表示されます。あとから採点を変えると、シートのスコアが計算し直されます。</li>
+  </ul>
+</section>
+
+<section id="camera">
+  <h2>手元動画（カメラ）</h2>
+  <p>手元動画が認められていて（セッション作成時に、システムの設定<strong>と</strong>参加者の同意の両方がある）、カメラが設定されている場合、セッション画面に <span class="ui">Hand video</span> パネルが表示されます。そうでない場合は、このセッションでは動画がオフであると表示されます。</p>
+  <ol>
+    <li>先にタブレットをペアリングし、実行中のステップがないことを確認します。</li>
+    <li><span class="ui">Pair a camera</span> を押します。タブレットに大きな QR コード（「Camera pairing」）が表示され、3 分間有効です。</li>
+    <li>カメラをタブレットに向けます。数秒以内に、コードを読み取ったカメラがペアリングされます。コックピットに <span class="ui">Camera: <em>name</em></span> と表示され、ライブ映像が開きます。タブレットには枠が表示されます。</li>
+    <li>枠全体と、子どもの書いている手が映るまで、カメラの向きや位置を調整します。向きを変えられるカメラには矢印ボタン（<span class="ui">Up</span>、<span class="ui">Down</span>、<span class="ui">Left</span>、<span class="ui">Right</span>）があります。カメラが子どもの方を向いている場合は、<span class="ui">Rotate 180°</span> で映像を回転できます。</li>
+    <li><span class="ui">Done</span> を押します。タブレットは待機画面に戻ります。</li>
+  </ol>
+  <ul>
+    <li>その後は、書字のステップごとに 1 本ずつ動画が録画されます。映像のみで、音声はありません。録画中はパネルに <span class="ui">● Recording</span> と表示され、その間はカメラを解放できません。</li>
+    <li><span class="ui">Position the camera</span> でライブ映像をもう一度開けます。<span class="ui">Release camera</span> を押すと、カメラをほかのセッションで使えるように解放します。</li>
+    <li>1 台のカメラが同時に担当できるセッションは 1 つなので、並行して行うセッションでカメラが混ざることはありません。「No free camera is ready」は、すべてのカメラが使用中か、動作していないことを意味します。管理者に相談してください。</li>
+  </ul>
+</section>
+
+<section id="summary">
+  <h2>比較サマリー</h2>
+  <p>セッション内の <span class="ui">Comparative summary</span>、またはディスパッチコンソールの <span class="ui">Comparative Summary View</span> から開きます。5 つの基準点を比べます。</p>
+  <ul>
+    <li><span class="ui">Day 1 · first pair</span>（ブロック 1–2）、<span class="ui">Day 1 · last pair</span>（7–8）、<span class="ui">Day 2 · first pair</span>（1–2）、<span class="ui">Day 2 · last pair</span>（3–4）、<span class="ui">Day 14</span>（1–2）。</li>
+    <li>各枠には、平均の時間、ペンの持ち上げ（整数）、正確さ（%）、ILT の平均の速さ、速さ・正確さ・ペンの持ち上げのスコア、総合スコア、合否が表示され、ブロックごとに再生ボタンがあります。</li>
+    <li>上部には、適用中の総合スコアの重みと合格のしきい値が表示されます。「not configured」は、しきい値またはキャンバスの標準の速さがまだ設定されていないことを意味します。</li>
+    <li>紙から入力したブロックには <strong>Paper</strong> のタグが付きます。再生、速さ、総合スコアはありません。</li>
+    <li><span class="ui">Comparative summary diagram</span> は、5 つの基準点にわたる各指標をグラフで表示します。基準点にポインターを合わせると、その値が表示されます。</li>
+    <li>その下には、<span class="ui">Intervention program</span> の表（介入セッションごとに 1 行で、採点済みのシート付き）があります。取り込んだ子どもについては、<span class="ui">Results from the previous application</span> も、取り込んだときのまま、採点なしで表示されます。</li>
+  </ul>
+</section>
+
+<section id="replay">
+  <h2>再生</h2>
+  <p><span class="ui">Replay</span>（結果カード、ステップ、サマリーの枠にあります）を押すと、ブロックを動画のように再生できます。</p>
+  <ul>
+    <li><span class="ui">Play</span> ／ <span class="ui">Pause</span>、移動するための <span class="ui">Timeline</span>、0.25× から 4× までの <span class="ui">Speed</span>、1 サンプルずつの戻し・送りが使えます。</li>
+    <li>各文字の速さは、そのマスの下に表示されます。インクは筆圧で色分けされ、空中での動きは黄色です。</li>
+    <li>手元動画が録画されている場合は、ページの横で再生されます。再生、一時停止、タイムライン、速さに連動します。<span class="ui">Rotate 180°</span> で回転できます（このブラウザに記憶されます）。</li>
+  </ul>
+  <p>あなたが実行したセッションを再生できます。</p>
+</section>
+
+<section id="troubleshooting">
+  <h2>うまくいかないとき</h2>
+  <table>
+    <tr><th>表示されている内容</th><th>対処のしかた</th></tr>
+    <tr><td><span class="ui">Server status: Offline</span></td><td>コックピットがサーバーに接続できません。ネットワークを確認してください。接続が戻るまで、タブレットは子どもの書いた内容を保持します。</td></tr>
+    <tr><td><span class="ui">Tablet not connected</span></td><td>タブレットの電源が入っていて、ネットワークにつながり、セッションが表示されているかを確認してください。コード入力画面が表示されている場合は、新しいコードを表示して、もう一度ペアリングしてください。</td></tr>
+    <tr><td>タブレットが新しいコードを受け付けない</td><td>まだ別のセッションに結び付いています。そのセッションを開き、<span class="ui">Release tablet</span> を押してください。</td></tr>
+    <tr><td><span class="ui">Finish block manually</span> が薄いまま</td><td>子どもが最後のマスに達していないか、書かない状態がまだ 30 秒続いていません。<a href="#block-end">ブロックの終わり方</a>を参照してください。</td></tr>
+    <tr><td>ブラウザのバーがページを覆っている</td><td>タイトルバーか書字ページの外側、または <span class="ui">⛶ Full screen</span> ボタンをタップしてください。</td></tr>
+    <tr><td>「No video in the session language」</td><td>そのステップをスキップし、口頭で説明してください。</td></tr>
+    <tr><td>スコアに「not configured」と表示される</td><td>標準の速さまたは合格のしきい値がまだ設定されていません。管理者に相談してください。</td></tr>
+    <tr><td>Research を選べない</td><td>フォームに理由が表示されます：設定、倫理承認、参加者の同意のいずれかです。</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ja" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>システム管理者ガイド · ILT Research System</title>
+<link rel="stylesheet" href="../help.css">
+<script src="../help.js"></script>
+</head>
+<body>
+<div class="top">
+  <span class="name">ILT Research System · システム管理者ガイド</span>
+  <a data-other-language="../en/admin.html" href="../en/admin.html" lang="en">English</a>
+  <a data-other-language="../he/admin.html" href="../he/admin.html" lang="he">עברית</a>
+  <a href="index.html">すべてのガイド</a>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="目次">
+  <strong>目次</strong>
+  <ol>
+    <li><a href="#overview">システムでのあなたの作業</a></li>
+    <li><a href="#sign-in">サインイン</a></li>
+    <li><a href="#users">ユーザー</a></li>
+    <li><a href="#domains">ドメイン</a></li>
+    <li><a href="#regions">地域</a></li>
+    <li><a href="#settings">設定</a></li>
+    <li><a href="#canvases">キャンバスライブラリ</a></li>
+    <li><a href="#canvas-detail">キャンバス：プレビュー、プロファイル、バージョン</a></li>
+    <li><a href="#reference">タブレットでの参照記録</a></li>
+    <li><a href="#cameras">カメラ</a></li>
+    <li><a href="#ethics">倫理承認</a></li>
+    <li><a href="#legacy">旧アプリのデータ</a></li>
+    <li><a href="#log">操作ログ</a></li>
+    <li><a href="#troubleshooting">問題が起きたとき</a></li>
+  </ol>
+</nav>
+<main>
+<h1>システム管理者ガイド</h1>
+<p class="lead">システム管理者向けのガイドです。ユーザー、ドメインと地域、設定、キャンバスライブラリと参照記録、カメラ、倫理承認、旧アプリのデータ、操作ログについて説明します。</p>
+
+<section id="overview">
+  <h2>システムでのあなたの作業</h2>
+  <p>作業は <span class="ui">Administrator cockpit</span>（管理者コックピット）で行います。これはシステム管理者専用の別のアドレスです。タブは <span class="ui">Users</span>、<span class="ui">Domains</span>、<span class="ui">Regions</span>、<span class="ui">Canvases</span>、<span class="ui">Cameras</span>、<span class="ui">Settings</span>、<span class="ui">Ethics approvals</span>、<span class="ui">Legacy data</span>、<span class="ui">Action log</span> です。アドレスには、開いているタブの名前が常に入ります（例：<code>…/admin#/settings</code>）。</p>
+  <ul>
+    <li>設定とキャンバスを変更できるのは、あなただけです。</li>
+    <li>臨床的に管理される値（採点、タイマー、キャンバスの有効化）を変更するときは、<strong>研究責任者</strong>のメールアドレスとPINも必要です。研究責任者の承認がオン（初期設定）の間は、保存時にあなたの画面で入力してもらいます。</li>
+    <li>すべての変更は、変更前と変更後の値とともに操作ログに記録されます。ログの内容は編集も削除もできません。</li>
+    <li>新しいセッションは、その時点で有効な設定のスナップショットを保存します。変更はその後に作成されたセッションにだけ適用され、既存のセッションには適用されません。</li>
+  </ul>
+</section>
+
+<section id="sign-in">
+  <h2>サインイン</h2>
+  <p>管理者コックピットのアドレス（コックピットのアドレスの後に <code>/admin</code> を付けたもの。例：<code>https://&lt;server&gt;:5174/admin</code>）を開いて、サインインします。システム管理者は検査者用のアドレスではサインインできません。また、ほかのユーザーはここではサインインできません。どちらの場合も、正しいアドレスが案内されます。</p>
+  <p>パスワードを5回間違えると、アカウントは15分間ロックされます。各タブの<strong>Help</strong>（ヘルプ）ボタンを押すと、このガイドの該当する部分が開きます。</p>
+</section>
+
+<section id="users">
+  <h2>ユーザー</h2>
+  <p>一覧には、有効なユーザーの名前、メールアドレス、役割、ドメイン、地域、状態が表示されます。<span class="ui">Search</span>（名前またはメールアドレス）、<span class="ui">Role</span>、<span class="ui">Status</span>（有効、無効、すべて）で絞り込めます。</p>
+  <h3>役割</h3>
+  <table>
+    <tr><th>役割</th><th>使うもの</th></tr>
+    <tr><td>システム管理者</td><td>管理者コックピット</td></tr>
+    <tr><td>研究者</td><td>検査者コックピットと分析ポータル。研究責任者PINがあれば、研究責任者になります</td></tr>
+    <tr><td>検査者</td><td>検査者コックピット：参加者とセッション</td></tr>
+    <tr><td>分析者</td><td>分析ポータル：個人を特定できない研究データのみ</td></tr>
+  </table>
+  <h3>ユーザーを作成する</h3>
+  <ol>
+    <li><span class="ui">+ New user</span> を押します。名前、メールアドレス、役割、画面の言語、ドメイン、地域を入力します。</li>
+    <li>16文字のパスワードが自動で作成されます。<span class="ui">Generate</span> を押すと別のパスワードが作成されます。<span class="ui">Create</span> を押す前にコピーして、本人に直接渡してください。メール送信の機能はありません。</li>
+    <li><strong>研究者</strong>の場合は、任意で <span class="ui">Research Director PIN</span>（6桁）を設定できます。設定すると、その人は研究責任者になります（一覧に緑のバッジが付きます）。</li>
+  </ol>
+  <h3>編集、ロック解除、リセット、無効化</h3>
+  <ul>
+    <li><span class="ui">Edit</span> では、名前、役割、言語、ドメイン、地域、状態を変更できます。メールアドレスは変更できません（代わりに新しいユーザーを作成してください）。パスワードは空欄のままにすると変わりません。<span class="ui">Generate</span> で新しいものを作成することもできます。リセットするとアカウントのロックも解除されます。</li>
+    <li>ロックされたアカウント（琥珀色の<strong>Locked</strong>（ロック中））は、<span class="ui">Unlock</span> で再び使えるようになります。</li>
+    <li>PIN：空欄のままにすると変わりません。削除するには <span class="ui">Remove the Research Director PIN</span> にチェックを入れます。役割を研究者以外に変更すると、PINは削除されます。</li>
+    <li><span class="ui">Deactivate</span>（一覧で確認の後に実行）を使うと、そのユーザーはサインインできなくなります。<span class="ui">Reactivate</span> で元に戻せます。ユーザーが削除されることはありません。</li>
+    <li>役割の変更や無効化は、サインイン中のユーザーにも15分以内に反映されます。</li>
+    <li>自分自身を無効化したり、自分の役割を変更したりすることはできません。</li>
+  </ul>
+</section>
+
+<section id="domains">
+  <h2>ドメイン</h2>
+  <p><strong>ドメイン</strong>は、ILT検査のために児童・生徒をまとめるグループです。たとえば、研究グループ、プログラム、対象集団などです。必ずしも地理的な区分ではありません。参加者は全員、いずれか1つのドメインに属します。採点の設定と言語の構成は、ドメインごとに独自の値を持てます。</p>
+  <ul>
+    <li><span class="ui">+ New Domain</span>：コード（英字、数字、アンダースコア。大文字で保存され、後から変更できません）、ヘブライ語と英語の名前、説明を入力します。</li>
+    <li><span class="ui">Edit</span> では、名前と説明を変更できます。</li>
+    <li><span class="ui">Deactivate</span> を使うと、そのドメインは新しい参加者やユーザーの選択肢に表示されなくなります。既存の参加者やユーザーはそのドメインのままです。有効なドメインが少なくとも1つ必要です。</li>
+  </ul>
+</section>
+
+<section id="regions">
+  <h2>地域</h2>
+  <p><strong>地域</strong>は地理的な区域です。たとえば教育地区などです。参加者への設定は任意です。ILTの進行に関する設定（タイマー、ウォームアップ、動画、テンプレート）は、地域ごとに独自の値を持てます。地域の作成、名前の変更、無効化は、ドメインと同じ方法で行います。すべての地域を無効にしてもかまいません。</p>
+</section>
+
+<section id="settings">
+  <h2>設定</h2>
+  <p>まず<strong>レベル</strong>を選びます：<span class="ui">System</span>、<span class="ui">Domain</span>、または <span class="ui">Region</span> です。</p>
+  <ul>
+    <li><strong>System</strong>（システム）では、すべてのグループが表示されます：採点、ILTの進行、言語、そしてガバナンス・プライバシー・デバイス・ログです。</li>
+    <li><strong>ドメイン</strong>では採点と言語が、<strong>地域</strong>ではILTの進行に関する設定が表示されます。独自の値を持たない行には「システムに従う」（または「初期値に従う」）と表示されます。<span class="ui">Set own value</span> で独自の値を設定し、<span class="ui">Follow System</span> で独自の値を削除します。</li>
+    <li>設定の説明にポインターを合わせると、初期値と設定できる範囲が表示されます。</li>
+  </ul>
+  <h3>変更と保存</h3>
+  <ol>
+    <li>値を変更します。変更した行は強調表示され、<span class="ui">Undo</span> と <span class="ui">Back to default</span> が表示されます。画面下部のバーに変更の数が表示されます。</li>
+    <li><span class="ui">Review and save</span> を押すと、すべての変更が変更前と変更後で一覧表示されます。必要に応じて理由を入力してください。</li>
+    <li>変更に<strong>Needs a Research Director PIN</strong>（研究責任者PINが必要）な場合は、研究責任者がメールアドレスとPINを入力します。1回の承認で、すべての変更が承認されます。</li>
+    <li><span class="ui">Save</span> を押します。範囲外の値は受け付けられず、赤で表示されます。総合スコアの3つの重みは、合計で100%にする必要があります。</li>
+  </ol>
+  <p><span class="ui">History</span> には、選んだレベルでの変更が新しい順に表示されます。日時、設定、変更前と変更後、変更した人、承認した人、理由がわかります。</p>
+  <h3>知っておきたい設定</h3>
+  <ul>
+    <li><strong>Pass/fail threshold on the composite score</strong>（総合スコアの合格・不合格の基準値）と、3つの<strong>総合スコアの重み</strong>（初期値は速度50%、正確さ25%、ペンの持ち上げ25%）。基準値を設定するまで、合格・不合格は「未設定」と表示されます。</li>
+    <li><strong>Timers</strong>（タイマー）：<em>合図までの無操作時間</em>（20秒）、<em>最後の枠の後の無操作時間</em>（30秒）、<em>琥珀色の警告までの追加時間</em>（10秒）、<em>ブロック前の切り替えカウントダウン</em>。</li>
+    <li><strong>Warm-up block</strong>（ウォームアップブロック）のオン・オフ（地域ごと）。</li>
+    <li><strong>Languages</strong>（言語）：有効な言語と初期設定の言語。言語ごとに、ILT・ノート・文字のキャンバス、記入の方向、ブロックを左右反転するかどうかを設定します。キャンバスに記録された記入順序が記入の方向と異なる場合は、注意が表示されます。</li>
+    <li><strong>Allow research sessions (after ethics approval)</strong>（研究セッションを許可する（倫理承認の後））（<a href="#ethics">倫理承認</a>を参照）、<strong>Hand video recording (subject to consent)</strong>（手元動画の録画（同意が条件））（地域ごと）、<strong>Clinical changes need the research director PIN</strong>（臨床的な変更には研究責任者PINが必要）（オフにするには必ず研究責任者が必要です）、そして介入に関する設定（<em>介入セッションでの練習シート</em>、<em>練習から保持確認までの日数</em>、<em>3行目の類似性ヒントを表示する</em>）。</li>
+  </ul>
+</section>
+
+<section id="canvases">
+  <h2>キャンバスライブラリ</h2>
+  <p><strong>キャンバス</strong>は、子どもが書き込むページです。ILTのブロック、ノートのページ、介入用の文字シートがあります。キャンバスは<strong>言語 → キャンバスセット → キャンバス</strong>の順にまとめられています。<span class="ui">Language</span> と <span class="ui">Type</span> で絞り込めます。</p>
+  <ul>
+    <li><span class="ui">+ New canvas set</span>：言語、種類（ILTブロック、ノートのページ、介入用の文字）、名前を入力します。セットは名前の変更と無効化ができます。</li>
+    <li><span class="ui">+ Load a canvas</span>：セット、コード（例：<code>ILT_3X5_HE</code>）、名前、JSON形式の形状データ（直接入力するか <span class="ui">Read from a file</span> で読み込みます）、そして任意で採点プロファイルを指定します。キャンバスは<strong>Draft</strong>（下書き）として読み込まれます。</li>
+    <li>各キャンバスには状態があります：<strong>Draft</strong>（下書き）（編集可能）→ <strong>Active</strong>（有効）（使用中。変更されません）→ <strong>Retired</strong>（廃止）。</li>
+    <li>設定ではキャンバスをコードで指定します。新しいセッションには、そのコードの有効なバージョンが使われます。</li>
+  </ul>
+  <p class="warn">使用中のキャンバス（例：<code>ILT_3X5_HE</code>、<code>ILT_3X5_EN</code>、<code>NOTEBOOK_HE</code>、<code>NOTEBOOK_EN</code>）を、計画なしに廃止したり置き換えたりしないでください。すべてのセッションで使われています。</p>
+</section>
+
+<section id="canvas-detail">
+  <h2>キャンバス：プレビュー、プロファイル、バージョン</h2>
+  <ul>
+    <li><strong>Preview</strong>（プレビュー）：家と点が表示されます。<span class="ui">Box numbers and fill order</span> を使うと、枠のIDと書く順序が表示されます。サイズは、実寸（96 dpiの画面で正確）、実寸の2倍、ウィンドウに合わせる、から選べます。タブレットでの実寸は、参照モードで確認します。</li>
+    <li><strong>Scoring profile</strong>（採点プロファイル）（ILTと文字のキャンバス）：点の順序（例：A → B → C）、点ごとの判定半径（mm）、正確さの重み（%）、必須かどうか。重みは合計で100%になります。さらに、ブロックごとに想定されるペンの持ち上げ回数、枠の記入順序、標準速度（mm/s）、許容幅（± %）も含まれます。</li>
+    <li><strong>Draft</strong>（下書き）は、編集（形状、プロファイル、名前）、確認（<span class="ui">Check</span> で修正が必要な点が一覧表示されます）、削除（参照記録がある場合を除く）ができます。変更は <span class="ui">Save draft</span> で保存します。</li>
+    <li><strong>Activate</strong>（有効化）：問題がないことが必要です。研究責任者の承認がオンの場合は、研究責任者のメールアドレスとPINも必要です。有効化すると、そのコードを使う新しいセッションにはこのバージョンが使われます。</li>
+    <li><strong>New version</strong>（新しいバージョン）では、有効なキャンバスの編集可能な下書きのコピーを作成します。それを有効化すると、前のバージョンは廃止されます。1つのキャンバスにつき、下書きは1つまでです。</li>
+    <li><strong>Domain overrides</strong>（ドメインの上書き）：ドメインは、有効なキャンバスに対して独自の採点値を持てます（研究責任者PINで承認します）。変更した値は強調表示されます。<span class="ui">Follow the canvas profile</span> で上書きを削除します。上書きは新しいバージョンにも引き継がれます。</li>
+    <li><strong>Retire</strong>（廃止）は、設定がまだそのキャンバスを指定している間は受け付けられません。</li>
+    <li>「N個のセッションステップで使用」と「設定で指定」で、キャンバスが使われている場所がわかります。</li>
+  </ul>
+</section>
+
+<section id="reference">
+  <h2>タブレットでの参照記録</h2>
+  <p>プロファイルの値の一部は、<strong>参照モード</strong>のタブレットで描いたサンプルから得られます：</p>
+  <ol>
+    <li>キャンバスで <span class="ui">Pair a tablet in reference mode</span> を押します。タブレットに6桁のコードを入力します。タブレットには琥珀色のバー「参照記録（子どものセッションではありません）」が表示されます。ほかのキャンバスを開いている間も、タブレットはペアリングされたままです。</li>
+    <li><span class="ui">Show on the tablet at true size</span>：定規でサイズを確認し（ILTの家は 35 × 25 mm です）、<span class="ui">Done</span> をタップします。何も記録されません。</li>
+    <li><span class="ui">Record a sample block</span>：子どもが書くべき順序で、すべての家を埋めてから <span class="ui">Done</span> を押します。コックピットに記入順序とペンの持ち上げ回数が表示されます。<span class="ui">Accept</span> でそれらをプロファイルに保存し、<span class="ui">Clear</span> でサンプルを破棄します（監査用に保管されます）。不完全なサンプルは、破棄することしかできません。</li>
+    <li><span class="ui">Record the normal speed</span>：書くことに慣れた人が、自然な速さで1行（または選んだ行）を書き、<span class="ui">Done</span> を押します。速度は子どもの場合と同じ式で計算されます。<span class="ui">Accept</span> で標準速度として保存します。</li>
+    <li>終わったら <span class="ui">Disconnect the tablet</span> を押します。タブレットはコード画面に戻ります。</li>
+  </ol>
+  <ul>
+    <li><span class="ui">Record for</span>：下書きの場合、記録はキャンバス自身のプロファイルに入ります。有効なキャンバスの場合はドメインを選びます。値はそのドメイン独自の値になり、<span class="ui">Accept</span> には研究責任者PINが必要です。</li>
+    <li>標準速度が記録されるまで、セッションでは速度スコアと総合スコアが「未設定」と表示されます。キャンバスに標準速度が設定された後に作成されたセッションでは、これらのスコアが表示されます。</li>
+    <li><span class="ui">Recordings of this canvas</span> には、すべての記録が一覧表示されます：日時、内容、対象、値、状態、記録した人、判断した人。</li>
+  </ul>
+</section>
+
+<section id="cameras">
+  <h2>カメラ</h2>
+  <p>机のカメラは、子どもの書いている手を録画します。サーバーは、同じネットワーク上の ONVIF カメラを自動で見つけます。アドレスを入力する必要はありません。</p>
+  <ol>
+    <li>各カメラの専用アプリで、カメラのアカウント（ユーザー名とパスワード）を設定します。すべてのカメラで同じものにします。</li>
+    <li><span class="ui">Cameras</span> で、<span class="ui">Site camera account</span> にそのアカウントを入力し、<span class="ui">Save</span> を押します。カメラが確認され、それぞれ<strong>Ready</strong>（準備完了）になります。パスワードは暗号化して保存され、二度と表示されません。</li>
+    <li><span class="ui">Search the network</span> で新しいカメラを探します。</li>
+  </ol>
+  <ul>
+    <li>各カメラには、状態（準備完了、アカウントなし、アカウントが違う、応答なし）、パン・チルトができるかどうか、最後に検出された日時、<span class="ui">Picture</span>（現在の画像）が表示されます。</li>
+    <li><span class="ui">Rename</span> でカメラに名前を付けます（Enter で保存、Escape で取り消し）。例：「カメラ2」。</li>
+    <li><span class="ui">Own account</span> で、1台のカメラに独自のアカウントを設定します。<span class="ui">Use the site account</span> でサイトのアカウントに戻します。</li>
+    <li><span class="ui">Retire</span> で、カメラをペアリングに使わないようにします。<span class="ui">Restore</span> で元に戻せます。</li>
+    <li>録画には、<strong>Hand video recording (subject to consent)</strong>（手元動画の録画（同意が条件））の設定と、参加者の同意も必要です。検査者は、タブレットに表示されるQRコードでカメラをセッションにペアリングします。</li>
+    <li>画面上部に警告が表示される場合は、カメラの中継サービスが応答していません。中継サービスが動くまで、カメラの確認、ペアリング、録画はできません。</li>
+  </ul>
+</section>
+
+<section id="ethics">
+  <h2>倫理承認</h2>
+  <p>セッションの実施の根拠となる承認です。種類（例：介入プログラム、研究）、承認機関、承認番号、有効期間を記録します。</p>
+  <ul>
+    <li><span class="ui">+ Add an approval</span> で承認を1件登録します。「有効開始日」は「有効終了日」より後にできません。</li>
+    <li><span class="ui">Withdraw</span> を使うと、承認は取り下げ済みとして一覧に残ります。<span class="ui">Restore</span> で元に戻せます。</li>
+    <li>各承認には、それを使ったセッションの数が表示されます。</li>
+  </ul>
+  <p><strong>Research sessions</strong>（研究セッション）は、次の条件をすべて満たす場合にのみ作成できます：<strong>Allow research sessions (after ethics approval)</strong>（研究セッションを許可する（倫理承認の後））の設定がオンであること、研究の承認が今日の時点で有効であること、参加者の同意が研究での利用を認めていること。このタブの上部に、研究セッションがオンになっているかどうかが表示されます。</p>
+</section>
+
+<section id="legacy">
+  <h2>旧アプリのデータ</h2>
+  <p>以前のアプリケーションの .xls ファイルから結果を取り込みます（1ファイルにつき1つの指標：手の持ち上げ → ペンの持ち上げ、区間の幅 → 幅、合計時間、書字時間、空中時間）。</p>
+  <ol>
+    <li><span class="ui">Files</span>：ファイルを選びます。各ファイルの指標は、ファイル名またはシート名から自動で判別されます。手動で指定することもできます。1つの指標を2つのファイルから取り込むことはできません。</li>
+    <li>新しい子どもに使う <span class="ui">Domain</span> と、<span class="ui">Session label</span>（例：「Legacy」）を選びます。</li>
+    <li><span class="ui">Check files</span>：新しい子どもとすでにシステムにいる子どもの人数、ブロックの行、サンプルが表示されます。この時点では、まだ何も書き込まれません。</li>
+    <li><span class="ui">Import</span> を押します。各子どもは旧番号で照合されるか、<code>LEG-&lt;number&gt;</code> として新しく作成されます。同じラベルで再度取り込むと値が更新されます。重複することはありません。</li>
+  </ol>
+  <p>ファイルには、学年、性別、SES、学校、生まれ月が含まれていません。これらは、検査者が記録を完成させるまで「未記録」のままです。利き手は L/R の値から取得します（1が右、0が左）。旧データの区間の幅の単位は確認されていないため、そのままの値で保存します。<span class="ui">Imports</span> には、すべての取り込みが一覧表示されます。</p>
+</section>
+
+<section id="log">
+  <h2>操作ログ</h2>
+  <p>システム内のすべての操作が、新しい順に表示されます。初期設定では直近7日間が表示されます。</p>
+  <ul>
+    <li><strong>Filters</strong>（絞り込み）：<span class="ui">From</span> / <span class="ui">To</span>（<span class="ui">Last 24 hours</span> と <span class="ui">Any time</span> もあります）、<span class="ui">Event types</span>（分野ごと、または分野全体）、<span class="ui">Severity</span>、<span class="ui">User</span>、<span class="ui">Session code</span>、<span class="ui">Domain</span> / 地域、<span class="ui">Free text</span>（メッセージ、詳細、イベント名）。<span class="ui">Search</span> を押します。</li>
+    <li>行をクリックすると、詳細（ユーザーのメールアドレス、記録、デバイス、アドレス、詳細情報）が表示されます。<span class="ui">Show more</span> で次の100件を読み込みます。</li>
+    <li><span class="ui">Export to CSV</span> で、絞り込んだ項目（最大50,000件）を保存します。時刻は UTC です。エクスポートしたこと自体もログに記録されます。</li>
+    <li>重要度<strong>Security</strong>（セキュリティ）は、サインインの失敗、研究責任者PINの誤り、ユーザーの変更を示します。パスワードやPINがログに表示されることはありません。</li>
+  </ul>
+</section>
+
+<section id="troubleshooting">
+  <h2>問題が起きたとき</h2>
+  <table>
+    <tr><th>表示される内容</th><th>対処方法</th></tr>
+    <tr><td>「研究責任者のメールアドレスまたはPINが正しくありません」</td><td>研究責任者にもう一度入力してもらいます。必要であれば、<span class="ui">Users</span> で新しいPINを設定します。</td></tr>
+    <tr><td>キャンバスを有効化できない</td><td>操作ボタンの下に表示される問題（例：点の重みの合計が100にならない）を修正し、下書きを保存してから <span class="ui">Check</span> を押します。</td></tr>
+    <tr><td>キャンバスを廃止できない</td><td>設定がまだそのキャンバスを指定しています。先に設定で別のキャンバスを選んでください。</td></tr>
+    <tr><td>スコアが「未設定」と表示される</td><td>キャンバスの標準速度を記録し（参照モード）、合格の基準値を設定します。</td></tr>
+    <tr><td>カメラが「アカウントが違う」または「応答なし」になる</td><td>カメラのアプリと Cameras タブでアカウントを確認し、カメラが同じネットワークにあることを確認します。</td></tr>
+    <tr><td>ユーザーがロックされている</td><td><span class="ui">Edit</span> → <span class="ui">Unlock</span> を使うか、新しいパスワードを設定します。</td></tr>
+  </table>
+</section>
+</main>
+</div>
+</body>
+</html>
