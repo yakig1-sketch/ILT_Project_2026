@@ -465,7 +465,7 @@ App VM 1 doubles as the build host. Fetch the two instruction videos that the se
 
 ```bash
 cd /opt/ilt/src
-git lfs pull --include="Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4,Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4"
+git lfs pull --include="Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4,Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v1_English_Female_VO.mp4,Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4"
 
 export ILT_VERSION=$(git describe --tags --always)
 export REG=<registry-host>/ilt          # e.g. 123456789012.dkr.ecr.il-central-1.amazonaws.com/ilt

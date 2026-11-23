@@ -31,6 +31,12 @@ const VIDEOS = [
     key: 'intro', lang: 'he', version: 2, file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4',
     title_he: 'סרטון פתיחה והדרכה ל-ILT', title_en: 'ILT introduction and guidance',
   },
+  // English (beta request): the same six stages with English voice-over, the letter mirrored ("<", dot B
+  // on the left) and the houses filled left to right.
+  {
+    key: 'intro', lang: 'en', version: 1, file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v1_English_Female_VO.mp4',
+    title_he: 'סרטון פתיחה והדרכה ל-ILT (אנגלית)', title_en: 'ILT introduction and guidance (English)',
+  },
   {
     key: 'notebook_demo', lang: 'he', version: 1, file: 'Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4',
     title_he: 'הדגמת כתיבה במחברת', title_en: 'Notebook demo',

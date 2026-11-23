@@ -96,7 +96,7 @@ Back to the previous front page: `git checkout phase-6b-prime-beta`, then the sa
 
 ## Update the running beta to the branch `beta`
 
-The branch `beta` carries the changes asked for during the beta (for now: **Show again** for the intro video, and the intro video version 2 with the arc). No database migration; the seed adds the new video version and keeps the old one as Retired:
+The branch `beta` carries the changes asked for during the beta: **Show again** for the intro video, the Hebrew intro video version 2 (with the arc), the English intro video, the Japanese user guides and the landing page changes. No database migration; the seed adds the new video version and keeps the old one as Retired:
 
 ```powershell
 git fetch origin
@@ -108,7 +108,7 @@ docker compose --env-file beta.env -f compose.beta.yml up -d
 docker compose --env-file beta.env -f compose.beta.yml run --rm ops src/seed.ts
 ```
 
-The seed prints `Uploaded intro/he version 2`. Sessions planned from then on, and video steps not yet played, show the new video.
+The seed prints `Uploaded intro/he version 2` and `Uploaded intro/en version 1` for videos it has not loaded yet. Sessions planned from then on, and video steps not yet played, show the new video.
 
 ## Upgrade to a new release
 

@@ -19,4 +19,5 @@ infra/cloud/db.env
 Documents/**
 !Documents/05_Measures/Intervention_Letters/*.json
 !Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v7_Arc_Hebrew_Female_VO.mp4
+!Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v1_English_Female_VO.mp4
 !Documents/08_Presentations_and_Demos/ILT_in_Notebook_Demo.mp4
