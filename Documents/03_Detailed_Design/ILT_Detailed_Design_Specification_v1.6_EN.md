@@ -262,7 +262,7 @@ Per-canvas factors (dot order, per-dot radius and weight, expected pen lifts, fi
 | `language.L.notebook_canvas` | string | `NOTEBOOK_HE` / `NOTEBOOK_EN` |
 | `language.L.letter_set` | uuid / null | Hebrew letter set / null |
 | `language.L.fill_direction` | enum `RTL_ROWS`/`LTR_ROWS` | `RTL_ROWS` / `LTR_ROWS` |
-| `language.L.mirrored` | boolean | false / false |
+| `language.L.mirrored` | boolean | false / true (English mirrored by default since 2026-11-23) |
 
 **Governance, privacy, device** (override scope `NONE`)
 

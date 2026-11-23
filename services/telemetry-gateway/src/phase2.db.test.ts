@@ -331,38 +331,50 @@ describe.skipIf(!DB_URL)('Phase 2 flow against the database', () => {
       method: 'POST', auth: token,
       body: { study_code: `TEST2B-${run}`, domain_id: domainId, school: 'Phase 2 School', birth_year_month: '2019-01', grade_level: 'GRADE_1', gender: 'FEMALE', dominant_hand: 'RIGHT' },
     });
-    // English Day 1: no English intro video yet, so the cockpit warns and the evaluator skips it.
-    const en = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_1', language_code: 'en' } });
-    const enDetail = await call<{ available_videos: string[] }>(`/sessions/${en.body.id}`, { auth: token });
-    expect(enDetail.body.available_videos).not.toContain('intro');
-    const { body: room } = await call<{ pin: string }>(`/sessions/${en.body.id}/pairing`, { method: 'POST', auth: token });
-    const paired = await call<{ token: string }>('/sessions/pair', { method: 'POST', body: { pin: room.pin, css_px_per_mm: 5.195, device_pixel_ratio: 1.75, screen_w_mm: 242, screen_h_mm: 158 } });
-    const tablet = await Client.open(`${wsBase}/ws/tablet`, { auth: paired.body.token });
-    const cockpit = await Client.open(`${wsBase}/ws/cockpit`, { auth: token, session_id: en.body.id });
-    await cockpit.next((m) => isEvent('PEER_STATUS')(m) && ((m as ControlEnvelope).payload as { tablet: boolean }).tablet);
-    cockpit.send(controlMessage('VIDEO_PLAY', { step_index: 0 }));
-    expect(((await cockpit.next(isEvent('ERROR'))).payload as { code: string }).code).toBe('NO_VIDEO');
-    expect((await call(`/sessions/${en.body.id}/steps/0`, { method: 'PATCH', auth: token, body: { status: 'SKIPPED' } })).status).toBe(200);
-    tablet.ws.close();
-    cockpit.ws.close();
+    // English Day 1 with no English intro video: the cockpit warns and the evaluator skips it. A database
+    // that has the English video (seeded with videos) hides it for this test and gets it back at the end.
+    const hidden = await pool.query<{ id: string }>(
+      "UPDATE instruction_videos SET status = 'RETIRED' WHERE video_key = 'intro' AND language_code = 'en' AND status = 'ACTIVE' RETURNING id",
+    );
+    try {
+      const en = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_1', language_code: 'en' } });
+      const enDetail = await call<{ available_videos: string[]; steps: { step_type: string; mirrored: boolean }[] }>(`/sessions/${en.body.id}`, { auth: token });
+      expect(enDetail.body.available_videos).not.toContain('intro');
+      // English writing steps are mirrored by default ("<", dot B on the left; FR-CAN-13).
+      const enBlocks = enDetail.body.steps.filter((st) => st.step_type === 'ILT_BLOCK');
+      expect(enBlocks.length).toBeGreaterThan(0);
+      expect(enBlocks.every((st) => st.mirrored)).toBe(true);
+      const { body: room } = await call<{ pin: string }>(`/sessions/${en.body.id}/pairing`, { method: 'POST', auth: token });
+      const paired = await call<{ token: string }>('/sessions/pair', { method: 'POST', body: { pin: room.pin, css_px_per_mm: 5.195, device_pixel_ratio: 1.75, screen_w_mm: 242, screen_h_mm: 158 } });
+      const tablet = await Client.open(`${wsBase}/ws/tablet`, { auth: paired.body.token });
+      const cockpit = await Client.open(`${wsBase}/ws/cockpit`, { auth: token, session_id: en.body.id });
+      await cockpit.next((m) => isEvent('PEER_STATUS')(m) && ((m as ControlEnvelope).payload as { tablet: boolean }).tablet);
+      cockpit.send(controlMessage('VIDEO_PLAY', { step_index: 0 }));
+      expect(((await cockpit.next(isEvent('ERROR'))).payload as { code: string }).code).toBe('NO_VIDEO');
+      expect((await call(`/sessions/${en.body.id}/steps/0`, { method: 'PATCH', auth: token, body: { status: 'SKIPPED' } })).status).toBe(200);
+      tablet.ws.close();
+      cockpit.ws.close();
 
-    // Day 2: two paper notebook pages timed in the cockpit, with notes.
-    const day2 = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_2', language_code: 'he' } });
-    const d2 = await call<{ steps: { step_index: number; step_type: string; status: string; paper_duration_ms: number | null; notes: string | null }[] }>(`/sessions/${day2.body.id}`, { auth: token });
-    const paper = d2.body.steps.filter((s) => s.step_type === 'PAPER_NOTEBOOK_PAGE');
-    expect(paper).toHaveLength(2);
-    const ilt = d2.body.steps.find((s) => s.step_type === 'ILT_BLOCK')!;
-    expect((await call(`/sessions/${day2.body.id}/steps/${ilt.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 1000 } })).status).toBe(409);
-    expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: -5 } })).status).toBe(400);
-    expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 63_400, notes: 'Wrote slowly' } })).status).toBe(200);
-    const after = await call<{ status: string; steps: { step_index: number; status: string; paper_duration_ms: number | null; notes: string | null }[] }>(`/sessions/${day2.body.id}`, { auth: token });
-    expect(after.body.status).toBe('IN_PROGRESS');
-    expect(after.body.steps.find((s) => s.step_index === paper[0]!.step_index)).toMatchObject({ status: 'DONE', paper_duration_ms: 63_400, notes: 'Wrote slowly' });
-    // A page already saved cannot be saved again.
-    expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 1 } })).status).toBe(409);
-    await app.appLog.flush();
-    const events = await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [day2.body.id]);
-    expect(events.rows.map((r) => r.event_type)).toContain('session.paper_page.timed');
+      // Day 2: two paper notebook pages timed in the cockpit, with notes.
+      const day2 = await call<{ id: string }>('/sessions', { method: 'POST', auth: token, body: { participant_id: participant.body.id, session_type: 'DAY_2', language_code: 'he' } });
+      const d2 = await call<{ steps: { step_index: number; step_type: string; status: string; paper_duration_ms: number | null; notes: string | null }[] }>(`/sessions/${day2.body.id}`, { auth: token });
+      const paper = d2.body.steps.filter((s) => s.step_type === 'PAPER_NOTEBOOK_PAGE');
+      expect(paper).toHaveLength(2);
+      const ilt = d2.body.steps.find((s) => s.step_type === 'ILT_BLOCK')!;
+      expect((await call(`/sessions/${day2.body.id}/steps/${ilt.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 1000 } })).status).toBe(409);
+      expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: -5 } })).status).toBe(400);
+      expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 63_400, notes: 'Wrote slowly' } })).status).toBe(200);
+      const after = await call<{ status: string; steps: { step_index: number; status: string; paper_duration_ms: number | null; notes: string | null }[] }>(`/sessions/${day2.body.id}`, { auth: token });
+      expect(after.body.status).toBe('IN_PROGRESS');
+      expect(after.body.steps.find((s) => s.step_index === paper[0]!.step_index)).toMatchObject({ status: 'DONE', paper_duration_ms: 63_400, notes: 'Wrote slowly' });
+      // A page already saved cannot be saved again.
+      expect((await call(`/sessions/${day2.body.id}/steps/${paper[0]!.step_index}/paper`, { method: 'POST', auth: token, body: { duration_ms: 1 } })).status).toBe(409);
+      await app.appLog.flush();
+      const events = await pool.query<{ event_type: string }>('SELECT event_type FROM app_events WHERE session_id = $1', [day2.body.id]);
+      expect(events.rows.map((r) => r.event_type)).toContain('session.paper_page.timed');
+    } finally {
+      for (const v of hidden.rows) await pool.query("UPDATE instruction_videos SET status = 'ACTIVE' WHERE id = $1", [v.id]);
+    }
   });
 
   it('releases the tablet from an unfinished session and turns away tablets of released or ended sessions', async () => {

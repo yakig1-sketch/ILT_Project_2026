@@ -50,12 +50,13 @@ const languageGroup = (
   iltCanvas: string,
   notebookCanvas: string,
   fill: 'RTL_ROWS' | 'LTR_ROWS',
+  mirrored: boolean,
 ): SettingDefinition[] => [
   language({ key: `language.${code}.ilt_canvas`, value_type: 'string', default_value: iltCanvas, description_he: `קנבס ILT ל${nameHe}`, description_en: `ILT block canvas for ${nameEn}` }),
   language({ key: `language.${code}.notebook_canvas`, value_type: 'string', default_value: notebookCanvas, description_he: `קנבס מחברת ל${nameHe}`, description_en: `Notebook canvas for ${nameEn}` }),
   language({ key: `language.${code}.letter_set`, value_type: 'uuid', default_value: null, description_he: `סט דפי אותיות להתערבות ב${nameHe}`, description_en: `Real-letter canvas set for ${nameEn}` }),
   language({ key: `language.${code}.fill_direction`, value_type: 'enum', default_value: fill, enum_values: ['RTL_ROWS', 'LTR_ROWS'], description_he: `כיוון מילוי הבתים ב${nameHe}`, description_en: `Box fill direction for ${nameEn}` }),
-  language({ key: `language.${code}.mirrored`, value_type: 'boolean', default_value: false, description_he: `היפוך תבנית הנקודות ב${nameHe}`, description_en: `Mirror the block's dot pattern for ${nameEn}` }),
+  language({ key: `language.${code}.mirrored`, value_type: 'boolean', default_value: mirrored, description_he: `היפוך תבנית הנקודות ב${nameHe}`, description_en: `Mirror the block's dot pattern for ${nameEn}` }),
 ];
 
 export const SETTING_DEFINITIONS: SettingDefinition[] = [
@@ -93,8 +94,10 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   // Language configuration (override per Domain)
   language({ key: 'language.enabled', value_type: 'json', default_value: ['he', 'en'], description_he: 'שפות פעילות', description_en: 'Enabled languages' }),
   language({ key: 'language.default', value_type: 'string', default_value: 'he', description_he: 'שפת ברירת מחדל', description_en: 'Default language' }),
-  ...languageGroup('he', 'עברית', 'Hebrew', 'ILT_3X5_HE', 'NOTEBOOK_HE', 'RTL_ROWS'),
-  ...languageGroup('en', 'אנגלית', 'English', 'ILT_3X5_EN', 'NOTEBOOK_EN', 'LTR_ROWS'),
+  ...languageGroup('he', 'עברית', 'Hebrew', 'ILT_3X5_HE', 'NOTEBOOK_HE', 'RTL_ROWS', false),
+  // English is mirrored by default ("<", dot B on the left): the owner's decision of 2026-11-23, to match the
+  // English intro video. Each Domain or Region can still turn it off.
+  ...languageGroup('en', 'אנגלית', 'English', 'ILT_3X5_EN', 'NOTEBOOK_EN', 'LTR_ROWS', true),
 
   // System only
   system('GOVERNANCE', { key: 'governance.require_director_approval', value_type: 'boolean', default_value: true, description_he: 'שינויים קליניים דורשים קוד מנהל מחקר', description_en: 'Clinical changes need the research director PIN' }),
