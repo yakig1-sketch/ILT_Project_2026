@@ -32,9 +32,9 @@ const VIDEOS = [
     title_he: 'סרטון פתיחה והדרכה ל-ILT', title_en: 'ILT introduction and guidance',
   },
   // English (beta request): the same six stages with English voice-over, the letter mirrored ("<", dot B
-  // on the left) and the houses filled left to right.
+  // on the left) and the houses filled left to right. Version 2: the owner's edited script for steps 5 and 6.
   {
-    key: 'intro', lang: 'en', version: 1, file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v1_English_Female_VO.mp4',
+    key: 'intro', lang: 'en', version: 2, file: 'Documents/08_Presentations_and_Demos/ILT_Instruction_Demo_v2_English_Female_VO.mp4',
     title_he: 'סרטון פתיחה והדרכה ל-ILT (אנגלית)', title_en: 'ILT introduction and guidance (English)',
   },
   {

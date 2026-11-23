@@ -108,7 +108,7 @@ docker compose --env-file beta.env -f compose.beta.yml up -d
 docker compose --env-file beta.env -f compose.beta.yml run --rm ops src/seed.ts
 ```
 
-The seed prints `Uploaded intro/he version 2` and `Uploaded intro/en version 1` for videos it has not loaded yet. Sessions planned from then on, and video steps not yet played, show the new video.
+The seed prints `Uploaded intro/he version 2` and `Uploaded intro/en version 2` for videos it has not loaded yet. Sessions planned from then on, and video steps not yet played, show the new video.
 
 ## Upgrade to a new release
 
